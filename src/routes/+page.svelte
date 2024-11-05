@@ -14,7 +14,20 @@
   let configText = '';
   let controller: Controller | undefined;
 
+  let tail = false;
+
   $: chatLogsStore = controller?.getChatLogsStore() ?? readable([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const scrollToBottom = (node: HTMLElement, _data: string[]) => {
+    const scroll = () =>
+      node.scroll({
+        top: node.scrollHeight,
+        behavior: 'smooth'
+      });
+    scroll();
+
+    return { update: scroll };
+  };
 
   function onReloadConfig() {
     config = parseYaml(configText).toFullConfig();
@@ -39,7 +52,7 @@
   <p>Use this section to get voice IDs for config purposes</p>
   <label for="voices">Choose a voice:</label>
   <select bind:value={selectedVoice} id="voices" name="voices">
-    {#each voices as voice, idx}
+    {#each voices as voice}
       <option value={voice}>{voice.name}</option>
     {/each}
   </select>
@@ -60,7 +73,11 @@
 
 <section>
   <h2>Chat logs</h2>
-  <div>
+  <label for="tail">
+    <input name="tail" type="checkbox" bind:checked={tail} />
+    Tail
+  </label>
+  <div use:scrollToBottom={$chatLogsStore} class="chatlogs">
     {#each $chatLogsStore as message}
       <p>{message}</p>
     {/each}
@@ -82,5 +99,12 @@
 
   button:disabled {
     background-color: grey;
+  }
+
+  .chatlogs {
+    overflow-y: scroll;
+    height: 30em;
+    background-color: lightgrey;
+    border: black 2px;
   }
 </style>
