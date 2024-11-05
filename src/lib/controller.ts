@@ -11,7 +11,7 @@ interface VoiceSettings {
 }
 
 class VoiceController {
-  username_voice_map: Map<string, VoiceSettings> = new Map();
+  usernameVoiceMap: Map<string, VoiceSettings> = new Map();
   config: FullConfig;
 
   constructor(config: FullConfig) {
@@ -28,7 +28,7 @@ class VoiceController {
   }
 
   chooseRandomVoice(): SpeechSynthesisVoice {
-    const voicename = this.config.voices[Math.random() * this.config.voices.length];
+    const voicename = this.config.voices[Math.floor(Math.random() * this.config.voices.length)];
     return selectVoiceByName(voicename)!!; // validated by validateVoices()
   }
 
@@ -44,20 +44,26 @@ class VoiceController {
     return (Math.random() * (max - min)) + min;
   }
 
-  async processMessage(user: tmi.ChatUserstate, message: string) {
+  getVoiceMapForUser(user: tmi.ChatUserState): VoiceSettings {
     if (!user.username) return;
 
     const username = user.username;
 
-    if (!this.username_voice_map.has(username)) {
-      this.username_voice_map.set(username, {
-        voice: this.chooseRandomVoice(),
+    if (!this.usernameVoiceMap.has(username)) {
+      const voice = this.chooseRandomVoice();
+      this.usernameVoiceMap.set(username, {
+        voice: voice,
         pitch: this.chooseRandomPitch(),
         rate: this.chooseRandomRate(),
       });
     }
 
-    const voiceSettings = this.username_voice_map.get(username)!!;
+    const voiceSettings = this.usernameVoiceMap.get(username)!!;
+    return voiceSettings;
+  }
+
+  async processMessage(user: tmi.ChatUserstate, message: string) {
+    const voiceSettings = this.getVoiceMapForUser(user);
     await speak({
       pitch: voiceSettings.pitch,
       rate: voiceSettings.rate,
@@ -84,7 +90,8 @@ export class Controller {
 
   private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
     this.chat_logs.update(val => {
-      return [...val, `${user.username}: ${message}`];
+      const voice = this.voice.getVoiceMapForUser(user);
+      return [...val, `${user.username} (${voice.voice.name}, ${voice.pitch}, ${voice.rate}): ${message}`];
     });
     await this.voice.processMessage(user, message);
   }
