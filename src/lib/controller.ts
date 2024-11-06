@@ -136,6 +136,7 @@ export class Controller {
   twitch: tmi.Client;
   voice: VoiceController;
   obsController?: ObsController;
+  filters: string[];
 
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
@@ -144,13 +145,31 @@ export class Controller {
     if (config.obsSettings) {
       this.obsController = new ObsController(config.obsSettings);
     }
+    this.filters = config.filteredExps;
+  }
+
+  private isFiltered(message: string): boolean {
+    for (let filter of this.filters) {
+      const regex = new RegExp(filter);
+      console.log('matching against', regex);
+      console.log(message.match(regex)?.[0]);
+      if (message.match(regex)?.[0]) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
     const voice = this.voice.getVoiceMapForUser(user);
+    const filtered = this.isFiltered(message);
     this.chat_logs.update(val => {
-      return [...val, `${user.username} (${voice.voice.name}, ${voice.pitch}, ${voice.rate}): ${message}`];
+      return [...val, `${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`];
     });
+
+    if (filtered) {
+      return;
+    }
     await this.obsController?.updateSceneWith(user, voice);
     await this.voice.processMessage(user, message);
   }

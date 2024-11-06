@@ -23,6 +23,7 @@ export class ParseableConfig {
   voices?: string[];
   pitchRange?: RangeConfigOptional;
   rateRange?: RangeConfigOptional;
+  filteredExps?: string[];
 
   constructor(arbitraryObject: any) {
     this.channelName = arbitraryObject["channelName"];
@@ -30,6 +31,7 @@ export class ParseableConfig {
     this.voices = arbitraryObject["voices"];
     this.pitchRange = arbitraryObject["pitchRange"];
     this.rateRange = arbitraryObject["rateRange"];
+    this.filteredExps = arbitraryObject["filteredExps"];
   }
 
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
@@ -51,7 +53,8 @@ export class ParseableConfig {
       rateRange: {
         maximum: this.pitchRange?.maximum ?? 2.0,
         minimum: this.pitchRange?.minimum ?? 0.0,
-      }
+      },
+      filteredExps: this.filteredExps ?? [],
     };
   }
 }
@@ -62,6 +65,7 @@ export interface FullConfig {
   voices: string[];
   pitchRange: RangeConfig;
   rateRange: RangeConfig;
+  filteredExps: string[];
 }
 
 export function parseYaml(input: string): ParseableConfig {
