@@ -48,11 +48,11 @@ export class ParseableConfig {
       obsSettings: this.obsSettings,
       pitchRange: {
         maximum: this.pitchRange?.maximum ?? 1.5,
-        minimum: this.pitchRange?.minimum ?? 0.0,
+        minimum: this.pitchRange?.minimum ?? 0.7,
       },
       rateRange: {
         maximum: this.pitchRange?.maximum ?? 2.0,
-        minimum: this.pitchRange?.minimum ?? 0.0,
+        minimum: this.pitchRange?.minimum ?? 0.7,
       },
       filteredExps: this.filteredExps ?? [],
     };
