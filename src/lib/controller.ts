@@ -170,8 +170,8 @@ export class Controller {
     if (filtered) {
       return;
     }
-    await this.obsController?.updateSceneWith(user, voice);
     await this.voice.processMessage(user, message);
+    await this.obsController?.updateSceneWith(user, voice);
   }
 
   async start() {

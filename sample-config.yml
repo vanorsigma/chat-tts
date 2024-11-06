@@ -6,3 +6,9 @@ voices:
   - "English (America)+female2"
   - "English (America)+female3"
   - "English (America)+female4"
+obsSettings:
+  obsURL: "ws://localhost:4455"
+  password: "somepassword"
+  sourceName: "Chat"
+filteredExps:
+  - "[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"
