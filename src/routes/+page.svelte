@@ -4,10 +4,10 @@
   import { Controller } from '$lib/controller';
   import Editor from '$lib/Editor.svelte';
   import { getVoicesList } from '$lib/speech';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { readable } from 'svelte/store';
 
-  const voices = getVoicesList();
+  let voices = getVoicesList();
   let config: FullConfig | undefined;
   let selectedVoice: SpeechSynthesisVoice | undefined = undefined;
 
@@ -39,6 +39,13 @@
 
     previousConfigText = configText;
   }
+
+  onMount(() => {
+    // NOTE: edge hides the voice list for some reason, need to rerun just to get
+    setTimeout(() => {
+      voices = getVoicesList();
+    }, 1000);
+  });
 
   onDestroy(() => {
     controller?.end();
