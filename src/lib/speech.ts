@@ -2,6 +2,7 @@
 // https://github.com/mdn/dom-examples/blob/main/web-speech-api/speak-easy-synthesis/script.js
 
 const synth = window.speechSynthesis;
+let currentWaiter: Promise<void> | null = null;
 
 interface SpeakOptions {
   text: string
@@ -30,13 +31,12 @@ export function selectVoiceByName(name: string): SpeechSynthesisVoice | undefine
 }
 
 export async function speak(options: SpeakOptions): Promise<void> {
-  if (synth.speaking) {
-    return;
+  while (synth.speaking && currentWaiter) {
+    await currentWaiter;
   }
 
   const utterThis = new SpeechSynthesisUtterance(options.text);
-
-  return new Promise((resolve) => {
+  currentWaiter = new Promise((resolve) => {
     utterThis.onend = () => resolve();
     utterThis.onerror = () => resolve();
 
@@ -45,4 +45,5 @@ export async function speak(options: SpeakOptions): Promise<void> {
     utterThis.rate = options.rate;
     synth.speak(utterThis);
   });
+  return currentWaiter;
 }
