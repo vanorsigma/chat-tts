@@ -2,12 +2,66 @@ import { writable, type Readable, type Writable } from 'svelte/store';
 import tmi from "tmi.js";
 import { createNewTwitchClient } from './twitch';
 import { getVoicesList, selectVoiceByName, speak } from './speech';
-import type { FullConfig } from './config';
+import type { FullConfig, ObsSettings } from './config';
+import OBSWebSocket from 'obs-websocket-js';
 
 interface VoiceSettings {
   voice: SpeechSynthesisVoice,
   pitch: number,
   rate: number
+}
+
+class ObsController {
+  obs: OBSWebSocket;
+  settings: ObsSettings;
+  connected: Writable<boolean>;
+  _connected: boolean;
+
+  cancellations: Array<ReturnType<typeof setTimeout>> = [];
+
+  constructor(settings: ObsSettings) {
+    this.obs = new OBSWebSocket();
+    this.settings = settings;
+    this.connected = writable(false);
+    this._connected = false;
+  }
+
+  private setConnected(val: boolean) {
+    this.connected.set(val);
+    this._connected = val;
+  }
+
+  async connect() {
+    await this.obs.connect(this.settings.obsURL, this.settings.password);
+    this.obs.addListener('ConnectionClosed', () => {
+      this.setConnected(false);
+      console.log('Connection closed, retrying...');
+
+      const timeoutHandle = setTimeout(async () => {
+        await this.connect();
+        this.cancellations = this.cancellations.filter(val => val !== timeoutHandle);
+      }, 5000);
+
+      this.cancellations.push(timeoutHandle);
+    })
+
+    console.log('Connected from WS successfully');
+    this.setConnected(true);
+  }
+
+  async disconnect() {
+    await this.obs.disconnect();
+    console.log('Disconnected from WS successfully');
+    this.setConnected(false);
+  }
+
+  async updateSceneWith(user: tmi.ChatUserstate, _voice: VoiceSettings) {
+    await this.obs.call('SetInputSettings', {
+      inputName: this.settings.sourceName, inputSettings: {
+        "text": `${user.username}`,
+      }
+    });
+  }
 }
 
 class VoiceController {
@@ -44,8 +98,8 @@ class VoiceController {
     return (Math.random() * (max - min)) + min;
   }
 
-  getVoiceMapForUser(user: tmi.ChatUserState): VoiceSettings {
-    if (!user.username) return;
+  getVoiceMapForUser(user: tmi.ChatUserstate): VoiceSettings {
+    if (!user.username) throw new Error("no username in chat state");
 
     const username = user.username;
 
@@ -81,18 +135,23 @@ export class Controller {
   chat_logs: Writable<string[]>;
   twitch: tmi.Client;
   voice: VoiceController;
+  obsController?: ObsController;
 
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
     this.twitch = createNewTwitchClient(config.channelName);
     this.voice = new VoiceController(config);
+    if (config.obsSettings) {
+      this.obsController = new ObsController(config.obsSettings);
+    }
   }
 
   private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
+    const voice = this.voice.getVoiceMapForUser(user);
     this.chat_logs.update(val => {
-      const voice = this.voice.getVoiceMapForUser(user);
       return [...val, `${user.username} (${voice.voice.name}, ${voice.pitch}, ${voice.rate}): ${message}`];
     });
+    await this.obsController?.updateSceneWith(user, voice);
     await this.voice.processMessage(user, message);
   }
 
@@ -105,6 +164,7 @@ export class Controller {
       await this.updateWithMessage(user, message);
     });
     await this.twitch.connect();
+    await this.obsController?.connect();
   }
 
   async end() {
