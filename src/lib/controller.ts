@@ -151,8 +151,6 @@ export class Controller {
   private isFiltered(message: string): boolean {
     for (let filter of this.filters) {
       const regex = new RegExp(filter);
-      console.log('matching against', regex);
-      console.log(message.match(regex)?.[0]);
       if (message.match(regex)?.[0]) {
         return true;
       }
