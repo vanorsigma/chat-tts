@@ -180,8 +180,8 @@ export class Controller {
     this.twitch.on('message', async (_x, user, message, _y) => {
       await this.updateWithMessage(user, message);
     });
-    await this.twitch.connect();
     await this.obsController?.connect();
+    await this.twitch.connect();
   }
 
   async end() {
