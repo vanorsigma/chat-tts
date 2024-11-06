@@ -4,6 +4,7 @@
   import { Controller } from '$lib/controller';
   import Editor from '$lib/Editor.svelte';
   import { getVoicesList } from '$lib/speech';
+  import { onDestroy } from 'svelte';
   import { readable } from 'svelte/store';
 
   const voices = getVoicesList();
@@ -38,6 +39,10 @@
 
     previousConfigText = configText;
   }
+
+  onDestroy(() => {
+    controller?.end();
+  });
 </script>
 
 <svelte:head>
