@@ -11,7 +11,12 @@
     history(),
     lineNumbers(),
     syntaxHighlighting(defaultHighlightStyle),
-    keymap.of([defaultKeymap as KeyBinding, historyKeymap as KeyBinding])
+    keymap.of([defaultKeymap as KeyBinding, historyKeymap as KeyBinding]),
+    EditorView.updateListener.of((v) => {
+      if (v.docChanged) {
+        configText = view.state.doc.toString();
+      }
+    })
   ];
 
   const state = EditorState.create({ extensions });
@@ -23,10 +28,6 @@
   onMount(() => {
     if (editor) {
       editor.append(view.dom);
-      view.dom.addEventListener('input', async () => {
-        await tick();
-        configText = view.state.doc.toString();
-      });
     }
   });
 </script>
