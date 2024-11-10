@@ -35,14 +35,38 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
     await currentWaiter;
   }
 
-  const utterThis = new SpeechSynthesisUtterance(options.text);
+  let textLower = options.text.toLowerCase();
+  let pitch = options.pitch;
+  let rate = options.rate;
+  while (textLower.includes('[high]')) {
+    pitch *= 1.5;
+    textLower = textLower.replace('[high]', '');
+  }
+
+  while (textLower.includes('[low]')) {
+    pitch *= 0.5;
+    textLower = textLower.replace('[low]', '');
+  }
+
+  while (textLower.includes('[fast]')) {
+    rate *= 1.5;
+    textLower = textLower.replace('[fast]', '');
+  }
+
+  while (textLower.includes('[slow]')) {
+    rate *= 0.5;
+    textLower = textLower.replace('[slow]', '');
+  }
+
+  const utterThis = new SpeechSynthesisUtterance(textLower);
+
   currentWaiter = new Promise((resolve) => {
     utterThis.onend = () => resolve();
     utterThis.onerror = () => resolve();
 
     utterThis.voice = options.voice;
-    utterThis.pitch = options.pitch;
-    utterThis.rate = options.rate;
+    utterThis.pitch = Math.max(0.0, pitch);
+    utterThis.rate = Math.max(0.0, rate);
     onVoiceStart();
     synth.speak(utterThis);
   });
