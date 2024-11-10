@@ -4,11 +4,24 @@ import { createNewTwitchClient } from './twitch';
 import { getVoicesList, selectVoiceByName, speak } from './speech';
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
+import { COMMANDS, LEADER, type Command } from './commands';
 
 interface VoiceSettings {
   voice: SpeechSynthesisVoice,
   pitch: number,
   rate: number
+}
+
+class CommandController {
+  getCommand(msg: string): Command | null {
+    for (let key of COMMANDS.keys()) {
+      if (msg === LEADER + key) {
+        return COMMANDS.get(key)!!;
+      }
+    }
+
+    return null;
+  }
 }
 
 class ObsController {
@@ -29,6 +42,19 @@ class ObsController {
   private setConnected(val: boolean) {
     this.connected.set(val);
     this._connected = val;
+  }
+
+  stringToColour(str: string): number {
+    let hash = 0;
+    str.split('').forEach(char => {
+      hash = char.charCodeAt(0) + ((hash << 5) - hash)
+    })
+    let color = 'FF'
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xff;
+      color += value.toString(16).padStart(2, '0');
+    }
+    return Number('0x' + color);
   }
 
   async connect() {
@@ -55,10 +81,13 @@ class ObsController {
     this.setConnected(false);
   }
 
-  async updateSceneWith(user: tmi.ChatUserstate, _voice: VoiceSettings) {
+  async updateSceneWith(user: tmi.ChatUserstate, voice: VoiceSettings) {
+    const color = this.stringToColour(voice.voice.name);
     await this.obs.call('SetInputSettings', {
       inputName: this.settings.sourceName, inputSettings: {
         "text": `${user.username}`,
+        "color1": color,
+        "color2": color,
       }
     });
   }
@@ -79,6 +108,20 @@ class VoiceController {
         console.error(`${name} is invalid. May cause issues.`);
       }
     });
+  }
+
+  refreshUser(user: tmi.ChatUserstate): SpeechSynthesisVoice | undefined {
+    if (!user.username) {
+      return undefined;
+    }
+
+    const voice = this.chooseRandomVoice();
+    this.usernameVoiceMap.set(user.username ?? '', {
+      voice: voice,
+      pitch: this.chooseRandomPitch(),
+      rate: this.chooseRandomRate(),
+    });
+    return voice;
   }
 
   chooseRandomVoice(): SpeechSynthesisVoice {
@@ -104,26 +147,21 @@ class VoiceController {
     const username = user.username;
 
     if (!this.usernameVoiceMap.has(username)) {
-      const voice = this.chooseRandomVoice();
-      this.usernameVoiceMap.set(username, {
-        voice: voice,
-        pitch: this.chooseRandomPitch(),
-        rate: this.chooseRandomRate(),
-      });
+      this.refreshUser(user);
     }
 
     const voiceSettings = this.usernameVoiceMap.get(username)!!;
     return voiceSettings;
   }
 
-  async processMessage(user: tmi.ChatUserstate, message: string) {
+  async processMessage(user: tmi.ChatUserstate, message: string, onSpeechStart: () => void) {
     const voiceSettings = this.getVoiceMapForUser(user);
     await speak({
       pitch: voiceSettings.pitch,
       rate: voiceSettings.rate,
       text: message,
       voice: voiceSettings.voice
-    });
+    }, onSpeechStart);
   }
 }
 
@@ -135,6 +173,7 @@ export class Controller {
   chat_logs: Writable<string[]>;
   twitch: tmi.Client;
   voice: VoiceController;
+  commands: CommandController;
   obsController?: ObsController;
   filters: string[];
 
@@ -142,6 +181,7 @@ export class Controller {
     this.chat_logs = writable([]);
     this.twitch = createNewTwitchClient(config.channelName);
     this.voice = new VoiceController(config);
+    this.commands = new CommandController();
     if (config.obsSettings) {
       this.obsController = new ObsController(config.obsSettings);
     }
@@ -158,18 +198,30 @@ export class Controller {
     return false;
   }
 
+  updateChatLog(entry: string) {
+    this.chat_logs.update(val => {
+      return [...val, entry];
+    });
+  }
+
   private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
     const voice = this.voice.getVoiceMapForUser(user);
     const filtered = this.isFiltered(message);
-    this.chat_logs.update(val => {
-      return [...val, `${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`];
-    });
+    this.updateChatLog(`${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`);
 
     if (filtered) {
       return;
     }
-    await this.voice.processMessage(user, message);
-    await this.obsController?.updateSceneWith(user, voice);
+
+    const potentialCommand = this.commands.getCommand(message);
+    if (potentialCommand) {
+      potentialCommand.processCommandMessage(this, user, message);
+      return;
+    }
+
+    await this.voice.processMessage(user, message, async () => {
+      await this.obsController?.updateSceneWith(user, voice);
+    });
   }
 
   async start() {

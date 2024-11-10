@@ -23,6 +23,6 @@
   </p>
 
   <p>
-    <b>Pitch Range:</b>&nbsp;{config.rateRange.minimum} - {config.rateRange.maximum}
+    <b>Rate Range:</b>&nbsp;{config.rateRange.minimum} - {config.rateRange.maximum}
   </p>
 </div>

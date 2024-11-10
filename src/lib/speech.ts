@@ -30,7 +30,7 @@ export function selectVoiceByName(name: string): SpeechSynthesisVoice | undefine
   return synth.getVoices().find(voice => voice.name === name);
 }
 
-export async function speak(options: SpeakOptions): Promise<void> {
+export async function speak(options: SpeakOptions, onVoiceStart: () => void): Promise<void> {
   while (synth.speaking && currentWaiter) {
     await currentWaiter;
   }
@@ -43,6 +43,7 @@ export async function speak(options: SpeakOptions): Promise<void> {
     utterThis.voice = options.voice;
     utterThis.pitch = options.pitch;
     utterThis.rate = options.rate;
+    onVoiceStart();
     synth.speak(utterThis);
   });
   return currentWaiter;
