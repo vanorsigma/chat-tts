@@ -30,45 +30,99 @@ export function selectVoiceByName(name: string): SpeechSynthesisVoice | undefine
   return synth.getVoices().find(voice => voice.name === name);
 }
 
+function startsWithOneOf(text: string, tokens: string[]): string | null {
+  const trimmedText = text.trimStart();
+  return tokens.filter(token => trimmedText.startsWith(token)).at(0) ?? null;
+}
+
+function getIndexOfNextMatch(text: string, tokens: string[]): number {
+  let lowestIndex = text.length;
+
+  for (const token of tokens) {
+    const location = text.indexOf(token);
+    if (location == -1) continue;
+
+    lowestIndex = Math.min(location, lowestIndex);
+  }
+  return lowestIndex;
+}
+
+function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOptions, string] {
+  const tokens = ["[high]", "[low]", "[fast]", "[slow]"];
+  const modifiers = [];
+  let matchedToken = startsWithOneOf(text, tokens);
+  if (!matchedToken) {
+    return [baseOptions, ''];
+  }
+
+  while (matchedToken) {
+    modifiers.push(matchedToken);
+    text = text.replace(matchedToken, '');
+    matchedToken = startsWithOneOf(text, tokens);
+  }
+  text = text.replace(matchedToken!, '');
+  const textEndLocation = getIndexOfNextMatch(text, tokens);
+
+  let pitch = baseOptions.pitch;
+  let rate = baseOptions.rate;
+  for (const modifier of modifiers) {
+    switch (modifier) {
+      case "[high]":
+        pitch *= 1.5;
+        break;
+      case "[low]":
+        pitch *= 0.5;
+        break;
+      case "[fast]":
+        rate *= 1.5;
+        break;
+      case "[slow]":
+        rate *= 0.5;
+        break;
+    }
+  }
+
+  return [{
+    pitch,
+    rate,
+    voice: baseOptions.voice,
+    text: text.substring(0, textEndLocation).trim()
+  }, text.substring(textEndLocation).trim()];
+
+}
+
 export async function speak(options: SpeakOptions, onVoiceStart: () => void): Promise<void> {
   while (synth.speaking && currentWaiter) {
     await currentWaiter;
   }
 
-  let textLower = options.text.toLowerCase();
-  let pitch = options.pitch;
-  let rate = options.rate;
-  while (textLower.includes('[high]')) {
-    pitch *= 1.5;
-    textLower = textLower.replace('[high]', '');
+  let [segment, remaining] = processNextSegment(options, options.text.trim());
+  let segments: SpeakOptions[] = [segment];
+  while (remaining.trim().length > 0) {
+    [segment, remaining] = processNextSegment(options, remaining);
+    segments = [...segments, segment];
   }
 
-  while (textLower.includes('[low]')) {
-    pitch *= 0.5;
-    textLower = textLower.replace('[low]', '');
-  }
-
-  while (textLower.includes('[fast]')) {
-    rate *= 1.5;
-    textLower = textLower.replace('[fast]', '');
-  }
-
-  while (textLower.includes('[slow]')) {
-    rate *= 0.5;
-    textLower = textLower.replace('[slow]', '');
-  }
-
-  const utterThis = new SpeechSynthesisUtterance(textLower);
-
-  currentWaiter = new Promise((resolve) => {
-    utterThis.onend = () => resolve();
-    utterThis.onerror = () => resolve();
-
-    utterThis.voice = options.voice;
-    utterThis.pitch = Math.max(0.0, pitch);
-    utterThis.rate = Math.max(0.0, rate);
+  let doOnce = () => {
     onVoiceStart();
-    synth.speak(utterThis);
-  });
+    doOnce = () => {};
+  }
+
+  currentWaiter = async function () {
+    for (const segment of segments) {
+      const utterThis = new SpeechSynthesisUtterance(segment.text);
+      await new Promise((resolve) => {
+        utterThis.onend = () => resolve(0);
+        utterThis.onerror = () => resolve(0);
+
+        utterThis.voice = options.voice;
+        utterThis.pitch = Math.max(0.0, segment.pitch);
+        utterThis.rate = Math.max(0.0, segment.rate);
+        doOnce();
+        synth.speak(utterThis);
+      });
+    }
+  }();
+
   return currentWaiter;
 }
