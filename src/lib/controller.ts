@@ -1,7 +1,7 @@
 import { writable, type Readable, type Writable } from 'svelte/store';
 import tmi from "tmi.js";
 import { createNewTwitchClient } from './twitch';
-import { getVoicesList, selectVoiceByName, speak } from './speech';
+import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech';
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
@@ -14,9 +14,9 @@ interface VoiceSettings {
 
 class CommandController {
   getCommand(msg: string): Command | null {
-    for (let key of COMMANDS.keys()) {
+    for (const key of COMMANDS.keys()) {
       if (msg === LEADER + key) {
-        return COMMANDS.get(key)!!;
+        return COMMANDS.get(key)!;
       }
     }
 
@@ -126,7 +126,7 @@ class VoiceController {
 
   chooseRandomVoice(): SpeechSynthesisVoice {
     const voicename = this.config.voices[Math.floor(Math.random() * this.config.voices.length)];
-    return selectVoiceByName(voicename)!!; // validated by validateVoices()
+    return selectVoiceByName(voicename)!; // validated by validateVoices()
   }
 
   chooseRandomPitch(): number {
@@ -141,6 +141,10 @@ class VoiceController {
     return (Math.random() * (max - min)) + min;
   }
 
+  cancel() {
+    cancelSpeech();
+  }
+
   getVoiceMapForUser(user: tmi.ChatUserstate): VoiceSettings {
     if (!user.username) throw new Error("no username in chat state");
 
@@ -150,7 +154,7 @@ class VoiceController {
       this.refreshUser(user);
     }
 
-    const voiceSettings = this.usernameVoiceMap.get(username)!!;
+    const voiceSettings = this.usernameVoiceMap.get(username)!;
     return voiceSettings;
   }
 
@@ -189,7 +193,7 @@ export class Controller {
   }
 
   private isFiltered(message: string): boolean {
-    for (let filter of this.filters) {
+    for (const filter of this.filters) {
       const regex = new RegExp(filter);
       if (message.match(regex)?.[0]) {
         return true;
@@ -234,6 +238,10 @@ export class Controller {
     });
     await this.obsController?.connect();
     await this.twitch.connect();
+  }
+
+  async cancel() {
+    this.voice.cancel();
   }
 
   async end() {
