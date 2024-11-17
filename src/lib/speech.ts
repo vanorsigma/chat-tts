@@ -3,6 +3,7 @@
 
 const synth = window.speechSynthesis;
 let currentWaiter: Promise<void> | null = null;
+let cancellation: (() => void) | null = null;
 
 interface SpeakOptions {
   text: string
@@ -108,8 +109,18 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
     doOnce = () => {};
   }
 
+  cancellation = () => {
+    synth.cancel();
+    cancellation = null;
+  };
+
   currentWaiter = async function () {
     for (const segment of segments) {
+      // if the cancellation was unassigned, it means that we've consumed it
+      if (cancellation == null) {
+        return;
+      }
+
       const utterThis = new SpeechSynthesisUtterance(segment.text);
       await new Promise((resolve) => {
         utterThis.onend = () => resolve(0);
@@ -125,4 +136,10 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
   }();
 
   return currentWaiter;
+}
+
+export async function cancelSpeech() {
+  if (cancellation) {
+    cancellation();
+  }
 }

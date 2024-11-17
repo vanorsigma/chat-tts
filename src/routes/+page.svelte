@@ -40,6 +40,10 @@
     previousConfigText = configText;
   }
 
+  function onCancelSpeech() {
+    controller?.cancel();
+  }
+
   onMount(() => {
     // NOTE: edge hides the voice list for some reason, need to rerun just to get
     setTimeout(() => {
@@ -88,6 +92,9 @@
   <label for="tail">
     <input name="tail" type="checkbox" bind:checked={tail} />
     Tail
+  </label>
+  <label for="cancel">
+    <button name="cancel" on:click={onCancelSpeech}>Cancel Speech</button>
   </label>
   <div use:scrollToBottom={$chatLogsStore} class="chatlogs">
     {#each $chatLogsStore as message}
