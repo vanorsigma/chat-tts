@@ -1,6 +1,8 @@
 // Mostly copied from this example:
 // https://github.com/mdn/dom-examples/blob/main/web-speech-api/speak-easy-synthesis/script.js
 
+import type { AlternativePitchControl } from "./config";
+
 const synth = window.speechSynthesis;
 let currentWaiter: Promise<void> | null = null;
 let cancellation: (() => void) | null = null;
@@ -10,6 +12,17 @@ interface SpeakOptions {
   voice: SpeechSynthesisVoice
   pitch: number
   rate: number
+  alternativePitchControl?: AlternativePitchControl
+}
+
+export function setPitchForAlternatePitchControl(pitch: number, controlURL: string) {
+  const clampedPitch = Math.max(0.5, Math.min(3.0, pitch));
+  fetch(controlURL + `?pitch=${clampedPitch}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
 export function getVoicesList(): SpeechSynthesisVoice[] {
@@ -87,7 +100,8 @@ function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOpti
     pitch,
     rate,
     voice: baseOptions.voice,
-    text: text.substring(0, textEndLocation).trim()
+    text: text.substring(0, textEndLocation).trim(),
+    alternativePitchControl: baseOptions.alternativePitchControl,
   }, text.substring(textEndLocation).trim()];
 
 }
@@ -123,11 +137,23 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
 
       const utterThis = new SpeechSynthesisUtterance(segment.text);
       await new Promise((resolve) => {
-        utterThis.onend = () => resolve(0);
+        utterThis.onend = () => {
+          if (options.alternativePitchControl?.controlURL ?? '') {
+            setPitchForAlternatePitchControl(1.0, options.alternativePitchControl!.controlURL!);
+          }
+          resolve(0);
+        }
         utterThis.onerror = () => resolve(0);
 
         utterThis.voice = options.voice;
-        utterThis.pitch = Math.max(0.0, segment.pitch);
+        console.log(options.alternativePitchControl?.controlURL);
+        if (options.alternativePitchControl?.controlURL ?? '') {
+          utterThis.pitch = 1.0;
+          const controlUrl = options.alternativePitchControl!.controlURL!;
+          setPitchForAlternatePitchControl(segment.pitch, controlUrl);
+        } else {
+          utterThis.pitch = Math.max(0.0, segment.pitch);
+        }
         utterThis.rate = Math.max(0.0, segment.rate);
         doOnce();
         synth.speak(utterThis);
