@@ -11,6 +11,10 @@ interface RangeConfig {
   maximum: number;
 }
 
+export interface AlternativePitchControl {
+  controlURL: string,
+}
+
 export interface ObsSettings {
   obsURL: string,
   password: string,
@@ -20,6 +24,7 @@ export interface ObsSettings {
 export class ParseableConfig {
   channelName?: string;
   obsSettings?: ObsSettings;
+  alternativePitchControl?: AlternativePitchControl;
   voices?: string[];
   pitchRange?: RangeConfigOptional;
   rateRange?: RangeConfigOptional;
@@ -28,6 +33,7 @@ export class ParseableConfig {
   constructor(arbitraryObject: any) {
     this.channelName = arbitraryObject["channelName"];
     this.obsSettings = this.verifyObsSettings(arbitraryObject);
+    this.alternativePitchControl = arbitraryObject["alternativePitchControl"];
     this.voices = arbitraryObject["voices"];
     this.pitchRange = arbitraryObject["pitchRange"];
     this.rateRange = arbitraryObject["rateRange"];
@@ -46,6 +52,7 @@ export class ParseableConfig {
       channelName: this.channelName ?? '',
       voices: this.voices ?? [],
       obsSettings: this.obsSettings,
+      alternativePitchControl: this.alternativePitchControl,
       pitchRange: {
         maximum: this.pitchRange?.maximum ?? 1.5,
         minimum: this.pitchRange?.minimum ?? 0.7,
@@ -62,6 +69,7 @@ export class ParseableConfig {
 export interface FullConfig {
   channelName: string;
   obsSettings?: ObsSettings;
+  alternativePitchControl?: AlternativePitchControl;
   voices: string[];
   pitchRange: RangeConfig;
   rateRange: RangeConfig;

@@ -164,7 +164,8 @@ class VoiceController {
       pitch: voiceSettings.pitch,
       rate: voiceSettings.rate,
       text: message,
-      voice: voiceSettings.voice
+      voice: voiceSettings.voice,
+      alternativePitchControl: this.config.alternativePitchControl,
     }, onSpeechStart);
   }
 }
