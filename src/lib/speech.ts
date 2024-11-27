@@ -142,9 +142,10 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
       const utterThis = new SpeechSynthesisUtterance(segment.text);
       await new Promise((resolve) => {
         utterThis.onend = () => {
-          if (options.alternativePitchControl?.controlURL ?? '') {
-            setPitchForAlternatePitchControl(1.0, options.alternativePitchControl!.controlURL!);
-          }
+          // NOTE: Disabled, because there isn't really a point to reset pitch
+          // if (options.alternativePitchControl?.controlURL ?? '') {
+          //   setPitchForAlternatePitchControl(1.0, options.alternativePitchControl!.controlURL!);
+          // }
           resolve(0);
         }
         utterThis.onerror = () => resolve(0);
