@@ -62,7 +62,7 @@ function getIndexOfNextMatch(text: string, tokens: string[]): number {
 }
 
 function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOptions, string] {
-  const tokens = ["[high]", "[low]", "[fast]", "[slow]"];
+  const tokens = ["[high]", "[low]", "[fast]", "[slow]", "[iden]"];
   const modifiers = [];
   let matchedToken = startsWithOneOf(text, tokens);
   if (!matchedToken) {
@@ -93,6 +93,10 @@ function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOpti
       case "[slow]":
         rate *= 0.5;
         break;
+      case "[iden]":
+        pitch *= 1;
+        rate *= 1;
+        break;
     }
   }
 
@@ -111,7 +115,7 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
     await currentWaiter;
   }
 
-  let [segment, remaining] = processNextSegment(options, options.text.trim());
+  let [segment, remaining] = processNextSegment(options, '[iden]' + options.text.trim());
   let segments: SpeakOptions[] = [segment];
   while (remaining.trim().length > 0) {
     [segment, remaining] = processNextSegment(options, remaining);
