@@ -82,16 +82,16 @@ function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOpti
   for (const modifier of modifiers) {
     switch (modifier) {
       case "[high]":
-        pitch *= 1.5;
+        pitch *= 1.05;
         break;
       case "[low]":
-        pitch *= 0.5;
+        pitch *= 0.95;
         break;
       case "[fast]":
-        rate *= 1.5;
+        rate *= 1.05;
         break;
       case "[slow]":
-        rate *= 0.5;
+        rate *= 0.95;
         break;
       case "[iden]":
         pitch *= 1;
