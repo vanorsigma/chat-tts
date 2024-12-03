@@ -16,7 +16,7 @@ interface SpeakOptions {
 }
 
 export function setPitchForAlternatePitchControl(pitch: number, controlURL: string) {
-  const clampedPitch = Math.max(0.5, Math.min(3.0, pitch));
+  const clampedPitch = Math.max(0.75, Math.min(1.5, pitch));
   fetch(controlURL + `?pitch=${clampedPitch}`, {
     method: 'GET',
     headers: {
