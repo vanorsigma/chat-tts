@@ -1,4 +1,4 @@
-channelName: "vedal987"
+channelName: "vanorsigma"
 voices:
   - "English (America)"
   - "English (America)+Andrea"
@@ -10,5 +10,10 @@ obsSettings:
   obsURL: "ws://localhost:4455"
   password: "somepassword"
   sourceName: "Chat"
+alternativePitchControl:
+  controlURL: "http://localhost:8085"
+soundEffects:
+  - tag: "(metalpipes)"
+    filePath: "https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3"
 filteredExps:
   - "[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"

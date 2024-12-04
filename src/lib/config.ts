@@ -11,6 +11,11 @@ interface RangeConfig {
   maximum: number;
 }
 
+export interface SoundEffect {
+  tag: string;
+  filePath: string;
+}
+
 export interface AlternativePitchControl {
   controlURL: string,
 }
@@ -29,6 +34,7 @@ export class ParseableConfig {
   pitchRange?: RangeConfigOptional;
   rateRange?: RangeConfigOptional;
   filteredExps?: string[];
+  soundEffects?: SoundEffect[];
 
   constructor(arbitraryObject: any) {
     this.channelName = arbitraryObject["channelName"];
@@ -38,6 +44,7 @@ export class ParseableConfig {
     this.pitchRange = arbitraryObject["pitchRange"];
     this.rateRange = arbitraryObject["rateRange"];
     this.filteredExps = arbitraryObject["filteredExps"];
+    this.soundEffects = arbitraryObject["soundEffects"];
   }
 
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
@@ -62,6 +69,7 @@ export class ParseableConfig {
         minimum: this.pitchRange?.minimum ?? 0.7,
       },
       filteredExps: this.filteredExps ?? [],
+      soundEffects: this.soundEffects ?? [],
     };
   }
 }
@@ -74,6 +82,7 @@ export interface FullConfig {
   pitchRange: RangeConfig;
   rateRange: RangeConfig;
   filteredExps: string[];
+  soundEffects: SoundEffect[];
 }
 
 export function parseYaml(input: string): ParseableConfig {
