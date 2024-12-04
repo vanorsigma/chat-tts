@@ -165,7 +165,10 @@ class VoiceController {
       rate: voiceSettings.rate,
       text: message,
       voice: voiceSettings.voice,
-      alternativePitchControl: this.config.alternativePitchControl,
+      speakConfiguration: {
+        possibleSoundEffects: this.config.soundEffects,
+        alternativePitchControl: this.config.alternativePitchControl,
+      },
     }, onSpeechStart);
   }
 }

@@ -1,23 +1,29 @@
 // Mostly copied from this example:
 // https://github.com/mdn/dom-examples/blob/main/web-speech-api/speak-easy-synthesis/script.js
 
-import type { AlternativePitchControl } from "./config";
+import type { AlternativePitchControl, SoundEffect } from "./config";
 
 const synth = window.speechSynthesis;
 let currentWaiter: Promise<void> | null = null;
 let cancellation: (() => void) | null = null;
 
-interface SpeakOptions {
-  text: string
-  voice: SpeechSynthesisVoice
-  pitch: number
-  rate: number
-  alternativePitchControl?: AlternativePitchControl
+interface SpeakConfiguration {
+  alternativePitchControl?: AlternativePitchControl;
+  possibleSoundEffects: SoundEffect[];
 }
 
-export function setPitchForAlternatePitchControl(pitch: number, controlURL: string) {
+interface SpeakOptions {
+  text: string;
+  voice: SpeechSynthesisVoice;
+  pitch: number;
+  rate: number;
+  soundEffect?: SoundEffect;
+  speakConfiguration: SpeakConfiguration;
+}
+
+export async function setPitchForAlternatePitchControl(pitch: number, controlURL: string) {
   const clampedPitch = Math.max(0.75, Math.min(1.5, pitch));
-  fetch(controlURL + `?pitch=${clampedPitch}`, {
+  return fetch(controlURL + `?pitch=${clampedPitch}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -62,8 +68,9 @@ function getIndexOfNextMatch(text: string, tokens: string[]): number {
 }
 
 function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOptions, string] {
-  const tokens = ["[high]", "[low]", "[fast]", "[slow]", "[iden]"];
-  const modifiers = [];
+  const soundEffectTokens = baseOptions.speakConfiguration.possibleSoundEffects.map(effect => effect.tag);
+  const tokens = ["[high]", "[low]", "[fast]", "[slow]", "[iden]", ...soundEffectTokens];
+  const modifiers: string[] = [];
   let matchedToken = startsWithOneOf(text, tokens);
   if (!matchedToken) {
     return [baseOptions, ''];
@@ -79,7 +86,19 @@ function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOpti
 
   let pitch = baseOptions.pitch;
   let rate = baseOptions.rate;
+
   for (const modifier of modifiers) {
+    if (soundEffectTokens.includes(modifier)) {
+      return [{
+        pitch,
+        rate,
+        voice: baseOptions.voice,
+        text: '',
+        speakConfiguration: baseOptions.speakConfiguration,
+        soundEffect: baseOptions.speakConfiguration.possibleSoundEffects.find(effect => effect.tag === modifier)!
+      }, ''];
+    }
+
     switch (modifier) {
       case "[high]":
         pitch *= 1.05;
@@ -105,7 +124,7 @@ function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOpti
     rate,
     voice: baseOptions.voice,
     text: text.substring(0, textEndLocation).trim(),
-    alternativePitchControl: baseOptions.alternativePitchControl,
+    speakConfiguration: baseOptions.speakConfiguration,
   }, text.substring(textEndLocation).trim()];
 
 }
@@ -139,6 +158,16 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
         return;
       }
 
+      // if it's a sound effect, we can play immediately
+      if (segment.soundEffect) {
+        if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
+          await setPitchForAlternatePitchControl(1.0, options.speakConfiguration.alternativePitchControl!.controlURL!);
+        }
+        const audio = new Audio(segment.soundEffect.filePath);
+        audio.play();
+        continue;
+      }
+
       const utterThis = new SpeechSynthesisUtterance(segment.text);
       await new Promise((resolve) => {
         utterThis.onend = () => {
@@ -151,10 +180,9 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
         utterThis.onerror = () => resolve(0);
 
         utterThis.voice = options.voice;
-        console.log(options.alternativePitchControl?.controlURL);
-        if (options.alternativePitchControl?.controlURL ?? '') {
+        if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
           utterThis.pitch = 1.0;
-          const controlUrl = options.alternativePitchControl!.controlURL!;
+          const controlUrl = options.speakConfiguration.alternativePitchControl!.controlURL!;
           setPitchForAlternatePitchControl(segment.pitch, controlUrl);
         } else {
           utterThis.pitch = Math.max(0.0, segment.pitch);
