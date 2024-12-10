@@ -21,6 +21,11 @@ interface SpeakOptions {
   speakConfiguration: SpeakConfiguration;
 }
 
+interface TextSegment {
+  tags: string[];
+  text: string;
+}
+
 export async function setPitchForAlternatePitchControl(pitch: number, controlURL: string) {
   const clampedPitch = Math.max(0.75, Math.min(1.5, pitch));
   return fetch(controlURL + `?pitch=${clampedPitch}`, {
@@ -50,83 +55,103 @@ export function selectVoiceByName(name: string): SpeechSynthesisVoice | undefine
   return synth.getVoices().find(voice => voice.name === name);
 }
 
-function startsWithOneOf(text: string, tokens: string[]): string | null {
-  const trimmedText = text.trimStart();
-  return tokens.filter(token => trimmedText.startsWith(token)).at(0) ?? null;
-}
+function makeTextSegments(text: string, tags: string[]): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let currentText = '';
+  let currentTags: string[] = [];
+  let i = 0;
 
-function getIndexOfNextMatch(text: string, tokens: string[]): number {
-  let lowestIndex = text.length;
+  while (i < text.length) {
+    let foundTag = false;
 
-  for (const token of tokens) {
-    const location = text.indexOf(token);
-    if (location == -1) continue;
+    for (const tag of tags) {
+      if (text.startsWith(tag, i)) {
+        if (currentText) {
+          segments.push({ tags: currentTags, text: currentText });
+          currentText = '';
+          currentTags = [];
+        }
+        currentTags.push(tag);
+        i += tag.length;
+        foundTag = true;
+        break;
+      }
+    }
 
-    lowestIndex = Math.min(location, lowestIndex);
+    if (!foundTag) {
+      currentText += text[i];
+      i++;
+    }
   }
-  return lowestIndex;
+
+  if (currentText || currentTags.length > 0) {
+    segments.push({ tags: currentTags, text: currentText });
+  }
+
+  return segments;
 }
 
-function processNextSegment(baseOptions: SpeakOptions, text: string): [SpeakOptions, string] {
+function breakIntoSegments(baseOptions: SpeakOptions, text: string): SpeakOptions[] {
   const soundEffectTokens = baseOptions.speakConfiguration.possibleSoundEffects.map(effect => effect.tag);
-  const tokens = ["[high]", "[low]", "[fast]", "[slow]", "[iden]", ...soundEffectTokens];
-  const modifiers: string[] = [];
-  let matchedToken = startsWithOneOf(text, tokens);
-  if (!matchedToken) {
-    return [baseOptions, ''];
-  }
+  const tags = ["[high]", "[low]", "[fast]", "[slow]", "[iden]", ...soundEffectTokens];
+  const textSegments = makeTextSegments(text, tags);
+  const speakOptions = [];
 
-  while (matchedToken) {
-    modifiers.push(matchedToken);
-    text = text.replace(matchedToken, '');
-    matchedToken = startsWithOneOf(text, tokens);
-  }
-  text = text.replace(matchedToken!, '');
-  const textEndLocation = getIndexOfNextMatch(text, tokens);
-
-  let pitch = baseOptions.pitch;
-  let rate = baseOptions.rate;
-
-  for (const modifier of modifiers) {
-    if (soundEffectTokens.includes(modifier)) {
-      return [{
-        pitch,
-        rate,
-        voice: baseOptions.voice,
-        text: '',
-        speakConfiguration: baseOptions.speakConfiguration,
-        soundEffect: baseOptions.speakConfiguration.possibleSoundEffects.find(effect => effect.tag === modifier)!
-      }, ''];
+  for (const segment of textSegments) {
+    let pitch = baseOptions.pitch;
+    let rate = baseOptions.rate;
+    for (const tag of segment.tags) {
+      switch (tag) {
+        case "[high]":
+          pitch *= 1.05;
+          break;
+        case "[low]":
+          pitch *= 0.95;
+          break;
+        case "[fast]":
+          rate *= 1.05;
+          break;
+        case "[slow]":
+          rate *= 0.95;
+          break;
+        case "[iden]":
+          pitch *= 1;
+          rate *= 1;
+          break;
+        default:
+          speakOptions.push({
+            pitch,
+            rate,
+            voice: baseOptions.voice,
+            text: '',
+            speakConfiguration: baseOptions.speakConfiguration,
+            soundEffect: baseOptions.speakConfiguration.possibleSoundEffects.find(effect => effect.tag === tag)!
+          })
+          continue;
+      }
     }
-
-    switch (modifier) {
-      case "[high]":
-        pitch *= 1.05;
-        break;
-      case "[low]":
-        pitch *= 0.95;
-        break;
-      case "[fast]":
-        rate *= 1.05;
-        break;
-      case "[slow]":
-        rate *= 0.95;
-        break;
-      case "[iden]":
-        pitch *= 1;
-        rate *= 1;
-        break;
-    }
+    speakOptions.push({
+      pitch,
+      rate,
+      voice: baseOptions.voice,
+      text: segment.text,
+      speakConfiguration: baseOptions.speakConfiguration,
+    });
   }
 
-  return [{
-    pitch,
-    rate,
-    voice: baseOptions.voice,
-    text: text.substring(0, textEndLocation).trim(),
-    speakConfiguration: baseOptions.speakConfiguration,
-  }, text.substring(textEndLocation).trim()];
+  return speakOptions;
+}
 
+export async function playAudio(url: string, volume: number, rate: number): Promise<void> {
+  return new Promise((resolve) => {
+    const audio = new Audio(url);
+    audio.play();
+    audio.volume = volume;
+    audio.playbackRate = rate;
+    audio.addEventListener('ended', () => {
+      resolve();
+    });
+  });
 }
 
 export async function speak(options: SpeakOptions, onVoiceStart: () => void): Promise<void> {
@@ -134,12 +159,7 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
     await currentWaiter;
   }
 
-  let [segment, remaining] = processNextSegment(options, '[iden]' + options.text.trim());
-  let segments: SpeakOptions[] = [segment];
-  while (remaining.trim().length > 0) {
-    [segment, remaining] = processNextSegment(options, remaining);
-    segments = [...segments, segment];
-  }
+  const segments = breakIntoSegments(options, options.text.trim());
 
   let doOnce = () => {
     onVoiceStart();
@@ -161,11 +181,15 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
       // if it's a sound effect, we can play immediately
       if (segment.soundEffect) {
         if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
-          await setPitchForAlternatePitchControl(1.0, options.speakConfiguration.alternativePitchControl!.controlURL!);
+          await setPitchForAlternatePitchControl(options.pitch,
+            options.speakConfiguration.alternativePitchControl!.controlURL!);
         }
-        const audio = new Audio(segment.soundEffect.filePath);
-        audio.play();
+        await playAudio(segment.soundEffect.filePath, 0.5, segment.rate);
         continue;
+      }
+
+      if (segment.text.trim().length == 0) {
+        continue; // not a sound effect and text is empty. could just be a modifier
       }
 
       const utterThis = new SpeechSynthesisUtterance(segment.text);
