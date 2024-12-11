@@ -181,7 +181,7 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
       // if it's a sound effect, we can play immediately
       if (segment.soundEffect) {
         if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
-          await setPitchForAlternatePitchControl(options.pitch,
+          await setPitchForAlternatePitchControl(segment.pitch,
             options.speakConfiguration.alternativePitchControl!.controlURL!);
         }
         await playAudio(segment.soundEffect.filePath, 0.5, segment.rate);
