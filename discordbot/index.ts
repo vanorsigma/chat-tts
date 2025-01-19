@@ -24,8 +24,7 @@ client.on(Events.InteractionCreate, async interaction => {
       await interaction.reply({ content: `Error saving ${shortname}!` });
       return;
     }
-    const base64 = await response.text();
-    base64.replace("https://www.beepbox.co/#", "");
+    const base64 = (await response.text()).replace("https://www.beepbox.co/#", "");
     try {
       // TODO: try to parse
       new Synth(base64);
