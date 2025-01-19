@@ -35,7 +35,11 @@
     "@codemirror/language": "^6.10.3",
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.34.2",
+    "@sveltejs/adapter-node": "^5.2.12",
+    "beepbox": "^4.2.0",
+    "discord.js": "^14.17.3",
     "obs-websocket-js": "^5.0.6",
+    "sqlite3": "^5.1.7",
     "tmi.js": "^1.8.5",
     "yaml": "^2.6.0"
   }
