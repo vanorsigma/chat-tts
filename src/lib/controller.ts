@@ -5,11 +5,65 @@ import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech'
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
+import { Synth } from "beepbox";
+
+const shortnameMatcher = /<(\w+)>/g;
 
 interface VoiceSettings {
   voice: SpeechSynthesisVoice,
   pitch: number,
   rate: number
+}
+
+class SongController {
+  private songsPlaying: string[] = [];
+
+  async getSongs(): Promise<string[]> {
+    const response = await fetch('/songs');
+    if (response.status !== 200) {
+      throw new Error("cannot fetch from songs endpoint");
+    }
+
+    return await response.json()
+  }
+
+  async getSong(songname: string): Promise<string> {
+    const response = await fetch(`/song?songname=${songname}`);
+    if (response.status !== 200) {
+      throw new Error("cannot fetch from songs endpoint");
+    }
+
+    return (await response.json())['base64'];
+  }
+
+  async playSong(songname: string): Promise<boolean> {
+    if (this.songsPlaying.includes(songname)) {
+      return false;
+    }
+
+    try {
+      if ((await this.getSongs()).includes(songname)) {
+        const song = await this.getSong(songname);
+        const synth = new Synth(song);
+        synth.song!.loopLength = 0;
+        synth.loopRepeatCount = 0;
+
+        const previousPause = synth.pause.bind(synth);
+        this.songsPlaying.push(songname);
+
+        synth.pause = () => {
+          this.songsPlaying = this.songsPlaying.filter(song => song !== songname);
+          previousPause();
+        }
+        synth.play();
+        return true;
+      }
+    } catch (e) {
+      console.error('Problem with playing beepbox song: ', e)
+      return false;
+    }
+    return false;
+  }
 }
 
 class CommandController {
@@ -183,6 +237,7 @@ export class Controller {
   voice: VoiceController;
   commands: CommandController;
   obsController?: ObsController;
+  songController: SongController;
   filters: string[];
 
   constructor(config: FullConfig) {
@@ -194,6 +249,7 @@ export class Controller {
       this.obsController = new ObsController(config.obsSettings);
     }
     this.filters = config.filteredExps;
+    this.songController = new SongController();
   }
 
   private isFiltered(message: string): boolean {
@@ -212,7 +268,18 @@ export class Controller {
     });
   }
 
+  private async _matchAndPlaySong(message: string) {
+    const matches = [...message.matchAll(shortnameMatcher)];
+    if (matches && matches[0] && matches[0].length > 0) {
+      const songname = matches[0].at(1);
+      console.log(songname);
+      this.songController.playSong(songname!);
+    }
+  }
+
   private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
+    this._matchAndPlaySong(message);
+
     const voice = this.voice.getVoiceMapForUser(user);
     const filtered = this.isFiltered(message);
     this.updateChatLog(`${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`);
