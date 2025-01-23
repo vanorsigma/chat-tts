@@ -55,6 +55,7 @@ class SongController {
           this.songsPlaying = this.songsPlaying.filter(song => song !== songname);
           previousPause();
         }
+        synth.volume = 0.5;
         synth.play();
         return true;
       }
