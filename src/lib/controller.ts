@@ -45,6 +45,12 @@ class SongController {
     }
   }
 
+  cancelSong() {
+    if (this.masterSynth) {
+      this.masterSynth.pause();
+    }
+  }
+
   async playSong(songname: string): Promise<boolean> {
     // NOTE: legacy code. If I ever switch back to allowing multiple songs
     // at once, at least this'll still be there
@@ -326,11 +332,16 @@ export class Controller {
       return;
     }
 
-    await this.voice.processMessage(user, message, async (speed) => {
-      await this.songController.changeSpeed(speed);
-    }, async () => {
-      await this.obsController?.updateSceneWith(user, voice);
-    });
+    await this.voice.processMessage(
+      user,
+      message,
+      async (speed) => {
+        await this.songController.changeSpeed(speed);
+      },
+      async () => {
+        await this.obsController?.updateSceneWith(user, voice);
+      }
+    );
   }
 
   async start() {
@@ -347,6 +358,7 @@ export class Controller {
 
   async cancel() {
     this.voice.cancel();
+    this.songController.cancelSong();
   }
 
   async end() {
