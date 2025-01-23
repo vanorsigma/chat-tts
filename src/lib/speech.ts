@@ -1,7 +1,7 @@
 // Mostly copied from this example:
 // https://github.com/mdn/dom-examples/blob/main/web-speech-api/speak-easy-synthesis/script.js
 
-import type { AlternativePitchControl, SoundEffect } from "./config";
+import type { AlternativePitchControl, SoundEffect } from './config';
 
 const synth = window.speechSynthesis;
 let currentWaiter: Promise<void> | null = null;
@@ -31,8 +31,8 @@ export async function setPitchForAlternatePitchControl(pitch: number, controlURL
   return fetch(controlURL + `?pitch=${clampedPitch}`, {
     method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
-    },
+      'Content-Type': 'application/json'
+    }
   });
 }
 
@@ -52,7 +52,7 @@ export function getVoicesList(): SpeechSynthesisVoice[] {
 }
 
 export function selectVoiceByName(name: string): SpeechSynthesisVoice | undefined {
-  return synth.getVoices().find(voice => voice.name === name);
+  return synth.getVoices().find((voice) => voice.name === name);
 }
 
 function makeTextSegments(text: string, tags: string[]): TextSegment[] {
@@ -92,8 +92,10 @@ function makeTextSegments(text: string, tags: string[]): TextSegment[] {
 }
 
 function breakIntoSegments(baseOptions: SpeakOptions, text: string): SpeakOptions[] {
-  const soundEffectTokens = baseOptions.speakConfiguration.possibleSoundEffects.map(effect => effect.tag);
-  const tags = ["[high]", "[low]", "[fast]", "[slow]", "[iden]", ...soundEffectTokens];
+  const soundEffectTokens = baseOptions.speakConfiguration.possibleSoundEffects.map(
+    (effect) => effect.tag
+  );
+  const tags = ['[high]', '[low]', '[fast]', '[slow]', '[iden]', ...soundEffectTokens];
   const textSegments = makeTextSegments(text, tags);
   const speakOptions = [];
 
@@ -102,19 +104,19 @@ function breakIntoSegments(baseOptions: SpeakOptions, text: string): SpeakOption
     let rate = baseOptions.rate;
     for (const tag of segment.tags) {
       switch (tag) {
-        case "[high]":
+        case '[high]':
           pitch *= 1.05;
           break;
-        case "[low]":
+        case '[low]':
           pitch *= 0.95;
           break;
-        case "[fast]":
+        case '[fast]':
           rate *= 1.05;
           break;
-        case "[slow]":
+        case '[slow]':
           rate *= 0.95;
           break;
-        case "[iden]":
+        case '[iden]':
           pitch *= 1;
           rate *= 1;
           break;
@@ -125,8 +127,10 @@ function breakIntoSegments(baseOptions: SpeakOptions, text: string): SpeakOption
             voice: baseOptions.voice,
             text: '',
             speakConfiguration: baseOptions.speakConfiguration,
-            soundEffect: baseOptions.speakConfiguration.possibleSoundEffects.find(effect => effect.tag === tag)!
-          })
+            soundEffect: baseOptions.speakConfiguration.possibleSoundEffects.find(
+              (effect) => effect.tag === tag
+            )!
+          });
           continue;
       }
     }
@@ -135,7 +139,7 @@ function breakIntoSegments(baseOptions: SpeakOptions, text: string): SpeakOption
       rate,
       voice: baseOptions.voice,
       text: segment.text,
-      speakConfiguration: baseOptions.speakConfiguration,
+      speakConfiguration: baseOptions.speakConfiguration
     });
   }
 
@@ -154,7 +158,11 @@ export async function playAudio(url: string, volume: number, rate: number): Prom
   });
 }
 
-export async function speak(options: SpeakOptions, onVoiceStart: () => void): Promise<void> {
+export async function speak(
+  options: SpeakOptions,
+  onSpeedChange: (arg0: number) => void,
+  onVoiceStart: () => void
+): Promise<void> {
   while (synth.speaking && currentWaiter) {
     await currentWaiter;
   }
@@ -164,14 +172,14 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
   let doOnce = () => {
     onVoiceStart();
     doOnce = () => {};
-  }
+  };
 
   cancellation = () => {
     synth.cancel();
     cancellation = null;
   };
 
-  currentWaiter = async function () {
+  currentWaiter = (async function () {
     for (const segment of segments) {
       // if the cancellation was unassigned, it means that we've consumed it
       if (cancellation == null) {
@@ -181,8 +189,10 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
       // if it's a sound effect, we can play immediately
       if (segment.soundEffect) {
         if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
-          await setPitchForAlternatePitchControl(segment.pitch,
-            options.speakConfiguration.alternativePitchControl!.controlURL!);
+          await setPitchForAlternatePitchControl(
+            segment.pitch,
+            options.speakConfiguration.alternativePitchControl!.controlURL!
+          );
         }
         await playAudio(segment.soundEffect.filePath, 0.5, segment.rate);
         continue;
@@ -200,7 +210,7 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
           //   setPitchForAlternatePitchControl(1.0, options.alternativePitchControl!.controlURL!);
           // }
           resolve(0);
-        }
+        };
         utterThis.onerror = () => resolve(0);
 
         utterThis.voice = options.voice;
@@ -212,11 +222,13 @@ export async function speak(options: SpeakOptions, onVoiceStart: () => void): Pr
           utterThis.pitch = Math.max(0.0, segment.pitch);
         }
         utterThis.rate = Math.max(0.0, segment.rate);
+        console.log("speed should change");
+        onSpeedChange(utterThis.rate);
         doOnce();
         synth.speak(utterThis);
       });
     }
-  }();
+  })();
 
   return currentWaiter;
 }
