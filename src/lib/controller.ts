@@ -1,66 +1,85 @@
 import { writable, type Readable, type Writable } from 'svelte/store';
-import tmi from "tmi.js";
+import tmi from 'tmi.js';
 import { createNewTwitchClient } from './twitch';
 import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech';
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
-import { Synth } from "beepbox";
+import { Synth } from 'beepbox';
 
 const shortnameMatcher = /<(\w+)>/g;
 
 interface VoiceSettings {
-  voice: SpeechSynthesisVoice,
-  pitch: number,
-  rate: number
+  voice: SpeechSynthesisVoice;
+  pitch: number;
+  rate: number;
 }
 
 class SongController {
   private songsPlaying: string[] = [];
+  private masterSynth?: Synth;
+  private expectedTempo?: number;
 
   async getSongs(): Promise<string[]> {
     const response = await fetch('/songs');
     if (response.status !== 200) {
-      throw new Error("cannot fetch from songs endpoint");
+      throw new Error('cannot fetch from songs endpoint');
     }
 
-    return await response.json()
+    return await response.json();
   }
 
   async getSong(songname: string): Promise<string> {
     const response = await fetch(`/song?songname=${songname}`);
     if (response.status !== 200) {
-      throw new Error("cannot fetch from songs endpoint");
+      throw new Error('cannot fetch from songs endpoint');
     }
 
     return (await response.json())['base64'];
   }
 
+  async changeSpeed(speed: number) {
+    console.log(`speed changed to: ${speed}, synth is ${this.masterSynth}`);
+    if (this.masterSynth) {
+      this.masterSynth.song!.tempo = (this.expectedTempo ?? 150) * speed;
+    }
+  }
+
   async playSong(songname: string): Promise<boolean> {
+    // NOTE: legacy code. If I ever switch back to allowing multiple songs
+    // at once, at least this'll still be there
     if (this.songsPlaying.includes(songname)) {
       return false;
+    }
+
+    if (this.masterSynth) {
+      this.masterSynth.pause();
     }
 
     try {
       if ((await this.getSongs()).includes(songname)) {
         const song = await this.getSong(songname);
         const synth = new Synth(song);
+        this.masterSynth = synth;
+        console.log('synthcheck', this.masterSynth);
+        this.expectedTempo = synth.song!.tempo;
         synth.song!.loopLength = 0;
         synth.loopRepeatCount = 0;
 
-        const previousPause = synth.pause.bind(synth);
+        const oldPause = synth.pause.bind(synth);
         this.songsPlaying.push(songname);
 
         synth.pause = () => {
-          this.songsPlaying = this.songsPlaying.filter(song => song !== songname);
-          previousPause();
-        }
-        synth.volume = 0.5;
+          this.songsPlaying = this.songsPlaying.filter((song) => song !== songname);
+          this.masterSynth = undefined;
+          oldPause();
+        };
+        synth.volume = 0.6;
         synth.play();
         return true;
       }
     } catch (e) {
-      console.error('Problem with playing beepbox song: ', e)
+      console.error('Problem with playing beepbox song: ', e);
       return false;
     }
     return false;
@@ -101,10 +120,10 @@ class ObsController {
 
   stringToColour(str: string): number {
     let hash = 0;
-    str.split('').forEach(char => {
-      hash = char.charCodeAt(0) + ((hash << 5) - hash)
-    })
-    let color = 'FF'
+    str.split('').forEach((char) => {
+      hash = char.charCodeAt(0) + ((hash << 5) - hash);
+    });
+    let color = 'FF';
     for (let i = 0; i < 3; i++) {
       const value = (hash >> (i * 8)) & 0xff;
       color += value.toString(16).padStart(2, '0');
@@ -120,11 +139,11 @@ class ObsController {
 
       const timeoutHandle = setTimeout(async () => {
         await this.connect();
-        this.cancellations = this.cancellations.filter(val => val !== timeoutHandle);
+        this.cancellations = this.cancellations.filter((val) => val !== timeoutHandle);
       }, 5000);
 
       this.cancellations.push(timeoutHandle);
-    })
+    });
 
     console.log('Connected from WS successfully');
     this.setConnected(true);
@@ -139,10 +158,11 @@ class ObsController {
   async updateSceneWith(user: tmi.ChatUserstate, voice: VoiceSettings) {
     const color = this.stringToColour(voice.voice.name);
     await this.obs.call('SetInputSettings', {
-      inputName: this.settings.sourceName, inputSettings: {
-        "text": `${user.username}`,
-        "color1": color,
-        "color2": color,
+      inputName: this.settings.sourceName,
+      inputSettings: {
+        text: `${user.username}`,
+        color1: color,
+        color2: color
       }
     });
   }
@@ -158,7 +178,7 @@ class VoiceController {
   }
 
   validateVoices() {
-    this.config.voices.forEach(name => {
+    this.config.voices.forEach((name) => {
       if (!selectVoiceByName(name)) {
         console.error(`${name} is invalid. May cause issues.`);
       }
@@ -174,7 +194,7 @@ class VoiceController {
     this.usernameVoiceMap.set(user.username ?? '', {
       voice: voice,
       pitch: this.chooseRandomPitch(),
-      rate: this.chooseRandomRate(),
+      rate: this.chooseRandomRate()
     });
     return voice;
   }
@@ -187,13 +207,13 @@ class VoiceController {
   chooseRandomPitch(): number {
     const max = this.config.pitchRange.maximum;
     const min = this.config.pitchRange.minimum;
-    return (Math.random() * (max - min)) + min;
+    return Math.random() * (max - min) + min;
   }
 
   chooseRandomRate(): number {
     const max = this.config.rateRange.maximum;
     const min = this.config.rateRange.minimum;
-    return (Math.random() * (max - min)) + min;
+    return Math.random() * (max - min) + min;
   }
 
   cancel() {
@@ -201,7 +221,7 @@ class VoiceController {
   }
 
   getVoiceMapForUser(user: tmi.ChatUserstate): VoiceSettings {
-    if (!user.username) throw new Error("no username in chat state");
+    if (!user.username) throw new Error('no username in chat state');
 
     const username = user.username;
 
@@ -213,18 +233,27 @@ class VoiceController {
     return voiceSettings;
   }
 
-  async processMessage(user: tmi.ChatUserstate, message: string, onSpeechStart: () => void) {
+  async processMessage(
+    user: tmi.ChatUserstate,
+    message: string,
+    onSpeedChange: (arg0: number) => void,
+    onSpeechStart: () => void
+  ) {
     const voiceSettings = this.getVoiceMapForUser(user);
-    await speak({
-      pitch: voiceSettings.pitch,
-      rate: voiceSettings.rate,
-      text: message,
-      voice: voiceSettings.voice,
-      speakConfiguration: {
-        possibleSoundEffects: this.config.soundEffects,
-        alternativePitchControl: this.config.alternativePitchControl,
+    await speak(
+      {
+        pitch: voiceSettings.pitch,
+        rate: voiceSettings.rate,
+        text: message,
+        voice: voiceSettings.voice,
+        speakConfiguration: {
+          possibleSoundEffects: this.config.soundEffects,
+          alternativePitchControl: this.config.alternativePitchControl
+        }
       },
-    }, onSpeechStart);
+      onSpeedChange,
+      onSpeechStart
+    );
   }
 }
 
@@ -264,7 +293,7 @@ export class Controller {
   }
 
   updateChatLog(entry: string) {
-    this.chat_logs.update(val => {
+    this.chat_logs.update((val) => {
       return [...val, entry];
     });
   }
@@ -283,7 +312,9 @@ export class Controller {
 
     const voice = this.voice.getVoiceMapForUser(user);
     const filtered = this.isFiltered(message);
-    this.updateChatLog(`${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`);
+    this.updateChatLog(
+      `${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
+    );
 
     if (filtered) {
       return;
@@ -295,14 +326,16 @@ export class Controller {
       return;
     }
 
-    await this.voice.processMessage(user, message, async () => {
+    await this.voice.processMessage(user, message, async (speed) => {
+      await this.songController.changeSpeed(speed);
+    }, async () => {
       await this.obsController?.updateSceneWith(user, voice);
     });
   }
 
   async start() {
     this.twitch.on('connected', () => {
-      console.log('connected.')
+      console.log('connected.');
     });
 
     this.twitch.on('message', async (_x, user, message, _y) => {
