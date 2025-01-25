@@ -39,15 +39,19 @@ export function saveSong(shortname: string, user: string, base64: string): Promi
 
 export function getSong(shortname: string): Promise<Song> {
   return new Promise((resolve, reject) => {
-    db.all('SELECT shortname, user, base64 from songs WHERE shortname = ?', [shortname], (e, result) => {
-      if (e) {
-        console.warn('database error', e);
-        reject(e);
-        return;
-      }
+    db.all(
+      'SELECT shortname, user, base64 from songs WHERE shortname = ?',
+      [shortname],
+      (e, result) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
 
-      resolve(result[0] as Song);
-    });
+        resolve(result[0] as Song);
+      }
+    );
   });
 }
 
@@ -61,6 +65,20 @@ export async function listSongs(): Promise<Song[]> {
       }
 
       resolve(result as Song[]);
+    });
+  });
+}
+
+export async function deleteSong(shortname: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM songs WHERE shortname = ?', [shortname], (e) => {
+      if (e) {
+        console.warn('database error', e);
+        reject(e);
+        return;
+      }
+
+      resolve();
     });
   });
 }
