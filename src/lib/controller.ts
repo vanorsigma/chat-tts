@@ -39,8 +39,8 @@ class SongController {
   }
 
   async changeSpeed(speed: number) {
-    console.log(`speed changed to: ${speed}, synth is ${this.masterSynth}`);
     if (this.masterSynth) {
+      console.log(`song speed speed changed to: ${speed}`);
       this.masterSynth.song!.tempo = (this.expectedTempo ?? 150) * speed;
     }
   }
@@ -58,12 +58,12 @@ class SongController {
       return false;
     }
 
-    if (this.masterSynth) {
-      this.masterSynth.pause();
-    }
-
     try {
       if ((await this.getSongs()).includes(songname)) {
+        if (this.masterSynth) {
+          this.masterSynth.pause();
+        }
+
         const song = await this.getSong(songname);
         const synth = new Synth(song);
         this.masterSynth = synth;
@@ -308,7 +308,6 @@ export class Controller {
     const matches = [...message.matchAll(shortnameMatcher)];
     if (matches && matches[0] && matches[0].length > 0) {
       const songname = matches[0].at(1);
-      console.log(songname);
       this.songController.playSong(songname!);
     }
   }
