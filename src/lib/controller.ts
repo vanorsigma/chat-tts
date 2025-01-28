@@ -312,7 +312,7 @@ export class Controller {
     }
   }
 
-  private async updateWithMessage(user: tmi.ChatUserstate, message: string) {
+  async updateWithMessage(user: tmi.ChatUserstate, message: string) {
     this._matchAndPlaySong(message);
 
     const voice = this.voice.getVoiceMapForUser(user);
