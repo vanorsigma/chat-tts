@@ -3,6 +3,7 @@
   import ConfigDisplay from '$lib/ConfigDisplay.svelte';
   import { Controller } from '$lib/controller';
   import Editor from '$lib/Editor.svelte';
+  import Faker from '$lib/Faker.svelte';
   import { getVoicesList } from '$lib/speech';
   import { onDestroy, onMount } from 'svelte';
   import { readable } from 'svelte/store';
@@ -73,6 +74,12 @@
     {/each}
   </select>
   <pre>{selectedVoice?.name}</pre>
+</section>
+
+<section>
+  <h2>Faker</h2>
+  <p>Sends a mock message to the chat logs</p>
+  <Faker onSend={(state, msg) => controller?.updateWithMessage(state, msg)} />
 </section>
 
 <section>
