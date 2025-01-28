@@ -15,7 +15,13 @@ interface VoiceSettings {
   rate: number;
 }
 
-class SongController {
+interface SongController {
+  playSong(songname: string): Promise<boolean>;
+  changeSpeed(speed: number): Promise<void>;
+  cancelSong(): void;
+}
+
+class LocalSongController implements SongController {
   private songsPlaying: string[] = [];
   private masterSynth?: Synth;
   private expectedTempo?: number;
@@ -285,7 +291,7 @@ export class Controller {
       this.obsController = new ObsController(config.obsSettings);
     }
     this.filters = config.filteredExps;
-    this.songController = new SongController();
+    this.songController = new LocalSongController();
   }
 
   private isFiltered(message: string): boolean {
