@@ -1,1 +1,1 @@
-../../../discordbot/db.ts
+../../../support/db.ts

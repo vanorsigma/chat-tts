@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { Synth } from 'beepbox';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from './db';
+import { startWebsocketServer } from './websocket';
 
 const token = process.env['DISCORD_BOT'];
 const adminUser = process.env['DISCORD_ADMIN_USER'];
@@ -95,4 +96,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+startWebsocketServer();
 client.login(token);
