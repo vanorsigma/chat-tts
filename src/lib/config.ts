@@ -17,13 +17,22 @@ export interface SoundEffect {
 }
 
 export interface AlternativePitchControl {
-  controlURL: string,
+  controlURLs: string[];
 }
 
 export interface ObsSettings {
-  obsURL: string,
-  password: string,
-  sourceName: string,
+  obsURL: string;
+  password: string;
+  sourceName: string;
+}
+
+export interface StandaloneSongConfig {
+  wsUrl: string;
+}
+
+// For anything adjustable from the UI
+export interface DynamicConfig {
+  songPitchSpeedAffected: boolean;
 }
 
 export class ParseableConfig {
@@ -35,21 +44,28 @@ export class ParseableConfig {
   rateRange?: RangeConfigOptional;
   filteredExps?: string[];
   soundEffects?: SoundEffect[];
+  standaloneSongConfig?: StandaloneSongConfig;
 
   constructor(arbitraryObject: any) {
-    this.channelName = arbitraryObject["channelName"];
+    this.channelName = arbitraryObject['channelName'];
     this.obsSettings = this.verifyObsSettings(arbitraryObject);
-    this.alternativePitchControl = arbitraryObject["alternativePitchControl"];
-    this.voices = arbitraryObject["voices"];
-    this.pitchRange = arbitraryObject["pitchRange"];
-    this.rateRange = arbitraryObject["rateRange"];
-    this.filteredExps = arbitraryObject["filteredExps"];
-    this.soundEffects = arbitraryObject["soundEffects"];
+    this.alternativePitchControl = arbitraryObject['alternativePitchControl'];
+    this.voices = arbitraryObject['voices'];
+    this.pitchRange = arbitraryObject['pitchRange'];
+    this.rateRange = arbitraryObject['rateRange'];
+    this.filteredExps = arbitraryObject['filteredExps'];
+    this.soundEffects = arbitraryObject['soundEffects'];
+    this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
   }
 
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
-    if (arbitrary["obsSettings"] && arbitrary["obsSettings"]["obsURL"] && arbitrary["obsSettings"]["password"] && arbitrary["obsSettings"]["sourceName"]) {
-      return arbitrary["obsSettings"] as ObsSettings;
+    if (
+      arbitrary['obsSettings'] &&
+      arbitrary['obsSettings']['obsURL'] &&
+      arbitrary['obsSettings']['password'] &&
+      arbitrary['obsSettings']['sourceName']
+    ) {
+      return arbitrary['obsSettings'] as ObsSettings;
     }
     return undefined;
   }
@@ -62,14 +78,18 @@ export class ParseableConfig {
       alternativePitchControl: this.alternativePitchControl,
       pitchRange: {
         maximum: this.pitchRange?.maximum ?? 1.3,
-        minimum: this.pitchRange?.minimum ?? 0.95,
+        minimum: this.pitchRange?.minimum ?? 0.95
       },
       rateRange: {
         maximum: this.rateRange?.maximum ?? 2.0,
-        minimum: this.rateRange?.minimum ?? 0.7,
+        minimum: this.rateRange?.minimum ?? 0.7
       },
       filteredExps: this.filteredExps ?? [],
       soundEffects: this.soundEffects ?? [],
+      standaloneSongConfig: this.standaloneSongConfig,
+      dynamicConfig: {
+        songPitchSpeedAffected: true
+      }
     };
   }
 }
@@ -83,6 +103,8 @@ export interface FullConfig {
   rateRange: RangeConfig;
   filteredExps: string[];
   soundEffects: SoundEffect[];
+  standaloneSongConfig?: StandaloneSongConfig;
+  dynamicConfig: DynamicConfig;
 }
 
 export function parseYaml(input: string): ParseableConfig {

@@ -6,14 +6,10 @@ voices:
   - "English (America)+female2"
   - "English (America)+female3"
   - "English (America)+female4"
-obsSettings:
-  obsURL: "ws://localhost:4455"
-  password: "somepassword"
-  sourceName: "Chat"
-alternativePitchControl:
-  controlURL: "http://localhost:8085"
 soundEffects:
   - tag: "(metalpipes)"
     filePath: "https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3"
+standaloneSongConfig:
+  wsUrl: "ws://localhost:3001/senders"
 filteredExps:
   - "[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"

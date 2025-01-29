@@ -188,11 +188,9 @@ export async function speak(
 
       // if it's a sound effect, we can play immediately
       if (segment.soundEffect) {
-        if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
-          await setPitchForAlternatePitchControl(
-            segment.pitch,
-            options.speakConfiguration.alternativePitchControl!.controlURL!
-          );
+        const controlURLs = options.speakConfiguration.alternativePitchControl?.controlURLs ?? [];
+        for (const controlUrl of controlURLs) {
+          await setPitchForAlternatePitchControl(segment.pitch, controlUrl);
         }
         await playAudio(segment.soundEffect.filePath, 0.5, segment.rate);
         continue;
@@ -214,15 +212,17 @@ export async function speak(
         utterThis.onerror = () => resolve(0);
 
         utterThis.voice = options.voice;
-        if (options.speakConfiguration.alternativePitchControl?.controlURL ?? '') {
+        if (options.speakConfiguration.alternativePitchControl?.controlURLs.length ?? 0) {
           utterThis.pitch = 1.0;
-          const controlUrl = options.speakConfiguration.alternativePitchControl!.controlURL!;
-          setPitchForAlternatePitchControl(segment.pitch, controlUrl);
+          const controlUrls = options.speakConfiguration.alternativePitchControl!.controlURLs!;
+          for (const controlUrl of controlUrls) {
+            setPitchForAlternatePitchControl(segment.pitch, controlUrl);
+          }
         } else {
           utterThis.pitch = Math.max(0.0, segment.pitch);
         }
         utterThis.rate = Math.max(0.0, segment.rate);
-        console.log("speed should change");
+        console.log('speed should change');
         onSpeedChange(utterThis.rate);
         doOnce();
         synth.speak(utterThis);

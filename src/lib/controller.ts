@@ -21,7 +21,35 @@ interface SongController {
   cancelSong(): void;
 }
 
-class LocalSongController implements SongController {
+class RemoteSongController implements SongController {
+  private socket: WebSocket;
+
+  constructor(senderUrl: string) {
+    this.socket = new WebSocket(senderUrl);
+    this.socket.onopen = () => {
+      console.log('connected to remote song controller');
+    };
+
+    this.socket.onclose = () => {
+      console.log('disconnected from remote song controller');
+    };
+  }
+
+  async playSong(songname: string): Promise<boolean> {
+    this.socket.send(JSON.stringify({ type: 'play', songname: songname }));
+    return true;
+  }
+
+  async changeSpeed(speed: number): Promise<void> {
+    this.socket.send(JSON.stringify({ type: 'speed', speed: speed }));
+  }
+
+  cancelSong(): void {
+    this.socket.send(JSON.stringify({ type: 'cancel' }));
+  }
+}
+
+export class LocalSongController implements SongController {
   private songsPlaying: string[] = [];
   private masterSynth?: Synth;
   private expectedTempo?: number;
@@ -280,6 +308,7 @@ export class Controller {
   commands: CommandController;
   obsController?: ObsController;
   songController: SongController;
+  config: FullConfig;
   filters: string[];
 
   constructor(config: FullConfig) {
@@ -291,7 +320,10 @@ export class Controller {
       this.obsController = new ObsController(config.obsSettings);
     }
     this.filters = config.filteredExps;
-    this.songController = new LocalSongController();
+    this.songController = config.standaloneSongConfig
+      ? new RemoteSongController(config.standaloneSongConfig.wsUrl)
+      : new LocalSongController();
+    this.config = config;
   }
 
   private isFiltered(message: string): boolean {
@@ -341,7 +373,9 @@ export class Controller {
       user,
       message,
       async (speed) => {
-        await this.songController.changeSpeed(speed);
+        if (this.config.dynamicConfig.songPitchSpeedAffected) {
+          await this.songController.changeSpeed(speed);
+        }
       },
       async () => {
         await this.obsController?.updateSceneWith(user, voice);
