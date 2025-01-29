@@ -35,8 +35,11 @@
     config = parseYaml(configText).toFullConfig();
     controller?.end();
 
+    const voicemap = controller?.voice.dumpVoiceMap() ?? new Map();
+
     controller = new Controller(config);
     controller?.start();
+    controller?.voice.loadVoiceMap(voicemap);
 
     previousConfigText = configText;
   }

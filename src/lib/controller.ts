@@ -273,6 +273,14 @@ class VoiceController {
     return voiceSettings;
   }
 
+  dumpVoiceMap(): Map<string, VoiceSettings> {
+    return this.usernameVoiceMap;
+  }
+
+  loadVoiceMap(map: Map<string, VoiceSettings>) {
+    this.usernameVoiceMap = map;
+  }
+
   async processMessage(
     user: tmi.ChatUserstate,
     message: string,
@@ -402,6 +410,7 @@ export class Controller {
 
   async end() {
     await this.twitch.disconnect();
+    await this.cancel();
   }
 
   getChatLogsStore(): Readable<string[]> {
