@@ -87,6 +87,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.reply({ content: `Error deleting ${shortname}` });
       return;
     }
+
+    await interaction.reply({ content: `Deleted ${shortname}` });
   }
 
   try {
