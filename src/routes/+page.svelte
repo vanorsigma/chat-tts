@@ -87,6 +87,22 @@
   {#if config}
     <ConfigDisplay {config} />
   {/if}
+  <label for="song-no-speed">
+    <input
+      name="song-no-speed"
+      type="checkbox"
+      disabled={!config}
+      bind:checked={
+        () => config?.dynamicConfig.songPitchSpeedAffected,
+        (value) => {
+          if (config) {
+            config.dynamicConfig.songPitchSpeedAffected = value ?? false;
+          }
+        }
+      }
+    />
+    Pitch & Speed modifies song
+  </label>
   <p>Paste the YAML file here and click "Reload config."</p>
   <Editor bind:configText />
   <button on:click={onReloadConfig} disabled={previousConfigText.trim() === configText.trim()}
