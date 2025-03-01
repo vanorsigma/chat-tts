@@ -237,6 +237,27 @@ class ObsController {
       },
     });
   }
+
+  async resetMainMonitorRotation() {
+    const { sceneName } = await this.obs.call('GetCurrentProgramScene');
+
+    const { sceneItemId } = await this.obs.call('GetSceneItemId', {
+      sceneName,
+      sourceName: this.settings.mainMonitorName
+    });
+
+    if (sceneItemId === undefined) {
+      throw new Error('scene item id is undefined');
+    }
+
+    await this.obs.call('SetSceneItemTransform', {
+      sceneName,
+      sceneItemId: sceneItemId,
+      sceneItemTransform: {
+        rotation: 0
+      },
+    });
+  }
 }
 
 class VoiceController {
@@ -438,6 +459,7 @@ export class Controller {
   async cancel() {
     this.voice.cancel();
     this.songController.cancelSong();
+    this.obsController?.resetMainMonitorRotation();
   }
 
   async end() {
