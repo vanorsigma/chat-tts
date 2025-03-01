@@ -3,6 +3,9 @@ import { Synth } from 'beepbox';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from './db';
 import { startWebsocketServer } from './websocket';
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const token = process.env['DISCORD_BOT'];
 const adminUser = process.env['DISCORD_ADMIN_USER'];
 // const channelId = process.env['DISCORD_CHANNEL_ID']; // TODO: use env
