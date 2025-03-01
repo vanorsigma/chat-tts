@@ -129,7 +129,7 @@ export class LocalSongController implements SongController {
 class CommandController {
   getCommand(msg: string): Command | null {
     for (const key of COMMANDS.keys()) {
-      if (msg === LEADER + key) {
+      if (msg.toLowerCase() === LEADER + key) {
         return COMMANDS.get(key)!;
       }
     }
@@ -204,6 +204,37 @@ class ObsController {
         color1: color,
         color2: color
       }
+    });
+  }
+
+  async rotateMainMonitorSceneBy(angle: number) {
+    const { sceneName } = await this.obs.call('GetCurrentProgramScene');
+
+    const { sceneItemId } = await this.obs.call('GetSceneItemId', {
+      sceneName,
+      sourceName: this.settings.mainMonitorName
+    });
+
+    if (sceneItemId === undefined) {
+      throw new Error('scene item id is undefined');
+    }
+
+    const { sceneItemTransform } = await this.obs.call('GetSceneItemTransform', {
+      sceneName,
+      sceneItemId: sceneItemId
+    });
+    const { rotation } = sceneItemTransform;
+
+    if (rotation === undefined || rotation == null) { // rotation is potentially 0, so we can't do !rotation
+      throw new Error('rotation is undefined');
+    }
+
+    await this.obs.call('SetSceneItemTransform', {
+      sceneName,
+      sceneItemId: sceneItemId,
+      sceneItemTransform: {
+        rotation: Number(rotation) + angle
+      },
     });
   }
 }
@@ -396,6 +427,7 @@ export class Controller {
       console.log('connected.');
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     this.twitch.on('message', async (_x, user, message, _y) => {
       await this.updateWithMessage(user, message);
     });

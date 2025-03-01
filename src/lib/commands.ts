@@ -6,6 +6,7 @@ export abstract class Command {
 }
 
 class RefreshVoice extends Command {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
     controller.voice.refreshUser(user);
     controller.updateChatLog(`${user.username}'s voice was refreshed.`)
@@ -13,8 +14,22 @@ class RefreshVoice extends Command {
   }
 }
 
+class Rotate extends Command {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
+    if (controller.obsController === undefined) {
+      return true;
+    }
+
+    controller.obsController?.rotateMainMonitorSceneBy(1.0);
+    controller.updateChatLog(`${user.username} rotated the screen.`)
+    return true;
+  }
+}
+
 export const COMMANDS = new Map([
-  ['refreshVoice', new RefreshVoice()]
+  ['refreshvoice', new RefreshVoice()],
+  ['rotate', new Rotate()],
 ]);
 
 export const LEADER = '%';
