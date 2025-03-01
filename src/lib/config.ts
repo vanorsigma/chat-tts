@@ -24,6 +24,7 @@ export interface ObsSettings {
   obsURL: string;
   password: string;
   sourceName: string;
+  mainMonitorName: string;
 }
 
 export interface StandaloneSongConfig {
