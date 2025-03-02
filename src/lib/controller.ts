@@ -229,11 +229,20 @@ class ObsController {
       throw new Error('rotation is undefined');
     }
 
+    const numRotation = Number(rotation);
+    const newAngle = (numRotation + angle) % 360;
+    const asRadians = (angle: number) => angle * (Math.PI / 180);
+
+    const newWidth = 1920 * Math.abs(Math.cos(asRadians(newAngle))) + 1080 * Math.abs(Math.sin(asRadians(newAngle)));
+    const newHeight = 1080 * Math.abs(Math.cos(asRadians(newAngle))) + 1920 * Math.abs(Math.sin(asRadians(newAngle)));
+
     await this.obs.call('SetSceneItemTransform', {
       sceneName,
       sceneItemId: sceneItemId,
       sceneItemTransform: {
-        rotation: Number(rotation) + angle
+        rotation: newAngle,
+        scaleX: 1920 / newWidth,
+        scaleY: 1080 / newHeight,
       },
     });
   }
@@ -254,7 +263,9 @@ class ObsController {
       sceneName,
       sceneItemId: sceneItemId,
       sceneItemTransform: {
-        rotation: 0
+        rotation: 0,
+        scaleX: 1.0,
+        scaleY: 1.0,
       },
     });
   }
@@ -427,6 +438,11 @@ export class Controller {
     if (potentialCommand) {
       potentialCommand.processCommandMessage(this, user, message);
       return;
+    }
+
+    // random chance to rotate the screen
+    if (Math.random() < 0.1 && this.obsController) {
+      await this.obsController.rotateMainMonitorSceneBy(Math.random() * 360);
     }
 
     await this.voice.processMessage(
