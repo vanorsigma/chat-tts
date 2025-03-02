@@ -64,7 +64,8 @@ export class ParseableConfig {
       arbitrary['obsSettings'] &&
       arbitrary['obsSettings']['obsURL'] &&
       arbitrary['obsSettings']['password'] &&
-      arbitrary['obsSettings']['sourceName']
+      arbitrary['obsSettings']['sourceName'] &&
+      arbitrary['obsSettings']['mainMonitorName']
     ) {
       return arbitrary['obsSettings'] as ObsSettings;
     }
