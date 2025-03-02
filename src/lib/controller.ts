@@ -222,6 +222,7 @@ class ObsController {
     if (this.rotating) {
       return;
     }
+    this.rotating = true;
 
     const sceneItemMappings = [];
     const { sceneName } = await this.obs.call('GetCurrentProgramScene');
