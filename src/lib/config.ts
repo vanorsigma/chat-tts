@@ -24,7 +24,7 @@ export interface ObsSettings {
   obsURL: string;
   password: string;
   sourceName: string;
-  mainMonitorName: string;
+  rotationNames: string[];
 }
 
 export interface StandaloneSongConfig {
@@ -65,7 +65,7 @@ export class ParseableConfig {
       arbitrary['obsSettings']['obsURL'] &&
       arbitrary['obsSettings']['password'] &&
       arbitrary['obsSettings']['sourceName'] &&
-      arbitrary['obsSettings']['mainMonitorName']
+      arbitrary['obsSettings']['rotationNames']
     ) {
       return arbitrary['obsSettings'] as ObsSettings;
     }

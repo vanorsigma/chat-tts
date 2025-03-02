@@ -2,12 +2,12 @@ import type { Controller } from "./controller"; // type imports don't end up cir
 import tmi from "tmi.js";
 
 export abstract class Command {
-  abstract processCommandMessage(controller: Controller, user: tmi.ChatUserstate, message: string): boolean;
+  abstract processCommandMessage(controller: Controller, user: tmi.ChatUserstate, message: string): Promise<boolean>;
 }
 
 class RefreshVoice extends Command {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
+  async processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
     controller.voice.refreshUser(user);
     controller.updateChatLog(`${user.username}'s voice was refreshed.`)
     return true;
@@ -16,12 +16,13 @@ class RefreshVoice extends Command {
 
 class Rotate extends Command {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
+  async processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
     if (controller.obsController === undefined) {
       return true;
     }
 
-    controller.obsController?.rotateMainMonitorSceneBy(1.0);
+    await controller.obsController.rotateSourcesRandomly(controller.config.obsSettings?.rotationNames ?? []);
+
     controller.updateChatLog(`${user.username} rotated the screen.`)
     return true;
   }
