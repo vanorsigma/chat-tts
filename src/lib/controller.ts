@@ -9,6 +9,15 @@ import { Synth } from 'beepbox';
 
 const shortnameMatcher = /<(\w+)>/g;
 
+function sleep(duration: number): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return new Promise((resolve, _) => {
+    setTimeout(() => {
+      resolve();
+    }, duration);
+  });
+}
+
 interface VoiceSettings {
   voice: SpeechSynthesisVoice;
   pitch: number;
@@ -143,6 +152,7 @@ class ObsController {
   settings: ObsSettings;
   connected: Writable<boolean>;
   _connected: boolean;
+  private rotating: boolean;
 
   cancellations: Array<ReturnType<typeof setTimeout>> = [];
 
@@ -151,6 +161,7 @@ class ObsController {
     this.settings = settings;
     this.connected = writable(false);
     this._connected = false;
+    this.rotating = false;
   }
 
   private setConnected(val: boolean) {
@@ -207,52 +218,78 @@ class ObsController {
     });
   }
 
-  async rotateMainMonitorSceneBy(angle: number) {
+  async rotateSourcesRandomly(sourceNames: string[]) {
+    if (this.rotating) {
+      return;
+    }
+
+    const sceneItemMappings = [];
     const { sceneName } = await this.obs.call('GetCurrentProgramScene');
+    for (const sourceName of sourceNames) {
+      const { sceneItemId } = await this.obs.call('GetSceneItemId', {
+        sceneName,
+        sourceName
+      });
 
-    const { sceneItemId } = await this.obs.call('GetSceneItemId', {
-      sceneName,
-      sourceName: this.settings.mainMonitorName
-    });
+      if (sceneItemId === undefined) {
+        throw new Error('scene item id is undefined');
+      }
 
-    if (sceneItemId === undefined) {
-      throw new Error('scene item id is undefined');
+      const { sceneItemTransform } = await this.obs.call('GetSceneItemTransform', {
+        sceneName,
+        sceneItemId
+      });
+      const { rotation } = sceneItemTransform;
+
+      if (rotation === undefined || rotation == null) { // rotation is potentially 0, so we can't do !rotation
+        throw new Error('rotation is undefined');
+      }
+
+      const array = new Uint32Array(1);
+      self.crypto.getRandomValues(array);
+
+      const numRotation = Number(rotation);
+      console.log((array[0] / 4294967295) * 2.0 - 1.0);
+      sceneItemMappings.push({
+        'itemId': sceneItemId,
+        'rotation': numRotation,
+        'speed': (array[0] / 4294967295) * 2.0 - 1.0,
+      })
     }
 
-    const { sceneItemTransform } = await this.obs.call('GetSceneItemTransform', {
-      sceneName,
-      sceneItemId: sceneItemId
+    const promises = sceneItemMappings.map(async (mapping) => {
+      for (let i = 0; i <= 360; i++) {
+        let newAngle = 0;
+
+        if (mapping['speed'] < 0) {
+          newAngle = ((mapping['rotation'] - i) + 360) % 360;
+        } else {
+          newAngle = (mapping['rotation'] + i) % 360;
+        }
+
+        await this.obs.call('SetSceneItemTransform', {
+          sceneName,
+          sceneItemId: mapping['itemId'],
+          sceneItemTransform: {
+            rotation: newAngle,
+          },
+        });
+        await sleep(1 * (1 / Math.abs(mapping['speed'])));
+
+      }
     });
-    const { rotation } = sceneItemTransform;
 
-    if (rotation === undefined || rotation == null) { // rotation is potentially 0, so we can't do !rotation
-      throw new Error('rotation is undefined');
-    }
+    await Promise.all(promises);
 
-    const numRotation = Number(rotation);
-    const newAngle = (numRotation + angle) % 360;
-    const asRadians = (angle: number) => angle * (Math.PI / 180);
-
-    const newWidth = 1920 * Math.abs(Math.cos(asRadians(newAngle))) + 1080 * Math.abs(Math.sin(asRadians(newAngle)));
-    const newHeight = 1080 * Math.abs(Math.cos(asRadians(newAngle))) + 1920 * Math.abs(Math.sin(asRadians(newAngle)));
-
-    await this.obs.call('SetSceneItemTransform', {
-      sceneName,
-      sceneItemId: sceneItemId,
-      sceneItemTransform: {
-        rotation: newAngle,
-        scaleX: 1920 / newWidth,
-        scaleY: 1080 / newHeight,
-      },
-    });
+    this.rotating = false;
   }
 
-  async resetMainMonitorRotation() {
+  async resetSourceRotation(sourceName: string) {
     const { sceneName } = await this.obs.call('GetCurrentProgramScene');
 
     const { sceneItemId } = await this.obs.call('GetSceneItemId', {
       sceneName,
-      sourceName: this.settings.mainMonitorName
+      sourceName
     });
 
     if (sceneItemId === undefined) {
@@ -430,19 +467,19 @@ export class Controller {
       `${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
     );
 
-    if (filtered) {
-      return;
-    }
-
     const potentialCommand = this.commands.getCommand(message);
     if (potentialCommand) {
       potentialCommand.processCommandMessage(this, user, message);
       return;
     }
 
+    if (filtered) {
+      return;
+    }
+
     // random chance to rotate the screen
     if (Math.random() < 0.1 && this.obsController) {
-      await this.obsController.rotateMainMonitorSceneBy(Math.random() * 360);
+      await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
     }
 
     await this.voice.processMessage(
@@ -475,7 +512,10 @@ export class Controller {
   async cancel() {
     this.voice.cancel();
     this.songController.cancelSong();
-    this.obsController?.resetMainMonitorRotation();
+    this.config.obsSettings?.rotationNames.forEach((source) => {
+      this.obsController?.resetSourceRotation(source);
+    });
+
   }
 
   async end() {
