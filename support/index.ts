@@ -8,8 +8,7 @@ dotenv.config();
 
 const token = process.env['DISCORD_BOT'];
 const adminUser = process.env['DISCORD_ADMIN_USER'];
-// const channelId = process.env['DISCORD_CHANNEL_ID']; // TODO: use env
-const channelId = '1330568746124709990';
+const channelId = process.env['DISCORD_CHANNEL_ID'];
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

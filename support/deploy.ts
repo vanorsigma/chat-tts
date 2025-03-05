@@ -1,4 +1,6 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
+import dotenv from "dotenv";
+dotenv.config();
 
 const commands = [
   new SlashCommandBuilder()
@@ -32,17 +34,16 @@ const commands = [
         )
     )
 ];
-const clientId = '1330567810358710312';
-const guildId = '1324837719859396668';
-
+const clientId = process.env['DISCORD_CLIENT_ID'];
+const guildId = process.env['DISCORD_GUILD_ID'];
 const token = process.env['DISCORD_BOT'];
+
 if (!token) {
   console.error('Need token');
   process.exit(-1);
 }
 const rest = new REST().setToken(token!);
 
-// and deploy your commands!
 (async () => {
   try {
     console.log(`Started refreshing ${commands.length} application (/) commands.`);
