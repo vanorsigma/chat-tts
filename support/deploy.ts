@@ -38,6 +38,16 @@ const clientId = process.env['DISCORD_CLIENT_ID'];
 const guildId = process.env['DISCORD_GUILD_ID'];
 const token = process.env['DISCORD_BOT'];
 
+if (!clientId) {
+  console.error('Need clientId');
+  process.exit(-1);
+}
+
+if (!guildId) {
+  console.error('Need guildId');
+  process.exit(-1);
+}
+
 if (!token) {
   console.error('Need token');
   process.exit(-1);

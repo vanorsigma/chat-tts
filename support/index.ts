@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, Events, GatewayIntentBits, InteractionReplyOptions, InteractionUpdateOptions } from 'discord.js';
 import { Synth } from 'beepbox';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from './db';
 import { startWebsocketServer } from './websocket';
@@ -47,8 +47,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.options.getSubcommand(true) === 'list') {
     try {
       const result = await listSongs();
-      const page = interaction.options.getNumber('page', false) || 1;
-      const shortnames = result.map((entry) => `- ${entry.shortname} (by ${entry.user})`);
+      let page = interaction.options.getNumber('page', false) || 1;
       const maxpage = Math.ceil(result.length / 10);
       if (page < 1 || page > maxpage) {
         await interaction.reply({
@@ -58,12 +57,42 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const content =
-        shortnames.slice((page - 1) * 10, page * 10).join('\n') + `\nPage ${page}/${maxpage}`;
-      await interaction.reply({
-        content,
-        allowedMentions: { parse: [] }
+      const pageEmbed = new EmbedBuilder().setFooter({ text: `Page ${page} of ${maxpage}` });
+      const prev = new ButtonBuilder().setCustomId('prev').setLabel('◀').setStyle(ButtonStyle.Primary);
+      const next = new ButtonBuilder().setCustomId('next').setLabel('▶').setStyle(ButtonStyle.Primary);
+      const row = new ActionRowBuilder().addComponents(prev, next);
+
+      result.slice((page - 1) * 10, page * 10).forEach(entry => {
+        pageEmbed.addFields({ name: '', value: `${entry.shortname} (by ${entry.user})` });
       });
+
+      prev.setDisabled(page == 1);
+      next.setDisabled(page == maxpage);
+
+      await interaction.reply({ embeds: [pageEmbed], components: [row] } as InteractionReplyOptions);
+      const message = await interaction.fetchReply();
+      const collector = message.createMessageComponentCollector({ time: 60000 });
+
+      collector.on('collect', async (btn) => {
+        // re-aquire songs so new changes are reflected
+        const result = await listSongs();
+        const maxpage = Math.ceil(result.length / 10);
+        if (btn.user.id !== interaction.user.id) return btn.reply({ content: "Not the intended user", ephemeral: true });
+
+        if (btn.customId === 'prev' && page > 1) page--;
+        else if (btn.customId === 'next' && page < maxpage) page++;
+
+        prev.setDisabled(page == 1);
+        next.setDisabled(page == maxpage);
+
+        const pageEmbed = new EmbedBuilder().setFooter({ text: `Page ${page} of ${maxpage}` });
+        result.slice((page - 1) * 10, page * 10).forEach(entry => {
+          pageEmbed.addFields({ name: '', value: `${entry.shortname} (by ${entry.user})` });
+        });
+        await btn.update({ embeds: [pageEmbed], components: [row] } as InteractionUpdateOptions);
+      });
+
+      collector.on('end', () => interaction.editReply({ components: [] }));
     } catch {
       await interaction.reply({ content: `Error listing songs` });
       return;
