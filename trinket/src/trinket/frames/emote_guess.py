@@ -8,9 +8,9 @@ import random
 from dataclasses import dataclass
 from dataclasses_json import DataClassJsonMixin
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QVBoxLayout, QLayout
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QLayout, QTextEdit
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
-from PyQt6.QtGui import QImage, QPixmap, QMovie
+from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, QColor
 
 @dataclass
 class SevenTVRawEmoteData(DataClassJsonMixin): # pylint: disable=missing-class-docstring
@@ -67,23 +67,38 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
                           for raw_emote in raw_data_as_json['data']['emoteSet']['emotes']]
             return self.__transform_emotes(raw_emotes)
 
+class SingleLineTextEdit(QTextEdit):
+    """
+    A QTextEdit that only allows one line of text.
+    """
+    def keyPressEvent(self, event) -> None: # pylint: disable=invalid-name,missing-function-docstring
+        if event.key() == Qt.Key.Key_Return:
+            event.ignore()
+        else:
+            super().keyPressEvent(event)
+
+
 class EmoteWindow(QWidget):
     """
     The Emote Window.
     """
     def __init__(self, correct_name: str,
-                 image_bytes: bytes, animated: bool = False) -> None:
+                 image_bytes: bytes,
+                 animated: bool = False,
+                 seed: int | None = None) -> None:
         super().__init__()
+
+        if seed is not None:
+            random.seed(seed)
 
         self.correct_name = correct_name
 
-        self.setWindowTitle('Thingy')
+        self.setWindowTitle('EmoteGuess')
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint)
-        # self.layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
 
         self.label = QLabel(self)
-        # self.label.setSizePolicy(self.label.sizePolicy().horizontalPolicy().Expanding,
-        #                          self.label.sizePolicy().verticalPolicy().Expanding)
+        self.layout.addWidget(self.label)
 
         if animated:
             # constructed this way for refcount reasons
@@ -100,49 +115,54 @@ class EmoteWindow(QWidget):
             self.image.loadFromData(image_bytes)
             self.label.setPixmap(QPixmap(self.image))
 
-        self.line_edit = QLineEdit(self)
-        self.line_edit.setPlaceholderText('Guess')
-        # self.line_edit.setInputMask('*')
-        self.line_edit.returnPressed.connect(self.__line_edit_return)
+        self.text_edit = SingleLineTextEdit(self)
+        self.text_edit.setFixedHeight(30)
+        self.text_edit.setPlaceholderText('Guess')
+        self.text_edit.textChanged.connect(self.__text_edit_changed)
 
-        # self.setLayout(self.layout)
-        # self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        self.setGeometry(100, 100, 300, 200)
 
-    @staticmethod
-    def __levenshtein_distance(str1: str, str2: str) -> None:
-        # copied straight from geeks4geeks
-        m = len(str1)
-        n = len(str2)
+        self.layout.addWidget(self.text_edit)
+        self.setLayout(self.layout)
+        self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-        dp = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
+        screen = QApplication.screens()[0].size()
+        x = random.randint(0, screen.width())
+        y = random.randint(0, screen.height())
 
-        for i in range(m + 1):
-            dp[i][0] = i
-        for j in range(n + 1):
-            dp[0][j] = j
+        self.setGeometry(random.randint(350, screen.width() - 350),
+                         random.randint(350, screen.height() - 350),
+                         300, 300)
+        self.move(x, y)
 
-        for i in range(1, m + 1):
-            for j in range(1, n + 1):
-                if str1[i - 1] == str2[j - 1]:
-                    dp[i][j] = dp[i - 1][j - 1]
-                else:
-                    dp[i][j] = 1 + min(dp[i][j - 1], dp[i - 1][j], dp[i - 1][j - 1])
+    def __text_edit_changed(self) -> None:
+        self.text_edit.blockSignals(True)
 
-        return dp[m][n]
-
-    def __line_edit_return(self) -> None:
         correct = self.correct_name.lower()
-        inputted = self.line_edit.text().lower()
-        highest = max(len(correct), len(inputted))
-        score = self.__levenshtein_distance(correct, inputted) / float(highest)
-
-        if score < 0.1:
+        inputted = self.text_edit.toPlainText().lower()
+        if correct == inputted:
             self.close()
+
+        for i, (c1, c2) in enumerate(zip(correct, inputted)):
+            cursor = self.text_edit.textCursor()
+            cursor.setPosition(i)
+            cursor.setPosition(i + 1, QTextCursor.MoveMode.KeepAnchor)
+
+            color = QColor('green') if c1 == c2 else QColor('red')
+
+            font_format = QTextCharFormat()
+            font_format.setForeground(color)
+
+            cursor.setCharFormat(font_format)
+            cursor.clearSelection()
+            self.text_edit.setTextCursor(cursor)
+
+        self.text_edit.blockSignals(False)
+
 
 
 def create_emote_window_from_emote_set_id(emote_set_id: str,
-                                          seed: int | None = None) -> EmoteWindow:
+                                          no_windows: int,
+                                          seed: int | None = None) -> list[EmoteWindow]:
     """
     Chooses a random 7TV Emote from the Emote Set, then creates an Emote Window.
     """
@@ -151,18 +171,22 @@ def create_emote_window_from_emote_set_id(emote_set_id: str,
 
     api = SevenTVAPI(emote_set_id)
     emotes = api.get_emotes()
-    idx = random.randint(0, len(emotes) - 1)
-    with urllib.request.urlopen(emotes[idx].url) as response:
-        returned_bytes: bytes = response.read()
+    # NOTE: must do it this way so it doesn't get garbage collected
+    windows = []
+    for i in range(10):
+        idx = random.randint(0, len(emotes) - 1)
+        with urllib.request.urlopen(emotes[idx].url) as response:
+            returned_bytes: bytes = response.read()
+        windows.append(EmoteWindow(emotes[idx].name, returned_bytes, emotes[idx].animated))
 
-    return EmoteWindow(emotes[idx].name, returned_bytes, emotes[idx].animated)
+    return windows
 
 if __name__ == '__main__':
     TESTING_EMOTE_SET = "01J452JCVG0000352W25T9VEND"
     app = QApplication(sys.argv)
 
-    # NOTE: must do it this way so it doesn't get garbage collected
-    window = create_emote_window_from_emote_set_id(TESTING_EMOTE_SET)
-    window.show()
+    windows = create_emote_window_from_emote_set_id(TESTING_EMOTE_SET, 10)
+    for window in windows:
+        window.show()
 
     sys.exit(app.exec())
