@@ -1,0 +1,30 @@
+[project]
+name = "trinket"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "codingindex", email = "codingindex@codingindex.xyz"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyqt6==6.8.1",
+    "dataclasses-json==0.6.7"
+]
+
+[tool.poetry.group.dev.dependencies]
+mypy = "*"
+pylint = "*"
+black = "*"
+
+[tool.poetry]
+packages = [{include = "trinket", from = "src"}]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "no-name-in-module"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
