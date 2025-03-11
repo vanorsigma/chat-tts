@@ -67,6 +67,7 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
                           for raw_emote in raw_data_as_json['data']['emoteSet']['emotes']]
             return self.__transform_emotes(raw_emotes)
 
+# pylint: disable=too-few-public-methods
 class SingleLineTextEdit(QTextEdit):
     """
     A QTextEdit that only allows one line of text.
@@ -78,6 +79,7 @@ class SingleLineTextEdit(QTextEdit):
             super().keyPressEvent(event)
 
 
+# pylint: disable=too-few-public-methods, too-many-instance-attributes
 class EmoteWindow(QWidget):
     """
     The Emote Window.
@@ -172,14 +174,15 @@ def create_emote_window_from_emote_set_id(emote_set_id: str,
     api = SevenTVAPI(emote_set_id)
     emotes = api.get_emotes()
     # NOTE: must do it this way so it doesn't get garbage collected
-    windows = []
-    for i in range(10):
+    window_references = []
+    for _ in range(no_windows):
         idx = random.randint(0, len(emotes) - 1)
         with urllib.request.urlopen(emotes[idx].url) as response:
             returned_bytes: bytes = response.read()
-        windows.append(EmoteWindow(emotes[idx].name, returned_bytes, emotes[idx].animated))
+        window_references.append(EmoteWindow(emotes[idx].name,
+                                             returned_bytes, emotes[idx].animated))
 
-    return windows
+    return window_references
 
 if __name__ == '__main__':
     TESTING_EMOTE_SET = "01J452JCVG0000352W25T9VEND"
