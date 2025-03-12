@@ -7,24 +7,25 @@ import random
 import os
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLayout, QPushButton
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-from trinket.frames.shared import SingleLineTextEdit
+from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget
 
 RESOURCES_SONG_PATH = "resources/songs"
 
-class SongWindow(QWidget): # pylint: disable=too-few-public-methods
+class SongWindow(CloseSignalableWidget): # pylint: disable=too-few-public-methods
     """
     The Song Window, pepega
     """
+    playing_signal = pyqtSignal(bool)
+
     def __init__(self, song_path: str):
         super().__init__()
 
         self.playing = False
 
         self.song_name = song_path.replace('_', ' ').split('.')[0]
-        print(self.song_name)
         self.setWindowTitle('SongGuess')
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint)
         self.layout = QVBoxLayout(self)
@@ -49,8 +50,8 @@ class SongWindow(QWidget): # pylint: disable=too-few-public-methods
         self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         screen = QApplication.screens()[0].size()
-        self.setGeometry(random.randint(350, screen.width() - 350),
-                         random.randint(350, screen.height() - 350),
+        self.setGeometry(random.randint(0, screen.width() - 300),
+                         random.randint(0, screen.height() - 300),
                          300, 300)
 
     def __btn_clicked(self) -> None:
@@ -63,12 +64,16 @@ class SongWindow(QWidget): # pylint: disable=too-few-public-methods
             self.media_player.pause()
             self.playing = False
 
+        self.playing_signal.emit(self.playing)
+
     def __text_edit_changed(self) -> None:
         self.text_edit.blockSignals(True)
 
         correct = self.song_name.lower()
         inputted = self.text_edit.toPlainText().lower()
         if correct == inputted:
+            self.media_player.pause()
+            self.playing_signal.emit(False)
             self.close()
 
         restore = self.text_edit.textCursor()

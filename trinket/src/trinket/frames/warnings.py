@@ -26,6 +26,8 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
 
     def __init__(self, level: WarningLevel):
         super().__init__()
+        self.playingRefCount = 0
+        self.windows: list[QWidget] = []
         self.setWindowTitle("Thingy")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -57,6 +59,31 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
 
         self.label = QLabel(self)
         self.label.setPixmap(QPixmap(self.image))
+
+    def add_frame(self, widget: QWidget) -> None:
+        widget.setParent(self)
+        self.windows.append(widget)
+        widget.closed.connect(self.__on_closed)
+
+        if hasattr(widget, 'playing_signal'):
+            widget.playing_signal.connect(self.__on_playing_changed)
+
+    def show(self) -> None:
+        super().show()
+        for w in self.windows:
+            w.show()
+
+    def __on_playing_changed(self, playing: bool):
+        self.playingRefCount += 1 if playing else -1
+        if self.playingRefCount > 0:
+            self.media_player.pause()
+        else:
+            self.media_player.play()
+
+    def __on_closed(self, widget: QWidget):
+        self.windows.remove(widget)
+        if len(self.windows) == 0:
+            self.close()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
