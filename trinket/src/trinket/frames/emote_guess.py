@@ -8,10 +8,10 @@ import random
 from dataclasses import dataclass
 from dataclasses_json import DataClassJsonMixin
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QLayout, QTextEdit
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QLayout
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
 from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, QColor
-from trinket.frames.shared import SingleLineTextEdit
+from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget
 
 @dataclass
 class SevenTVRawEmoteData(DataClassJsonMixin): # pylint: disable=missing-class-docstring
@@ -69,7 +69,7 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
             return self.__transform_emotes(raw_emotes)
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
-class EmoteWindow(QWidget):
+class EmoteWindow(CloseSignalableWidget):
     """
     The Emote Window.
     """
@@ -117,8 +117,8 @@ class EmoteWindow(QWidget):
         self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         screen = QApplication.screens()[0].size()
-        self.setGeometry(random.randint(350, screen.width() - 350),
-                         random.randint(350, screen.height() - 350),
+        self.setGeometry(random.randint(0, screen.width() - 300),
+                         random.randint(0, screen.height() - 300),
                          300, 300)
 
     def __text_edit_changed(self) -> None:
