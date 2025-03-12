@@ -55,6 +55,10 @@ class SongWindow(CloseSignalableWidget): # pylint: disable=too-few-public-method
                          random.randint(0, screen.height() - 300),
                          300, 300)
 
+    def close(self) -> None:
+        self.media_player.stop()
+        super().close()
+
     def __btn_clicked(self) -> None:
         if not self.playing:
             self.play_button.setText('⏸')

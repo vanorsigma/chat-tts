@@ -28,9 +28,32 @@ class Rotate extends Command {
   }
 }
 
+class Distract extends Command {
+  lastTimestamp: number = 0;
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
+    if (controller.distractController === undefined) {
+      return true;
+    }
+
+    if (this.lastTimestamp + (controller.config.distractConfig?.cooldown ?? 0) * 1000 > Date.now()) {
+      controller.updateChatLog(`${user.username} tried to send a distraction, but it was under cooldown.`)
+      return true;
+    }
+
+    this.lastTimestamp = Date.now();
+    await controller.distractController.sendDistract();
+
+    controller.updateChatLog(`${user.username} sent a distraction.`)
+    return true;
+  }
+}
+
 export const COMMANDS = new Map([
   ['refreshvoice', new RefreshVoice()],
   ['rotate', new Rotate()],
+  ['distract', new Distract()]
 ]);
 
 export const LEADER = '%';

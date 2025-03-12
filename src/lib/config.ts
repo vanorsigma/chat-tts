@@ -31,6 +31,11 @@ export interface StandaloneSongConfig {
   wsUrl: string;
 }
 
+export interface DistractConfig {
+  wsUrl: string;
+  cooldown: number;
+}
+
 // For anything adjustable from the UI
 export interface DynamicConfig {
   songPitchSpeedAffected: boolean;
@@ -38,6 +43,7 @@ export interface DynamicConfig {
 
 export class ParseableConfig {
   channelName?: string;
+  commandsDisabled: boolean;
   obsSettings?: ObsSettings;
   alternativePitchControl?: AlternativePitchControl;
   voices?: string[];
@@ -46,9 +52,11 @@ export class ParseableConfig {
   filteredExps?: string[];
   soundEffects?: SoundEffect[];
   standaloneSongConfig?: StandaloneSongConfig;
+  distractConfig?: DistractConfig;
 
   constructor(arbitraryObject: any) {
     this.channelName = arbitraryObject['channelName'];
+    this.commandsDisabled = arbitraryObject['commandsDisabled'] ?? false;
     this.obsSettings = this.verifyObsSettings(arbitraryObject);
     this.alternativePitchControl = arbitraryObject['alternativePitchControl'];
     this.voices = arbitraryObject['voices'];
@@ -57,6 +65,7 @@ export class ParseableConfig {
     this.filteredExps = arbitraryObject['filteredExps'];
     this.soundEffects = arbitraryObject['soundEffects'];
     this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
+    this.distractConfig = arbitraryObject['distractConfig'];
   }
 
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
@@ -75,6 +84,7 @@ export class ParseableConfig {
   toFullConfig(): FullConfig {
     return {
       channelName: this.channelName ?? '',
+      commandsDisabled: this.commandsDisabled,
       voices: this.voices ?? [],
       obsSettings: this.obsSettings,
       alternativePitchControl: this.alternativePitchControl,
@@ -91,13 +101,15 @@ export class ParseableConfig {
       standaloneSongConfig: this.standaloneSongConfig,
       dynamicConfig: {
         songPitchSpeedAffected: true
-      }
+      },
+      distractConfig: this.distractConfig,
     };
   }
 }
 
 export interface FullConfig {
   channelName: string;
+  commandsDisabled: boolean;
   obsSettings?: ObsSettings;
   alternativePitchControl?: AlternativePitchControl;
   voices: string[];
@@ -106,6 +118,7 @@ export interface FullConfig {
   filteredExps: string[];
   soundEffects: SoundEffect[];
   standaloneSongConfig?: StandaloneSongConfig;
+  distractConfig?: DistractConfig;
   dynamicConfig: DynamicConfig;
 }
 
