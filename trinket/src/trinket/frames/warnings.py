@@ -55,6 +55,7 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
 
         self.image = self.image.scaled(width, height)
         self.media_player.setLoops(QMediaPlayer.Loops.Infinite)
+        self.audio_output.setVolume(0.1)
         self.media_player.play()
 
         self.label = QLabel(self)
