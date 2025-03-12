@@ -11,6 +11,7 @@ from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
 from trinket.frames.emote_guess import create_emote_window_from_emote_set_id
+from trinket.support import CancellationToken
 
 
 class WarningLevel(Enum): # pylint: disable=missing-class-docstring
@@ -42,6 +43,13 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
 
+        self.label = QLabel(self)
+        self.set_warning_level(WarningLevel.FIRST)
+
+    def is_completed(self):
+        return not self.isVisible()
+
+    def set_warning_level(self, level: WarningLevel) -> None:
         match level:
             case WarningLevel.FIRST:
                 self.image.load("resources/first_trumpet.png")
@@ -53,12 +61,12 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
                 self.image.load("resources/third_trumpet.png")
                 self.media_player.setSource(QUrl.fromLocalFile("resources/third_trumpet.m4a"))
 
+        screen = QGuiApplication.primaryScreen()
+        width = screen.size().width()
+        height = screen.size().height()
         self.image = self.image.scaled(width, height)
         self.media_player.setLoops(QMediaPlayer.Loops.Infinite)
         self.audio_output.setVolume(0.1)
-        self.media_player.play()
-
-        self.label = QLabel(self)
         self.label.setPixmap(QPixmap(self.image))
 
     def add_frame(self, widget: QWidget) -> None:
@@ -73,6 +81,17 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         super().show()
         for w in self.windows:
             w.show()
+        self.media_player.play()
+
+    def close(self) -> None:
+        for w in self.windows:
+            w.closed.disconnect()
+            w.close()
+
+        self.windows = []
+        self.playingRefCount = 0
+        self.media_player.stop()
+        super().close()
 
     def __on_playing_changed(self, playing: bool):
         self.playingRefCount += 1 if playing else -1
@@ -84,6 +103,7 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
     def __on_closed(self, widget: QWidget):
         self.windows.remove(widget)
         if len(self.windows) == 0:
+            self.media_player.stop()
             self.close()
 
 if __name__ == '__main__':

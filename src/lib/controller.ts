@@ -24,6 +24,31 @@ interface VoiceSettings {
   rate: number;
 }
 
+class DistractController {
+  private socket: WebSocket;
+
+  constructor(senderUrl: string) {
+    this.socket = new WebSocket(senderUrl);
+    this.socket.onopen = () => {
+      console.log('connected to remote distract controller');
+    };
+
+    this.socket.onclose = () => {
+      console.log('disconnected from remote distract controller');
+    };
+  }
+
+  async sendDistract(): Promise<void> {
+    this.socket.send(
+      JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: Math.random() } })
+    );
+  }
+
+  async cancel(): Promise<void> {
+    this.socket.send(JSON.stringify({ type: 'trinket', command: { type: 'cancel' } }));
+  }
+}
+
 interface SongController {
   playSong(songname: string): Promise<boolean>;
   changeSpeed(speed: number): Promise<void>;
@@ -242,7 +267,8 @@ class ObsController {
       });
       const { rotation } = sceneItemTransform;
 
-      if (rotation === undefined || rotation == null) { // rotation is potentially 0, so we can't do !rotation
+      if (rotation === undefined || rotation == null) {
+        // rotation is potentially 0, so we can't do !rotation
         throw new Error('rotation is undefined');
       }
 
@@ -252,10 +278,10 @@ class ObsController {
       const numRotation = Number(rotation);
       console.log((array[0] / 4294967295) * 2.0 - 1.0);
       sceneItemMappings.push({
-        'itemId': sceneItemId,
-        'rotation': numRotation,
-        'speed': (array[0] / 4294967295) * 2.0 - 1.0,
-      })
+        itemId: sceneItemId,
+        rotation: numRotation,
+        speed: (array[0] / 4294967295) * 2.0 - 1.0
+      });
     }
 
     const promises = sceneItemMappings.map(async (mapping) => {
@@ -263,7 +289,7 @@ class ObsController {
         let newAngle = 0;
 
         if (mapping['speed'] < 0) {
-          newAngle = ((mapping['rotation'] - i) + 360) % 360;
+          newAngle = (mapping['rotation'] - i + 360) % 360;
         } else {
           newAngle = (mapping['rotation'] + i) % 360;
         }
@@ -272,11 +298,10 @@ class ObsController {
           sceneName,
           sceneItemId: mapping['itemId'],
           sceneItemTransform: {
-            rotation: newAngle,
-          },
+            rotation: newAngle
+          }
         });
         await sleep(1 * (1 / Math.abs(mapping['speed'])));
-
       }
     });
 
@@ -303,8 +328,8 @@ class ObsController {
       sceneItemTransform: {
         rotation: 0,
         scaleX: 1.0,
-        scaleY: 1.0,
-      },
+        scaleY: 1.0
+      }
     });
   }
 }
@@ -417,6 +442,8 @@ export class Controller {
   commands: CommandController;
   obsController?: ObsController;
   songController: SongController;
+  distractController?: DistractController;
+
   config: FullConfig;
   filters: string[];
 
@@ -432,6 +459,8 @@ export class Controller {
     this.songController = config.standaloneSongConfig
       ? new RemoteSongController(config.standaloneSongConfig.wsUrl)
       : new LocalSongController();
+
+    this.distractController = (config.distractConfig != null) ? new DistractController(config.distractConfig?.wsUrl) : undefined;
     this.config = config;
   }
 
@@ -469,7 +498,7 @@ export class Controller {
     );
 
     const potentialCommand = this.commands.getCommand(message);
-    if (potentialCommand) {
+    if (potentialCommand && !this.config.commandsDisabled) {
       potentialCommand.processCommandMessage(this, user, message);
       return;
     }
@@ -479,8 +508,12 @@ export class Controller {
     }
 
     // random chance to rotate the screen
-    if (Math.random() < 0.1 && this.obsController) {
+    if (Math.random() < 0.05 && this.obsController) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
+    }
+
+    if (Math.random() < 0.01 && this.distractController) {
+      await this.distractController.sendDistract();
     }
 
     await this.voice.processMessage(
@@ -516,7 +549,6 @@ export class Controller {
     this.config.obsSettings?.rotationNames.forEach((source) => {
       this.obsController?.resetSourceRotation(source);
     });
-
   }
 
   async end() {

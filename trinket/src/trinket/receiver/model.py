@@ -33,12 +33,18 @@ def _subcommand_deserializer(value: dict[Any, Any]) -> Union[CancelSubcommand, D
         case _:
             raise ValueError("Invalid type")
 
+def _type_deserializer(value: str) -> Literal["trinket"]:
+    if value == "trinket":
+        return "trinket"
+    raise ValueError("Invalid type")
+
 @dataclass
 class Command(DataClassJsonMixin):
     """
     A trinket command from the websocket
     """
+    type: Literal["trinket"] = field(default_factory='trinket',
+                                     metadata=config(decoder=_type_deserializer))
     command: Union[CancelSubcommand, DistractSubcommand] \
         = field(default_factory=CancelSubcommand.from_dict,
                 metadata=config(decoder=_subcommand_deserializer))
-    type: Literal["trinket"] = "trinket"
