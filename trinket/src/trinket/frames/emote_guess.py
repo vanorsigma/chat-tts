@@ -11,6 +11,7 @@ from dataclasses_json import DataClassJsonMixin
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QLayout, QTextEdit
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
 from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, QColor
+from trinket.frames.shared import SingleLineTextEdit
 
 @dataclass
 class SevenTVRawEmoteData(DataClassJsonMixin): # pylint: disable=missing-class-docstring
@@ -67,18 +68,6 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
                           for raw_emote in raw_data_as_json['data']['emoteSet']['emotes']]
             return self.__transform_emotes(raw_emotes)
 
-# pylint: disable=too-few-public-methods
-class SingleLineTextEdit(QTextEdit):
-    """
-    A QTextEdit that only allows one line of text.
-    """
-    def keyPressEvent(self, event) -> None: # pylint: disable=invalid-name,missing-function-docstring
-        if event.key() == Qt.Key.Key_Return:
-            event.ignore()
-        else:
-            super().keyPressEvent(event)
-
-
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 class EmoteWindow(QWidget):
     """
@@ -128,13 +117,9 @@ class EmoteWindow(QWidget):
         self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         screen = QApplication.screens()[0].size()
-        x = random.randint(0, screen.width())
-        y = random.randint(0, screen.height())
-
         self.setGeometry(random.randint(350, screen.width() - 350),
                          random.randint(350, screen.height() - 350),
                          300, 300)
-        self.move(x, y)
 
     def __text_edit_changed(self) -> None:
         self.text_edit.blockSignals(True)
@@ -143,6 +128,8 @@ class EmoteWindow(QWidget):
         inputted = self.text_edit.toPlainText().lower()
         if correct == inputted:
             self.close()
+
+        restore = self.text_edit.textCursor()
 
         for i, (c1, c2) in enumerate(zip(correct, inputted)):
             cursor = self.text_edit.textCursor()
@@ -158,6 +145,7 @@ class EmoteWindow(QWidget):
             cursor.clearSelection()
             self.text_edit.setTextCursor(cursor)
 
+        self.text_edit.setTextCursor(restore)
         self.text_edit.blockSignals(False)
 
 
