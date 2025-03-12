@@ -45,6 +45,7 @@ class SongWindow(CloseSignalableWidget): # pylint: disable=too-few-public-method
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.setSource(QUrl.fromLocalFile(f'{RESOURCES_SONG_PATH}/{song_path}'))
         self.media_player.setLoops(QMediaPlayer.Loops.Infinite)
+        self.audio_output.setVolume(0.1)
 
         self.setLayout(self.layout)
         self.layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
