@@ -46,7 +46,7 @@ class TrinketController {
 
   async sendRotate(): Promise<void> {
     this.socket.send(
-      JSON.stringify({ type: 'trinket', command: { type: 'rotate', speed: 10 ** (Math.random() * 5) } })
+      JSON.stringify({ type: 'trinket', command: { type: 'rotate', speed: 10 ** (Math.random() * 3) } })
     );
   }
 
