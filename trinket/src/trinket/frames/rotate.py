@@ -6,7 +6,7 @@ Takes a screenshot of the current screen, then rotates it.
 
 import sys
 
-from PyQt6.QtCore import QElapsedTimer, Qt
+from PyQt6.QtCore import QElapsedTimer, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication, QTransform
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
@@ -19,6 +19,7 @@ class RotateFrame(QWidget): # pylint: disable=too-few-public-methods
     def __init__(self, speed: int):
         super().__init__()
         self.speed = speed
+        self.completed = False
         self.setWindowTitle("Thingy")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setStyleSheet('background-color: black;')
@@ -36,12 +37,20 @@ class RotateFrame(QWidget): # pylint: disable=too-few-public-methods
         self.elapsed_timer = QElapsedTimer()
         self.elapsed_timer.start()
 
+        self.fallback_timer = QTimer()
+        self.fallback_timer.setInterval(1000)
+        self.fallback_timer.timeout.connect(lambda: self.paintEvent(None))
+        self.fallback_timer.start()
+
     def paintEvent(self, _event): # pylint: disable=invalid-name,missing-function-docstring
         elapsed_time = self.elapsed_timer.elapsed() / 1000.0
         angle = elapsed_time * self.speed
 
         if angle > 360:
+            self.completed = True
             self.close()
+            self.fallback_timer.stop()
+            super().close()
             return
 
         transform = QTransform()
