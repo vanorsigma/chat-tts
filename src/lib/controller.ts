@@ -46,7 +46,13 @@ class TrinketController {
 
   async sendRotate(): Promise<void> {
     this.socket.send(
-      JSON.stringify({ type: 'trinket', command: { type: 'rotate', speed: 10 ** (Math.random() * 3) } })
+      JSON.stringify({
+        type: 'trinket',
+        command: {
+          type: 'rotate',
+          speed: (Math.random() > 0.5 ? -1 : 1) * 10 ** (Math.random() * 3)
+        }
+      })
     );
   }
 
@@ -466,7 +472,10 @@ export class Controller {
       ? new RemoteSongController(config.standaloneSongConfig.wsUrl)
       : new LocalSongController();
 
-    this.trinketController = (config.distractConfig != null) ? new TrinketController(config.distractConfig?.wsUrl) : undefined;
+    this.trinketController =
+      config.distractConfig != null
+        ? new TrinketController(config.distractConfig?.wsUrl)
+        : undefined;
     this.config = config;
   }
 
