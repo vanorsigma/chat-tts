@@ -22,6 +22,7 @@ class Rotate extends Command {
     }
 
     await controller.obsController.rotateSourcesRandomly(controller.config.obsSettings?.rotationNames ?? []);
+    await controller.trinketController?.sendRotate();
 
     controller.updateChatLog(`${user.username} rotated the screen.`)
     return true;
@@ -33,7 +34,7 @@ class Distract extends Command {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
-    if (controller.distractController === undefined) {
+    if (controller.trinketController === undefined) {
       return true;
     }
 
@@ -43,7 +44,7 @@ class Distract extends Command {
     }
 
     this.lastTimestamp = Date.now();
-    await controller.distractController.sendDistract();
+    await controller.trinketController.sendDistract();
 
     controller.updateChatLog(`${user.username} sent a distraction.`)
     return true;

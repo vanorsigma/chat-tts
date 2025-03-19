@@ -24,7 +24,7 @@ interface VoiceSettings {
   rate: number;
 }
 
-class DistractController {
+class TrinketController {
   private socket: WebSocket;
 
   constructor(senderUrl: string) {
@@ -41,6 +41,12 @@ class DistractController {
   async sendDistract(): Promise<void> {
     this.socket.send(
       JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: Math.random() } })
+    );
+  }
+
+  async sendRotate(): Promise<void> {
+    this.socket.send(
+      JSON.stringify({ type: 'trinket', command: { type: 'rotate', speed: 10 ** (Math.random() * 5) } })
     );
   }
 
@@ -442,7 +448,7 @@ export class Controller {
   commands: CommandController;
   obsController?: ObsController;
   songController: SongController;
-  distractController?: DistractController;
+  trinketController?: TrinketController;
 
   config: FullConfig;
   filters: string[];
@@ -460,7 +466,7 @@ export class Controller {
       ? new RemoteSongController(config.standaloneSongConfig.wsUrl)
       : new LocalSongController();
 
-    this.distractController = (config.distractConfig != null) ? new DistractController(config.distractConfig?.wsUrl) : undefined;
+    this.trinketController = (config.distractConfig != null) ? new TrinketController(config.distractConfig?.wsUrl) : undefined;
     this.config = config;
   }
 
@@ -508,12 +514,12 @@ export class Controller {
     }
 
     // random chance to rotate the screen
-    if (Math.random() < 0.05 && this.obsController) {
+    if (Math.random() < 0.01 && this.obsController) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
     }
 
-    if (Math.random() < 0.01 && this.distractController) {
-      await this.distractController.sendDistract();
+    if (Math.random() < 0.005 && this.trinketController) {
+      await this.trinketController.sendDistract();
     }
 
     await this.voice.processMessage(
