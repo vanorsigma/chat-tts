@@ -15,11 +15,20 @@ class RefreshVoice extends Command {
 }
 
 class Rotate extends Command {
+  lastTimestamp: number = 0;
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, user: tmi.ChatUserstate, _message: string) {
     if (controller.obsController === undefined) {
       return true;
     }
+
+    // TODO: hardcoded for now, I need to re-write the config module
+    if (this.lastTimestamp + 60 * 1000 > Date.now()) {
+      controller.updateChatLog(`${user.username} tried to rotate, but it was under cooldown.`)
+      return true;
+    }
+    this.lastTimestamp = Date.now();
 
     await controller.obsController.rotateSourcesRandomly(controller.config.obsSettings?.rotationNames ?? []);
     await controller.trinketController?.sendRotate();
