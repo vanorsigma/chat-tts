@@ -29,7 +29,7 @@ class TTSWebsocketClient: # pylint: disable=too-few-public-methods
                 result = self.ws.recv()
                 if self.on_message:
                     self.on_message(Command.from_json(result))
-            except ValueError:
+            except (ValueError, TypeError):
                 print('cannot deserailize command', file=sys.stderr)
             except WebSocketTimeoutException:
                 continue

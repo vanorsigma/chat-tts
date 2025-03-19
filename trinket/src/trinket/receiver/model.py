@@ -19,17 +19,28 @@ class CancelSubcommand(DataClassJsonMixin):
 @dataclass
 class DistractSubcommand(DataClassJsonMixin):
     """
-    Cancels any ongoing distractions
+    Starts a distraction
     """
     annoyance: float
     type: Literal["distract"] = "distract"
 
-def _subcommand_deserializer(value: dict[Any, Any]) -> Union[CancelSubcommand, DistractSubcommand]:
+@dataclass
+class RotateSubcommand(DataClassJsonMixin):
+    """
+    Begins a rotation
+    """
+    speed: int
+    type: Literal["rotate"] = "rotate"
+
+def _subcommand_deserializer(value: dict[Any, Any]) -> Union[
+        CancelSubcommand, DistractSubcommand, RotateSubcommand]:
     match value.get("type"):
         case "cancel":
             return CancelSubcommand.from_dict(value)
         case "distract":
             return DistractSubcommand.from_dict(value)
+        case "rotate":
+            return RotateSubcommand.from_dict(value)
         case _:
             raise ValueError("Invalid type")
 
@@ -43,8 +54,8 @@ class Command(DataClassJsonMixin):
     """
     A trinket command from the websocket
     """
-    type: Literal["trinket"] = field(default_factory='trinket',
+    type: Literal["trinket"] = field(default_factory=lambda: 'trinket',
                                      metadata=config(decoder=_type_deserializer))
-    command: Union[CancelSubcommand, DistractSubcommand] \
-        = field(default_factory=CancelSubcommand.from_dict,
+    command: Union[CancelSubcommand, DistractSubcommand, RotateSubcommand] \
+        = field(default_factory=CancelSubcommand,
                 metadata=config(decoder=_subcommand_deserializer))
