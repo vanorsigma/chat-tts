@@ -1,9 +1,19 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, Events, GatewayIntentBits, InteractionReplyOptions, InteractionUpdateOptions } from 'discord.js';
-import { Synth } from 'beepbox';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  InteractionReplyOptions,
+  InteractionUpdateOptions
+} from 'discord.js';
+import { Synth } from 'beepbox/synth/synth';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from './db';
 import { startWebsocketServer } from './websocket';
 
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 dotenv.config();
 
 const token = process.env['DISCORD_BOT'];
@@ -29,7 +39,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.reply({ content: `Error saving ${shortname}!` });
       return;
     }
-    const base64 = (await response.text()).replace('https://www.beepbox.co/#', '').trim();
+    const base64 = (await response.text())
+      .replace('https://www.beepbox.co/#', '')
+      .replace('https://jummb.us/#', '')
+      .trim();
     try {
       // TODO: try to parse
       new Synth(base64);
@@ -58,18 +71,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const pageEmbed = new EmbedBuilder().setFooter({ text: `Page ${page} of ${maxpage}` });
-      const prev = new ButtonBuilder().setCustomId('prev').setLabel('◀').setStyle(ButtonStyle.Primary);
-      const next = new ButtonBuilder().setCustomId('next').setLabel('▶').setStyle(ButtonStyle.Primary);
+      const prev = new ButtonBuilder()
+        .setCustomId('prev')
+        .setLabel('◀')
+        .setStyle(ButtonStyle.Primary);
+      const next = new ButtonBuilder()
+        .setCustomId('next')
+        .setLabel('▶')
+        .setStyle(ButtonStyle.Primary);
       const row = new ActionRowBuilder().addComponents(prev, next);
 
-      result.slice((page - 1) * 10, page * 10).forEach(entry => {
+      result.slice((page - 1) * 10, page * 10).forEach((entry) => {
         pageEmbed.addFields({ name: '', value: `${entry.shortname} (by ${entry.user})` });
       });
 
       prev.setDisabled(page == 1);
       next.setDisabled(page == maxpage);
 
-      await interaction.reply({ embeds: [pageEmbed], components: [row] } as InteractionReplyOptions);
+      await interaction.reply({
+        embeds: [pageEmbed],
+        components: [row]
+      } as InteractionReplyOptions);
       const message = await interaction.fetchReply();
       const collector = message.createMessageComponentCollector({ time: 60000 });
 
@@ -77,7 +99,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         // re-aquire songs so new changes are reflected
         const result = await listSongs();
         const maxpage = Math.ceil(result.length / 10);
-        if (btn.user.id !== interaction.user.id) return btn.reply({ content: "Not the intended user", ephemeral: true });
+        if (btn.user.id !== interaction.user.id)
+          return btn.reply({ content: 'Not the intended user', ephemeral: true });
 
         if (btn.customId === 'prev' && page > 1) page--;
         else if (btn.customId === 'next' && page < maxpage) page++;
@@ -86,7 +109,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         next.setDisabled(page == maxpage);
 
         const pageEmbed = new EmbedBuilder().setFooter({ text: `Page ${page} of ${maxpage}` });
-        result.slice((page - 1) * 10, page * 10).forEach(entry => {
+        result.slice((page - 1) * 10, page * 10).forEach((entry) => {
           pageEmbed.addFields({ name: '', value: `${entry.shortname} (by ${entry.user})` });
         });
         await btn.update({ embeds: [pageEmbed], components: [row] } as InteractionUpdateOptions);
