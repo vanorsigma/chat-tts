@@ -9,7 +9,7 @@ import {
   InteractionReplyOptions,
   InteractionUpdateOptions
 } from 'discord.js';
-import { Synth } from 'beepbox/synth/synth';
+import { Synth } from 'beepbox/esm/synth/synth';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from './db';
 import { startWebsocketServer } from './websocket';
 
