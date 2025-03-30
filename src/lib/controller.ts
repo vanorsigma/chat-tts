@@ -5,7 +5,7 @@ import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech'
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
-import { Synth } from 'beepbox/esm/synth/synth';
+import { Synth } from 'beepbox';
 
 const shortnameMatcher = /<(\w+)>/g;
 
