@@ -7,7 +7,7 @@ import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
 import { Synth } from 'beepbox';
 
-const shortnameMatcher = /<(\w+)>/g;
+const shortnameMatcher = /<(.*)>/g;
 
 function sleep(duration: number): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
