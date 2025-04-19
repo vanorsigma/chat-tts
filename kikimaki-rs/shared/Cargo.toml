@@ -1,0 +1,14 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+twitch-irc = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+thiserror = "2.0.12"
+google-generative-ai-rs = { version = "0.3.4", features = ["beta"] }
+obws = "0.14.0"
+serde = { version = "1.0.219", features = ["derive"] }
+log = { workspace = true }
