@@ -19,17 +19,18 @@ async fn main() {
         obs_host: "localhost".to_string(),
         obs_port: 4455,
         obs_password,
-        obs_source_name: "kiki".to_string(),
+        obs_source_name: "kikichatter".to_string(),
         obs_animation_duration: 200,
         twitch_target: "vanorsigma".to_string(),
         twitch_message_to_string: |message| {
             let num: f32 = rand::random();
-            if num < 0.5 {
+            if message.message.contains("kiki") || num < 0.5 {
                 format!("{0}: {1}", message.username, message.message).into()
             } else {
                 None
             }
-        }
+        },
+        default_cat_face: "(='.'=)".to_string()
     };
 
     let cancellation = CancellationToken::new();
