@@ -12,3 +12,5 @@ google-generative-ai-rs = { version = "0.3.4", features = ["beta"] }
 obws = "0.14.0"
 serde = { version = "1.0.219", features = ["derive"] }
 log = { workspace = true }
+rouille = "3.6.2"
+html-escape = "0.2.13"

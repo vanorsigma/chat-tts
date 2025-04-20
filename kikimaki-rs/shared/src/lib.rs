@@ -1,10 +1,14 @@
 use thiserror::Error;
-use tokio::{join, select, task::{JoinHandle, JoinSet}};
+use tokio::{
+    join, select,
+    task::{JoinHandle, JoinSet},
+};
 use tokio_util::sync::CancellationToken;
 
 pub mod ai;
 pub mod obs;
 pub mod twitch;
+pub mod webserver;
 
 #[derive(Debug, Error)]
 pub enum PipelineError {
@@ -40,29 +44,13 @@ pub struct Settings<F: Fn(twitch::TwitchIRCMessage) -> Option<String>> {
     /// Twitch Message -> Option<String> converter.
     /// If this function returns None, then the pipeline does not proceed with the message
     pub twitch_message_to_string: F,
+
+    /// Default face
+    pub default_cat_face: String,
 }
 
 pub struct Pipeline {
     pub join_handle: JoinHandle<()>,
-}
-
-async fn animate_text(
-    obs: &obs::ObsController,
-    source_name: String,
-    message: String,
-    animation_duation: u64,
-) {
-    for line in message.trim().split('\n') {
-        match obs.update_from_message(&source_name, line).await {
-            Ok(_) => (),
-            Err(_e) => {
-                // TODO: add error handling if needed
-                break;
-            }
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(animation_duation)).await;
-    }
 }
 
 pub async fn make_pipeline<
@@ -77,6 +65,9 @@ pub async fn make_pipeline<
 
     let ai = ai::Ai::new(settings.google_api_key, settings.google_prompt);
 
+    let webserver =
+        webserver::CatWebServer::new(settings.default_cat_face, cancellation.child_token());
+
     let obscontroller =
         obs::ObsController::new(settings.obs_host, settings.obs_port, settings.obs_password)
             .await
@@ -87,16 +78,14 @@ pub async fn make_pipeline<
             select! {
                 Ok(message) = twitch_rx.recv() => {
                     if let Some(result) = (settings.twitch_message_to_string)(message) {
-                        match ai.send(result).await {
+                        match ai.send(result.clone()).await {
                             Ok(ai_response) => {
                                 log::debug!("Ai response was {ai_response}");
-                                animate_text(
-                                    &obscontroller,
-                                    settings.obs_source_name.clone(),
-                                    ai_response,
-                                    settings.obs_animation_duration,
-                                )
-                                .await;
+                                webserver.update_face(ai_response).await;
+                                let _ = obscontroller.update_from_message(
+                                    &settings.obs_source_name.clone(),
+                                    result
+                                ).await;
                             }
 
                             Err(e) => log::error!("Error while prompting AI: {e}")
