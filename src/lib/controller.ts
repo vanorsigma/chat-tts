@@ -288,7 +288,6 @@ class ObsController {
       self.crypto.getRandomValues(array);
 
       const numRotation = Number(rotation);
-      console.log((array[0] / 4294967295) * 2.0 - 1.0);
       sceneItemMappings.push({
         itemId: sceneItemId,
         rotation: numRotation,
