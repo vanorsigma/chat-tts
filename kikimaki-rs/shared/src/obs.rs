@@ -43,37 +43,47 @@ impl ObsController {
         source_name: S1,
         msg: S2,
     ) -> Result<(), ObsControllerError> {
-        let current_scene_id = self
+        // search for the source name in all scenes
+        for scene in self
             .client
             .scenes()
-            .current_program_scene()
+            .list()
             .await
             .map_err(|e| ObsControllerError::Unknown(e))?
-            .id;
-
-        let scene_item = self
-            .client
-            .scene_items()
-            .list(current_scene_id.into())
-            .await
-            .map_err(|e| ObsControllerError::Unknown(e))?
-            .iter()
-            .find(|item| item.source_name == source_name.as_ref())
-            .ok_or(ObsControllerError::NoSceneName(source_name.as_ref().to_string()))?
+            .scenes
+        {
+            let scene_item = match self
+                .client
+                .scene_items()
+                .list(scene.id.into())
+                .await
+                .map_err(|e| ObsControllerError::Unknown(e))?
+                .iter()
+                .find(|item| item.source_name == source_name.as_ref())
+            {
+                Some(scene) => scene,
+                None => continue,
+            }
             .source_name
             .to_string();
 
-        self.client
-            .inputs()
-            .set_settings(SetSettings {
-                input: InputId::Name(&scene_item.to_string()),
-                settings: &ObsTextChangeSettings {
-                    text: msg.as_ref().to_string(),
-                },
-                overlay: None,
-            })
-            .await
-            .map_err(|e| ObsControllerError::Unknown(e))
+            return self
+                .client
+                .inputs()
+                .set_settings(SetSettings {
+                    input: InputId::Name(&scene_item.to_string()),
+                    settings: &ObsTextChangeSettings {
+                        text: msg.as_ref().to_string(),
+                    },
+                    overlay: None,
+                })
+                .await
+                .map_err(|e| ObsControllerError::Unknown(e));
+        }
+
+        Err(ObsControllerError::NoSceneName(
+            source_name.as_ref().to_string(),
+        ))
     }
 
     pub async fn update_from_receiver<
@@ -89,11 +99,11 @@ impl ObsController {
             loop {
                 select! {
                     Ok(message) = receiver.recv() => {
-                        if let Err(ObsControllerError::Unknown(_e)) = self
+                        if let Err(ObsControllerError::Unknown(e)) = self
                         .update_from_message(source_name.as_ref(), message.to_owned().as_ref())
                         .await
                         {
-                            // TODO: probably log or do something
+                            log::error!("Can't update OBS scene due to {e}");
                         }
                     }
 
