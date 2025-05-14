@@ -70,6 +70,7 @@ export class ParseableConfig {
     this.filteredExps = arbitraryObject['filteredExps'];
     this.soundEffects = arbitraryObject['soundEffects'];
     this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
+    this.remoteVoiceConfig = arbitraryObject['remoteVoiceConfig'];
     this.distractConfig = arbitraryObject['distractConfig'];
   }
 
