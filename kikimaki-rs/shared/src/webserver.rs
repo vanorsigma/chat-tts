@@ -4,7 +4,7 @@ use rouille::{Response, Server};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
-const TEMPLATE_HTML: &str = "<meta content=\"width=device-width,initial-scale=1\"name=viewport><meta charset=UTF-8><meta content=1 http-equiv=refresh><body style=width:100%;height:100%;><p>{FACE}";
+const TEMPLATE_HTML: &str = "{FACE}";
 
 pub struct CatWebServer {
     face_arc: Arc<RwLock<String>>,
@@ -28,7 +28,7 @@ impl CatWebServer {
                 "{FACE}",
                 &html_escape::encode_safe(&read_guard.to_string()).to_string(),
             );
-            Response::html(current_rendered_html)
+            Response::text(current_rendered_html).with_additional_header("Access-Control-Allow-Origin", "*")
         })
         .expect("can create server");
         let (server_handle, server_sender) = server.stoppable();
