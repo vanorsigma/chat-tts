@@ -36,6 +36,10 @@ export interface DistractConfig {
   cooldown: number;
 }
 
+export interface RemoteVoiceConfig {
+  controlURL: string;
+}
+
 // For anything adjustable from the UI
 export interface DynamicConfig {
   songPitchSpeedAffected: boolean;
@@ -52,6 +56,7 @@ export class ParseableConfig {
   filteredExps?: string[];
   soundEffects?: SoundEffect[];
   standaloneSongConfig?: StandaloneSongConfig;
+  remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
 
   constructor(arbitraryObject: any) {
@@ -99,6 +104,7 @@ export class ParseableConfig {
       filteredExps: this.filteredExps ?? [],
       soundEffects: this.soundEffects ?? [],
       standaloneSongConfig: this.standaloneSongConfig,
+      remoteVoiceConfig: this.remoteVoiceConfig,
       dynamicConfig: {
         songPitchSpeedAffected: true
       },
@@ -118,6 +124,7 @@ export interface FullConfig {
   filteredExps: string[];
   soundEffects: SoundEffect[];
   standaloneSongConfig?: StandaloneSongConfig;
+  remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
   dynamicConfig: DynamicConfig;
 }

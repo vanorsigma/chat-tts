@@ -35,11 +35,8 @@
     config = parseYaml(configText).toFullConfig();
     controller?.end();
 
-    const voicemap = controller?.voice.dumpVoiceMap() ?? new Map();
-
     controller = new Controller(config);
     controller?.start();
-    controller?.voice.loadVoiceMap(voicemap);
 
     previousConfigText = configText;
   }
@@ -67,17 +64,18 @@
 <h1>Vanor's TTS</h1>
 <p>Magical TTS system for streaming purposes</p>
 
-<section>
-  <h2>Voice ID picker</h2>
-  <p>Use this section to get voice IDs for config purposes</p>
-  <label for="voices">Choose a voice:</label>
-  <select bind:value={selectedVoice} id="voices" name="voices">
-    {#each voices as voice}
-      <option value={voice}>{voice.name}</option>
-    {/each}
-  </select>
-  <pre>{selectedVoice?.name}</pre>
-</section>
+<!-- NOTE: This section isn't strictly necessary -->
+<!-- <section> -->
+<!--   <h2>Voice ID picker</h2> -->
+<!--   <p>Use this section to get voice IDs for config purposes</p> -->
+<!--   <label for="voices">Choose a voice:</label> -->
+<!--   <select bind:value={selectedVoice} id="voices" name="voices"> -->
+<!--     {#each voices as voice} -->
+<!--       <option value={voice}>{voice.name}</option> -->
+<!--     {/each} -->
+<!--   </select> -->
+<!--   <pre>{selectedVoice?.name}</pre> -->
+<!-- </section> -->
 
 <section>
   <h2>Faker</h2>

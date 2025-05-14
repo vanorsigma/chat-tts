@@ -6,6 +6,7 @@ import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
 import { Synth } from 'beepbox';
+import axios from 'axios';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -16,6 +17,16 @@ function sleep(duration: number): Promise<void> {
       resolve();
     }, duration);
   });
+}
+
+interface NewVoiceSettings {
+  voice_name: string;
+  rate: number;
+  pitch: number;
+}
+
+type NewVoiceSettingsWithSynthesis = NewVoiceSettings & {
+  voice: SpeechSynthesisVoice;
 }
 
 interface VoiceSettings {
@@ -243,8 +254,8 @@ class ObsController {
     this.setConnected(false);
   }
 
-  async updateSceneWith(user: tmi.ChatUserstate, voice: VoiceSettings) {
-    const color = this.stringToColour(voice.voice.name);
+  async updateSceneWith(user: tmi.ChatUserstate, voice: NewVoiceSettings) {
+    const color = this.stringToColour(voice.voice_name);
     await this.obs.call('SetInputSettings', {
       inputName: this.settings.sourceName,
       inputSettings: {
@@ -345,7 +356,80 @@ class ObsController {
   }
 }
 
-class VoiceController {
+interface VoiceController {
+  processMessage(
+    user: tmi.ChatUserstate,
+    message: string,
+    onSpeedChange: (arg0: number) => void,
+    onSpeechStart: () => void
+  ): Promise<void>;
+  getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettings>;
+  refreshUser(user: tmi.ChatUserstate): void;
+  cancel(): void;
+}
+
+class RemoteVoiceController implements VoiceController {
+  private baseurl: string;
+
+  constructor(config: FullConfig) {
+    this.baseurl = config.remoteVoiceConfig?.controlURL ?? 'http://localhost:3123';
+    this.sendInitializationMessage(config);
+  }
+
+  async sendInitializationMessage(config: FullConfig): Promise<void> {
+    await axios.post(`${this.baseurl}/init`, {
+      pitch_rate_config: {
+        pitch_range_low: config.pitchRange.minimum,
+        pitch_range_high: config.pitchRange.maximum,
+        rate_range_low: config.rateRange.minimum,
+        rate_range_high: config.rateRange.maximum,
+      },
+      sound_effects: [
+        ...config.soundEffects.map(effect => ({
+          tag: effect.tag,
+          filename: effect.filePath,
+        }))
+      ],
+    });
+  }
+
+  async processMessage(
+    user: tmi.ChatUserstate,
+    message: string,
+    _onSpeedChange: (arg0: number) => void,
+    _onSpeechStart: () => void
+  ): Promise<void> {
+    await axios.get(`${this.baseurl}/processMessage`, {
+      params: {
+        'username': user.username ?? '',
+        'message': message,
+      }
+    });
+  }
+
+  async getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettings> {
+    const result = await axios.get(`${this.baseurl}/getVoiceMapForUser`, {
+      params: {
+        username: user.username
+      }
+    });
+    return result.data as NewVoiceSettings;
+  }
+
+  refreshUser(user: tmi.ChatUserstate): void {
+    axios.get(`${this.baseurl}/refreshUser`, {
+      params: {
+        username: user.username
+      }
+    });
+  }
+
+  cancel(): void {
+    axios.get(`${this.baseurl}/cancel`);
+  }
+}
+
+class LocalVoiceController implements VoiceController {
   usernameVoiceMap: Map<string, VoiceSettings> = new Map();
   config: FullConfig;
 
@@ -362,7 +446,7 @@ class VoiceController {
     });
   }
 
-  refreshUser(user: tmi.ChatUserstate): SpeechSynthesisVoice | undefined {
+  refreshUser(user: tmi.ChatUserstate) {
     if (!user.username) {
       return undefined;
     }
@@ -373,7 +457,6 @@ class VoiceController {
       pitch: this.chooseRandomPitch(),
       rate: this.chooseRandomRate()
     });
-    return voice;
   }
 
   chooseRandomVoice(): SpeechSynthesisVoice {
@@ -397,7 +480,7 @@ class VoiceController {
     cancelSpeech();
   }
 
-  getVoiceMapForUser(user: tmi.ChatUserstate): VoiceSettings {
+  async getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettingsWithSynthesis> {
     if (!user.username) throw new Error('no username in chat state');
 
     const username = user.username;
@@ -407,7 +490,12 @@ class VoiceController {
     }
 
     const voiceSettings = this.usernameVoiceMap.get(username)!;
-    return voiceSettings;
+    return {
+      pitch: voiceSettings.pitch,
+      rate: voiceSettings.rate,
+      voice_name: voiceSettings.voice.name,
+      voice: voiceSettings.voice
+    };
   }
 
   dumpVoiceMap(): Map<string, VoiceSettings> {
@@ -424,7 +512,7 @@ class VoiceController {
     onSpeedChange: (arg0: number) => void,
     onSpeechStart: () => void
   ) {
-    const voiceSettings = this.getVoiceMapForUser(user);
+    const voiceSettings = await this.getVoiceMapForUser(user);
     await speak(
       {
         pitch: voiceSettings.pitch,
@@ -461,7 +549,7 @@ export class Controller {
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
     this.twitch = createNewTwitchClient(config.channelName);
-    this.voice = new VoiceController(config);
+    this.voice = config.remoteVoiceConfig ? new RemoteVoiceController(config) : new LocalVoiceController(config);
     this.commands = new CommandController();
     if (config.obsSettings) {
       this.obsController = new ObsController(config.obsSettings);
@@ -505,10 +593,10 @@ export class Controller {
   async updateWithMessage(user: tmi.ChatUserstate, message: string) {
     this._matchAndPlaySong(message);
 
-    const voice = this.voice.getVoiceMapForUser(user);
+    const voice = await this.voice.getVoiceMapForUser(user);
     const filtered = this.isFiltered(message);
     this.updateChatLog(
-      `${user.username} (${voice.voice.name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
+      `${user.username} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
     );
 
     const potentialCommand = this.commands.getCommand(message);
