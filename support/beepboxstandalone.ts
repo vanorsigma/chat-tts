@@ -5,7 +5,7 @@ import { Synth } from 'beepbox/esm/synth/synth';
 import Speaker from 'speaker';
 import WebSocket from 'ws';
 
-const baseUrl = 'http://localhost:5173'
+const baseUrl = 'http://localhost:4173'
 const wsUrl = 'ws://localhost:3001/receivers';
 
 let offlineContext = new AudioContext();
