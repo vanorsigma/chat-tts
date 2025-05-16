@@ -10,9 +10,6 @@ from PyQt6.QtGui import QGuiApplication, QImage, QPixmap, QCloseEvent
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
-from trinket.frames.emote_guess import create_emote_window_from_emote_set_id
-from trinket.support import CancellationToken
-
 
 class WarningLevel(Enum): # pylint: disable=missing-class-docstring
     FIRST = 1
@@ -25,7 +22,7 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
     (No I'm not addicted to the game)
     """
 
-    def __init__(self, level: WarningLevel):
+    def __init__(self):
         super().__init__()
         self.playing_ref_count = 0
         self.windows: list[QWidget] = []
@@ -47,9 +44,15 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         self.set_warning_level(WarningLevel.FIRST)
 
     def is_completed(self):
+        """
+        Checks if the current warning is complete
+        """
         return not self.isVisible()
 
     def set_warning_level(self, level: WarningLevel) -> None:
+        """
+        Sets the warning level of the current warning
+        """
         match level:
             case WarningLevel.FIRST:
                 self.image.load("resources/first_trumpet.png")
@@ -69,11 +72,16 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         self.audio_output.setVolume(0.1)
         self.label.setPixmap(QPixmap(self.image))
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None: # pylint: disable=invalid-name,missing-function-docstring
         self.close()
         event.accept()
 
     def add_frame(self, widget: QWidget) -> None:
+        """
+        Adds a child frame to this warning. If the child frame as a
+        "playing_signal", it should work in tandem with the warning's
+        audio player as well
+        """
         widget.setParent(self)
         self.windows.append(widget)
         widget.closed.connect(self.__on_closed)
@@ -81,13 +89,13 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         if hasattr(widget, 'playing_signal'):
             widget.playing_signal.connect(self.__on_playing_changed)
 
-    def show(self) -> None:
+    def show(self) -> None: # pylint: disable=missing-function-docstring
         super().show()
         for w in self.windows:
             w.show()
         self.media_player.play()
 
-    def close(self) -> None:
+    def close(self) -> None: # pylint: disable=missing-function-docstring
         for w in self.windows:
             w.closed.disconnect()
             w.close()
