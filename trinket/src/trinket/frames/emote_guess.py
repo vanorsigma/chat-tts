@@ -1,6 +1,7 @@
 """
 Guess 7tv emotes
 """
+import cachetools
 import urllib.request
 import json
 import sys
@@ -55,6 +56,7 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
             for emote in raw_emotes
         ]
 
+    @cachetools.func.ttl_cache(maxsize=1, ttl=3600)
     def get_emotes(self) -> list[SevenTVEmoteData]:
         """
         Get the emotes from the 7TV API
@@ -149,6 +151,14 @@ class EmoteWindow(CloseSignalableWidget):
         self.text_edit.blockSignals(False)
 
 
+@cachetools.func.ttl_cache(maxsize=1, ttl=3600)
+def get_emotes_from_emote_set_id(emote_set_id: str) -> list[SevenTVEmoteData]:
+    """
+    Cached method to get emote set IDs.
+    """
+    api = SevenTVAPI(emote_set_id)
+    return api.get_emotes()
+
 
 def create_emote_window_from_emote_set_id(emote_set_id: str,
                                           no_windows: int,
@@ -159,8 +169,7 @@ def create_emote_window_from_emote_set_id(emote_set_id: str,
     if seed is not None:
         random.seed(seed)
 
-    api = SevenTVAPI(emote_set_id)
-    emotes = api.get_emotes()
+    emotes = get_emotes_from_emote_set_id(emote_set_id)
     # NOTE: must do it this way so it doesn't get garbage collected
     window_references = []
     for _ in range(no_windows):
