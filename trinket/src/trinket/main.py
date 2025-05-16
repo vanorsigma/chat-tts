@@ -22,7 +22,7 @@ from trinket.support import CancellationToken
 from trinket.receiver.ws import TTSWebsocketClient
 from trinket.receiver.model import Command
 
-def calculate_warning_level(emote_windows: int, audio_windows: int) -> WarningLevel:
+def calculate_warning_level(emote_windows: int, audio_windows: int) -> WarningLevel: # pylint: disable=missing-function-docstring
     score = emote_windows * 0.1 + audio_windows * 0.5
     if 0 < score <= 1:
         return WarningLevel.FIRST
@@ -37,7 +37,7 @@ ROTATE_FRAME: RotateFrame | None = None
 CANCELLED = CancellationToken()
 TASK_QUEUE = Queue[Command]()
 
-def spawn_distractions() -> None:
+def spawn_distractions() -> None: # pylint: disable=missing-function-docstring
     emote_song_random = random.randint(0, 1)
     emotes = random.randint(emote_song_random, 10)
     songs = random.randint(1 - emote_song_random, 3)
@@ -54,8 +54,8 @@ def spawn_distractions() -> None:
     WARNING_FRAME.show()
     return
 
-def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None:
-    global WARNING_FRAME, ROTATE_FRAME # pylint: disable=global-statement
+def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None: # pylint: disable=missing-function-docstring
+    global WARNING_FRAME, ROTATE_FRAME # pylint: disable=global-statement,global-variable-not-assigned
 
     if CANCELLED.is_cancelled():
         timer.stop()
@@ -85,14 +85,14 @@ def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None:
             if ROTATE_FRAME is not None:
                 ROTATE_FRAME.close()
 
-def ws_message_callback(command: Command) -> None:
+def ws_message_callback(command: Command) -> None: # pylint: disable=missing-function-docstring
     TASK_QUEUE.put(command)
 
-def ws_thread() -> None:
-    client = TTSWebsocketClient('ws://192.168.1.2:3001/receivers', ws_message_callback, CANCELLED)
+def ws_thread() -> None: # pylint: disable=missing-function-docstring
+    client = TTSWebsocketClient('ws://localhost:3001/receivers', ws_message_callback, CANCELLED)
     client.run_forever()
 
-def handler(_signum, _frame):
+def handler(_signum, _frame): # pylint: disable=missing-function-docstring
     cmd = Command()
     TASK_QUEUE.put(cmd)
     CANCELLED.cancel()
