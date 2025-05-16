@@ -6,12 +6,13 @@ Takes a screenshot of the current screen, then rotates it.
 
 import sys
 
-from PyQt6.QtCore import QElapsedTimer, Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QGuiApplication, QTransform
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget
+from PyQt6.QtWidgets import QApplication, QLabel
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 
-class RotateFrame(QWidget): # pylint: disable=too-few-public-methods
+class RotateFrame(QOpenGLWidget): # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """
     The frame that will perform the rotation
     """
@@ -20,6 +21,7 @@ class RotateFrame(QWidget): # pylint: disable=too-few-public-methods
         super().__init__()
         self.speed = speed
         self.completed = False
+        self.angle = 0
         self.setWindowTitle("Thingy")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setStyleSheet('background-color: black;')
@@ -34,27 +36,22 @@ class RotateFrame(QWidget): # pylint: disable=too-few-public-methods
         self.label.setPixmap(self.shot_pixmap)
         self.label.setGeometry(0, 0, self.width, self.height)
 
-        self.elapsed_timer = QElapsedTimer()
-        self.elapsed_timer.start()
+        self.angle_timer = QTimer()
+        self.angle_timer.timeout.connect(self.update_angle)
+        self.angle_timer.start(int(1000 / 60)) # 60fps rotations
 
-        self.fallback_timer = QTimer()
-        self.fallback_timer.setInterval(1000)
-        self.fallback_timer.timeout.connect(lambda: self.paintEvent(None))
-        self.fallback_timer.start()
+    def update_angle(self): # pylint: disable=missing-function-docstring
+        self.angle = self.angle + self.speed * 0.1
+        if self.angle >= 360:
+            self.completed = True
+            self.angle_timer.stop()
+            self.close()
+            return
+        self.update()
 
     def paintEvent(self, _event): # pylint: disable=invalid-name,missing-function-docstring
-        elapsed_time = self.elapsed_timer.elapsed() / 1000.0
-        angle = elapsed_time * self.speed
-
-        if angle > 360:
-            self.completed = True
-            self.close()
-            self.fallback_timer.stop()
-            super().close()
-            return
-
         transform = QTransform()
-        transform.rotate(angle)
+        transform.rotate(self.angle)
 
         rotated_pixmap = self.shot_pixmap.transformed(transform)
 

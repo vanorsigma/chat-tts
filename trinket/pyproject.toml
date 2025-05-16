@@ -6,7 +6,7 @@ authors = [
     {name = "codingindex", email = "codingindex@codingindex.xyz"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 dependencies = [
     "pyqt6==6.8.1",
     "dataclasses-json==0.6.7",
@@ -17,6 +17,7 @@ dependencies = [
 mypy = "*"
 pylint = "*"
 black = "*"
+websocat = "*"
 
 [tool.poetry]
 packages = [{include = "trinket", from = "src"}]
