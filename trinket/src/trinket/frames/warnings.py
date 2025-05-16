@@ -6,7 +6,7 @@ import sys
 from enum import Enum
 
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QGuiApplication, QImage, QPixmap
+from PyQt6.QtGui import QGuiApplication, QImage, QPixmap, QCloseEvent
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
@@ -27,7 +27,7 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
 
     def __init__(self, level: WarningLevel):
         super().__init__()
-        self.playingRefCount = 0
+        self.playing_ref_count = 0
         self.windows: list[QWidget] = []
         self.setWindowTitle("Thingy")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
@@ -69,6 +69,10 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
         self.audio_output.setVolume(0.1)
         self.label.setPixmap(QPixmap(self.image))
 
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.close()
+        event.accept()
+
     def add_frame(self, widget: QWidget) -> None:
         widget.setParent(self)
         self.windows.append(widget)
@@ -89,13 +93,13 @@ class WarningFrame(QWidget): # pylint: disable=too-few-public-methods
             w.close()
 
         self.windows = []
-        self.playingRefCount = 0
+        self.playing_ref_count = 0
         self.media_player.stop()
         super().close()
 
     def __on_playing_changed(self, playing: bool):
-        self.playingRefCount += 1 if playing else -1
-        if self.playingRefCount > 0:
+        self.playing_ref_count += 1 if playing else -1
+        if self.playing_ref_count > 0:
             self.media_player.pause()
         else:
             self.media_player.play()
