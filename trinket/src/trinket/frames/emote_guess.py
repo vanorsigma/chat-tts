@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass
 from dataclasses_json import DataClassJsonMixin
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QLayout
+from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QLayout
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
 from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, QColor
 from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget

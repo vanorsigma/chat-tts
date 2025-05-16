@@ -22,7 +22,10 @@ from trinket.support import CancellationToken
 from trinket.receiver.ws import TTSWebsocketClient
 from trinket.receiver.model import Command
 
-def calculate_warning_level(emote_windows: int, audio_windows: int) -> WarningLevel: # pylint: disable=missing-function-docstring
+
+def calculate_warning_level(
+    emote_windows: int, audio_windows: int
+) -> WarningLevel:  # pylint: disable=missing-function-docstring
     score = emote_windows * 0.1 + audio_windows * 0.5
     if 0 < score <= 1:
         return WarningLevel.FIRST
@@ -32,19 +35,23 @@ def calculate_warning_level(emote_windows: int, audio_windows: int) -> WarningLe
 
     return WarningLevel.THIRD
 
+
 WARNING_FRAME: WarningFrame | None = None
 ROTATE_FRAME: RotateFrame | None = None
 CANCELLED = CancellationToken()
 TASK_QUEUE = Queue[Command]()
 
-def spawn_distractions() -> None: # pylint: disable=missing-function-docstring
+
+def spawn_distractions() -> None:  # pylint: disable=missing-function-docstring
     emote_song_random = random.randint(0, 1)
     emotes = random.randint(emote_song_random, 10)
     songs = random.randint(1 - emote_song_random, 3)
 
     WARNING_FRAME.close()
 
-    windows_emote = create_emote_window_from_emote_set_id('01J452JCVG0000352W25T9VEND', emotes)
+    windows_emote = create_emote_window_from_emote_set_id(
+        "01J452JCVG0000352W25T9VEND", emotes
+    )
     windows_song = make_song_windows(songs)
 
     for w in itertools.chain(windows_emote, windows_song):
@@ -54,8 +61,11 @@ def spawn_distractions() -> None: # pylint: disable=missing-function-docstring
     WARNING_FRAME.show()
     return
 
-def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None: # pylint: disable=missing-function-docstring
-    global WARNING_FRAME, ROTATE_FRAME # pylint: disable=global-statement,global-variable-not-assigned
+
+def gui_thread_timer_callback(
+    app: QApplication, timer: QTimer
+) -> None:  # pylint: disable=missing-function-docstring
+    global WARNING_FRAME, ROTATE_FRAME  # pylint: disable=global-statement,global-variable-not-assigned
 
     if CANCELLED.is_cancelled():
         timer.stop()
@@ -66,7 +76,7 @@ def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None: # pylin
 
     command: Command = TASK_QUEUE.get()
     match command.command.type:
-        case  "distract":
+        case "distract":
             if WARNING_FRAME is not None:
                 if not WARNING_FRAME.is_completed():
                     return
@@ -85,19 +95,27 @@ def gui_thread_timer_callback(app: QApplication, timer: QTimer) -> None: # pylin
             if ROTATE_FRAME is not None:
                 ROTATE_FRAME.close()
 
-def ws_message_callback(command: Command) -> None: # pylint: disable=missing-function-docstring
+
+def ws_message_callback(
+    command: Command,
+) -> None:  # pylint: disable=missing-function-docstring
     TASK_QUEUE.put(command)
 
-def ws_thread() -> None: # pylint: disable=missing-function-docstring
-    client = TTSWebsocketClient('ws://localhost:3001/receivers', ws_message_callback, CANCELLED)
+
+def ws_thread() -> None:  # pylint: disable=missing-function-docstring
+    client = TTSWebsocketClient(
+        "ws://localhost:3001/receivers", ws_message_callback, CANCELLED
+    )
     client.run_forever()
 
-def handler(_signum, _frame): # pylint: disable=missing-function-docstring
+
+def handler(_signum, _frame):  # pylint: disable=missing-function-docstring
     cmd = Command()
     TASK_QUEUE.put(cmd)
     CANCELLED.cancel()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     WARNING_FRAME = WarningFrame(WarningLevel.FIRST)
     ws_thread = threading.Thread(target=ws_thread)
@@ -111,11 +129,11 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, handler)
 
-    print('Starting WS thread')
+    print("Starting WS thread")
     ws_thread.start()
 
-    print('Starting QApplication')
+    print("Starting QApplication")
     app.exec()
 
-    print('QApplication done')
+    print("QApplication done")
     ws_thread.join()

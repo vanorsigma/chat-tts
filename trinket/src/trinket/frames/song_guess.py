@@ -6,7 +6,7 @@ import sys
 import random
 import os
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLayout, QPushButton
+from PyQt6.QtWidgets import QApplication, QVBoxLayout, QLayout, QPushButton
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
