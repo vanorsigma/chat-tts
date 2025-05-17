@@ -1,7 +1,7 @@
 use thiserror::Error;
 use tokio::{
-    join, select,
-    task::{JoinHandle, JoinSet},
+    select,
+    task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -17,11 +17,17 @@ pub enum PipelineError {
 }
 
 pub struct Settings<F: Fn(twitch::TwitchIRCMessage) -> Option<String>> {
-    /// Google Generative AI API Key
-    pub google_api_key: String,
+    /// Personality Prompt
+    pub prompt_personality: String,
 
-    /// Prompt to use
-    pub google_prompt: String,
+    /// Expression Prompt
+    pub prompt_expression: String,
+
+    /// Local AI host
+    pub local_ai_host: String,
+
+    /// Local AI port
+    pub local_ai_port: u16,
 
     /// OBS Host
     pub obs_host: String,
@@ -63,7 +69,13 @@ pub async fn make_pipeline<
         twitch::TwitchIRCSpawner::connect(settings.twitch_target, cancellation.child_token()).await;
     let mut twitch_rx = twitch.subscribe();
 
-    let ai = ai::Ai::new(settings.google_api_key, settings.google_prompt);
+    let ai = ai::Ai::new(
+        settings.local_ai_host,
+        settings.local_ai_port,
+        settings.prompt_personality,
+        settings.prompt_expression,
+    )
+    .await;
 
     let webserver =
         webserver::CatWebServer::new(settings.default_cat_face, cancellation.child_token());

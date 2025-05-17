@@ -1,91 +1,103 @@
-use google_generative_ai_rs::v1::{
-    api::Client,
-    errors::GoogleAPIError,
-    gemini::{
-        request::{GenerationConfig, Request, SystemInstructionContent, SystemInstructionPart}, Content, Model, Part, Role
-    },
+use openai::{
+    Credentials, OpenAiError,
+    chat::{ChatCompletion, ChatCompletionMessage, ChatCompletionMessageRole},
 };
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AiError {
-    #[error("ai returned a part that was empty")]
-    ImpartialResponse,
+    #[error("NoMessage, AI did not return any messages")]
+    NoMessage,
 
-    #[error("ai returned empty")]
-    EmptyResponse,
+    #[error("CompletionError: {0}")]
+    CompletionError(OpenAiError),
 
-    #[error("idk bro {0}")]
-    Unknown(GoogleAPIError),
+    #[error("shrugeg")]
+    Unknown,
 }
 
+const MODEL_NAME: &str = "Qwen3-1.7B-Q_0";
+
 pub struct Ai {
-    client: Client,
-    system_prompt: String,
+    credentials: Credentials,
+    personality_prompt: String,
+    expression_prompt: String,
 }
 
 impl Ai {
-    pub fn new<S1: AsRef<str>, S2: AsRef<str>>(api_key: S1, system_prompt: S2) -> Self {
-        let client = Client::new_from_model(Model::Gemini2_0Flash, api_key.as_ref().to_string());
-        Ai {
-            client,
-            system_prompt: system_prompt.as_ref().to_string(),
+    pub async fn new(
+        host: impl Into<String> + std::fmt::Display,
+        port: u16,
+        personality_prompt: impl Into<String>,
+        expression_prompt: impl Into<String>,
+    ) -> Self {
+        let credentials = Credentials::new("", format!("http://{host}:{port}"));
+        Self {
+            credentials,
+            personality_prompt: personality_prompt.into(),
+            expression_prompt: expression_prompt.into(),
         }
     }
 
-    pub async fn send<S: AsRef<str>>(&self, message: S) -> Result<String, AiError> {
-        let request = Request {
-            contents: vec![Content {
-                role: Role::User,
-                parts: vec![Part {
-                    text: Some(message.as_ref().to_string()),
-                    inline_data: None,
-                    file_data: None,
-                    video_metadata: None,
-                }],
-            }],
-            tools: vec![],
-            safety_settings: vec![],
-            generation_config: Some(GenerationConfig {
-                temperature: Some(2.0),
-                top_p: None,
-                top_k: None,
-                candidate_count: None,
-                max_output_tokens: None,
-                stop_sequences: None,
-                response_mime_type: None,
-                response_schema: None,
-            }),
-            system_instruction: Some(SystemInstructionContent {
-                parts: vec![SystemInstructionPart {
-                    text: Some(self.system_prompt.to_string()),
-                }],
-            }),
-        };
+    async fn send_raw(
+        &self,
+        prompt: impl Into<String>,
+        history: impl Into<Vec<ChatCompletionMessage>>,
+    ) -> Result<String, AiError> {
+        let mut messages = vec![ChatCompletionMessage {
+            role: ChatCompletionMessageRole::System,
+            content: Some(prompt.into().to_string()),
+            ..Default::default()
+        }];
+        messages.append(&mut history.into());
 
-        // we don't want a streamed response, since ideally the AI gets all the frames it needs to
-        // react to a message
-        self.client
-            .post(30, &request)
+        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages.clone())
+            .credentials(self.credentials.clone())
+            .create()
             .await
-            .map_err(|e| AiError::Unknown(e))?
-            .rest()
-            .ok_or(AiError::EmptyResponse)?
-            .candidates
+            .map_err(AiError::CompletionError)?;
+
+        let message = chat_completion
+            .choices
             .first()
-            .ok_or(AiError::EmptyResponse)?
+            .ok_or(AiError::NoMessage)?
+            .message
+            .clone();
+        Ok(message
             .content
-            .parts
-            .iter()
-            .map(|part| part.text.clone())
-            .reduce(|accum, ele| {
-                if let Some(e) = ele {
-                    accum.map(|r| r + &e)
-                } else {
-                    None
-                }
-            })
-            .ok_or(AiError::EmptyResponse)?
-            .ok_or(AiError::ImpartialResponse)
+            .unwrap()
+            .trim()
+            .split("</think>")
+            .collect::<Vec<_>>()[1]
+            .trim()
+            .to_string())
+    }
+
+    pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
+        let personality_result = self
+            .send_raw(
+                self.personality_prompt.clone(),
+                vec![ChatCompletionMessage {
+                    role: ChatCompletionMessageRole::User,
+                    content: Some(message.clone().into()),
+                    ..Default::default()
+                }],
+            )
+            .await
+            .inspect(|result| log::info!("Personality response: {result}"))?;
+
+        let expression_result = self
+            .send_raw(
+                self.expression_prompt.clone(),
+                vec![ChatCompletionMessage {
+                    role: ChatCompletionMessageRole::User,
+                    content: Some(personality_result),
+                    ..Default::default()
+                }],
+            )
+            .await
+            .inspect(|result| log::info!("Expression response: {result}"))?;
+
+        Ok(expression_result)
     }
 }
