@@ -43,6 +43,8 @@ impl Ai {
         &self,
         prompt: impl Into<String>,
         history: impl Into<Vec<ChatCompletionMessage>>,
+        temperature: f32,
+        top_p: f32,
     ) -> Result<String, AiError> {
         let mut messages = vec![ChatCompletionMessage {
             role: ChatCompletionMessageRole::System,
@@ -53,24 +55,26 @@ impl Ai {
 
         let chat_completion = ChatCompletion::builder(MODEL_NAME, messages.clone())
             .credentials(self.credentials.clone())
+            .temperature(temperature)
+            .top_p(top_p)
             .create()
             .await
             .map_err(AiError::CompletionError)?;
 
-        let message = chat_completion
+        let completion_messages = chat_completion
             .choices
             .first()
             .ok_or(AiError::NoMessage)?
             .message
-            .clone();
-        Ok(message
-            .content
-            .unwrap()
+            .clone()
+            .content.unwrap();
+
+        let messages = completion_messages
             .trim()
             .split("</think>")
-            .collect::<Vec<_>>()[1]
-            .trim()
-            .to_string())
+            .collect::<Vec<_>>();
+
+        Ok(messages.last().unwrap().to_string())
     }
 
     pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
@@ -82,6 +86,8 @@ impl Ai {
                     content: Some(message.clone().into()),
                     ..Default::default()
                 }],
+                0.6,
+                0.95
             )
             .await
             .inspect(|result| log::info!("Personality response: {result}"))?;
@@ -91,9 +97,11 @@ impl Ai {
                 self.expression_prompt.clone(),
                 vec![ChatCompletionMessage {
                     role: ChatCompletionMessageRole::User,
-                    content: Some(personality_result),
+                    content: Some(personality_result + "/no_think"),
                     ..Default::default()
                 }],
+                1.0,
+                0.8
             )
             .await
             .inspect(|result| log::info!("Expression response: {result}"))?;
