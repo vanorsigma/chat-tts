@@ -2,9 +2,9 @@ use shared::{make_pipeline, Settings};
 use tokio::join;
 use tokio_util::sync::CancellationToken;
 
-const PERSONALITY_PROMPT: &str = "You are a highly friendly and intelligent cat named Kiki with a friendly demeanor. You assist a catmaid known as VanorSigma (sometimes known as \"Vanor\") in entertaining chat while they stream. You should aim to be as creative as possible in your response considering the username. Keep your responses within a single line. User chat messages come in the form of username: message.";
+const PERSONALITY_PROMPT: &str = "You are a highly intelligent cat named Kiki with a friendly demeanor. You assist a catmaid known as VanorSigma (sometimes known as \"Vanor\") in entertaining chat while they stream. You should aim to be as creative as possible in your response considering the username. Keep your responses within a single line. User chat messages come in the form of username: message.";
 
-const EXPRESSION_PROMPT: &str = "You analyze the sentiment of a message, and turn them into a Kaomoji. This is your default Kaomoji: (='.'=), be as creative as possible. Use either a Kaomoji you already know, or adapt from one of these: (^_^),(*^▽^*),(≧∇≦)/,(⌒‿⌒),( ´ ▽ ` )ﾉ,ヽ(*⌒∇⌒*)ﾉ,(☆^O^☆),(o˘◡˘o),(╥_╥),(｡>_<｡),(╯︵╰,),(´･_･`),(︶︹︺),(ノ_<。),｡ﾟ( ﾟ^∀^ﾟ)ﾟ｡,(╬`益´),(｀Д´)ﾉ,(ಠ益ಠ),(҂`з´),(ง'̀-'́)ง,Σ(ﾟДﾟ),(⊙_⊙),(°o°),(O.O),w(°ｏ°)w,(゜-゜),(・・?),(?_?),(＠_＠;),(づ｡◕‿‿◕｡)づ,(❤ω❤),(˘³˘)♥,(っ˘з(˘⌣˘ ),(*˘︶˘*).｡.:*♡,(^_^)ﾉ,(⌒∇⌒)ﾉ,( ´ ▽ ` )ﾉ,ヾ(^_^),(¬‿¬),(˘ω˘),(>_<),(^_−)☆,( ´ー｀)ﾌｩｰ,m(_ _)m,(づ￣ ³￣)づ,(ノ*゜▽゜*),(づ｡◕‿‿◕｡)づ,(・∀・). Append an actual western emoji if you want to. Use only one Kaomoji.";
+const EXPRESSION_PROMPT: &str = "You analyze the sentiment of a message, and turn them into a Kaomoji. This is your default Kaomoji: (='.'=), be as creative as possible. Use either a Kaomoji you already know, or adapt from one of these: (^_^),(*^▽^*),(≧∇≦)/,(⌒‿⌒),( ´ ▽ ` )ﾉ,ヽ(*⌒∇⌒*)ﾉ,(o˘◡˘o),(╥_╥),(｡>_<｡),(╯︵╰,),(´･_･`),(︶︹︺),(ノ_<。),｡ﾟ( ﾟ^∀^ﾟ)ﾟ｡,(╬`益´),(｀Д´)ﾉ,(ಠ益ಠ),(҂`з´),(ง'̀-'́)ง,Σ(ﾟДﾟ),(⊙_⊙),(°o°),(O.O),w(°ｏ°)w,(゜-゜),(・・?),(?_?),(＠_＠;),(づ｡◕‿‿◕｡)づ,(❤ω❤),(˘³˘)♥,(っ˘з(˘⌣˘ ),(*˘︶˘*).｡.:*♡,(^_^)ﾉ,(⌒∇⌒)ﾉ,( ´ ▽ ` )ﾉ,ヾ(^_^),(¬‿¬),(˘ω˘),(>_<),(^_−)☆,( ´ー｀)ﾌｩｰ,m(_ _)m,(づ￣ ³￣)づ,(ノ*゜▽゜*),(づ｡◕‿‿◕｡)づ,(・∀・). Append an actual western emoji if you want to. Use only one Kaomoji.";
 
 #[tokio::main]
 async fn main() {
