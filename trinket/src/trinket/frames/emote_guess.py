@@ -1,7 +1,6 @@
 """
 Guess 7tv emotes
 """
-import cachetools
 import urllib.request
 import json
 import sys
@@ -12,63 +11,8 @@ from dataclasses_json import DataClassJsonMixin
 from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QLayout
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
 from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, QColor
-from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget
-
-@dataclass
-class SevenTVRawEmoteData(DataClassJsonMixin): # pylint: disable=missing-class-docstring
-    id: str
-    animated: bool
-
-@dataclass
-class SevenTVEmoteData:
-    """
-    The transformed version of the raw 7TV emote.
-    If the raw suggested animated emotes, then .gif. Else, .png
-    """
-    name: str
-    url: str
-    animated: bool
-
-@dataclass
-class SevenTVRawEmote(DataClassJsonMixin): # pylint: disable=missing-class-docstring
-    name: str
-    data: SevenTVRawEmoteData
-
-class SevenTVAPI: # pylint: disable=too-few-public-methods
-    """
-    Gets emote set via 7TV API
-    """
-
-    url = 'https://7tv.io/v3/gql'
-    query_template = 'query { emoteSet(id: "%s") { emotes { name, data { id, animated } } } }'
-
-    def __init__(self, emote_set_id: str):
-        self.query = self.query_template % (emote_set_id,)
-
-    def __make_emote_url(self, emote_id: str, animated: bool) -> str:
-        return f'https://cdn.7tv.app/emote/{emote_id}/{"4x.gif" if animated else "4x.png"}'
-
-    def __transform_emotes(self, raw_emotes: list[SevenTVRawEmote]) -> list[SevenTVEmoteData]:
-        return [
-            SevenTVEmoteData(name=emote.name,
-                             url=self.__make_emote_url(emote.data.id, emote.data.animated),
-                             animated=emote.data.animated)
-            for emote in raw_emotes
-        ]
-
-    @cachetools.func.ttl_cache(maxsize=1, ttl=3600)
-    def get_emotes(self) -> list[SevenTVEmoteData]:
-        """
-        Get the emotes from the 7TV API
-        """
-        with urllib.request.urlopen(self.url,
-                                    json.dumps({'query': self.query}).encode()) as response:
-            raw_data = response.read()
-            raw_data_as_json = json.loads(raw_data)
-
-            raw_emotes = [SevenTVRawEmote.from_dict(raw_emote)
-                          for raw_emote in raw_data_as_json['data']['emoteSet']['emotes']]
-            return self.__transform_emotes(raw_emotes)
+from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget, SevenTVAPI, SevenTVEmoteData, \
+    get_emotes_from_emote_set_id
 
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 class EmoteWindow(CloseSignalableWidget):
@@ -149,15 +93,6 @@ class EmoteWindow(CloseSignalableWidget):
 
         self.text_edit.setTextCursor(restore)
         self.text_edit.blockSignals(False)
-
-
-@cachetools.func.ttl_cache(maxsize=1, ttl=3600)
-def get_emotes_from_emote_set_id(emote_set_id: str) -> list[SevenTVEmoteData]:
-    """
-    Cached method to get emote set IDs.
-    """
-    api = SevenTVAPI(emote_set_id)
-    return api.get_emotes()
 
 
 def create_emote_window_from_emote_set_id(emote_set_id: str,
