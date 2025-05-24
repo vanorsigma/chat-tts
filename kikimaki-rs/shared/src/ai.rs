@@ -1,8 +1,14 @@
+use std::sync::Arc;
+
 use openai::{
     Credentials, OpenAiError,
     chat::{ChatCompletion, ChatCompletionMessage, ChatCompletionMessageRole},
 };
+use serde::Deserialize;
 use thiserror::Error;
+use tokio::sync::Mutex;
+
+use crate::memory::Memories;
 
 #[derive(Debug, Error)]
 pub enum AiError {
@@ -12,6 +18,12 @@ pub enum AiError {
     #[error("CompletionError: {0}")]
     CompletionError(OpenAiError),
 
+    #[error("DeserialisationError: {0}")]
+    DeserialisationError(serde_json::Error),
+
+    #[error("SerialisationError: {0}")]
+    SerialisationError(serde_json::Error),
+
     #[error("shrugeg")]
     Unknown,
 }
@@ -20,22 +32,28 @@ const MODEL_NAME: &str = "Qwen3-1.7B-Q_0";
 
 pub struct Ai {
     credentials: Credentials,
-    personality_prompt: String,
-    expression_prompt: String,
+    prompt: String,
+    memories: Arc<Mutex<Memories>>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AiResponse {
+    kamoji: String,
+    emoji: String,
+    memories: Memories,
 }
 
 impl Ai {
     pub async fn new(
         host: impl Into<String> + std::fmt::Display,
         port: u16,
-        personality_prompt: impl Into<String>,
-        expression_prompt: impl Into<String>,
+        prompt: impl Into<String>,
     ) -> Self {
         let credentials = Credentials::new("", format!("http://{host}:{port}"));
         Self {
             credentials,
-            personality_prompt: personality_prompt.into(),
-            expression_prompt: expression_prompt.into(),
+            prompt: prompt.into(),
+            memories: Arc::new(Mutex::new(Memories(vec![]))),
         }
     }
 
@@ -67,7 +85,8 @@ impl Ai {
             .ok_or(AiError::NoMessage)?
             .message
             .clone()
-            .content.unwrap();
+            .content
+            .unwrap();
 
         let messages = completion_messages
             .trim()
@@ -78,34 +97,33 @@ impl Ai {
     }
 
     pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
-        let personality_result = self
+        let mut memories = self.memories.lock().await;
+        let result = self
             .send_raw(
-                self.personality_prompt.clone(),
+                self.prompt
+                    .replace(
+                        "{{memories}}",
+                        &serde_json::to_string(&memories.0)
+                            .map_err(AiError::SerialisationError)?,
+                    )
+                    .clone(),
                 vec![ChatCompletionMessage {
                     role: ChatCompletionMessageRole::User,
                     content: Some(message.clone().into()),
                     ..Default::default()
                 }],
-                0.6,
-                0.95
+                0.8,
+                0.95,
             )
             .await
-            .inspect(|result| log::info!("Personality response: {result}"))?;
+            .inspect(|result| log::info!("Raw response: {result}"))?;
 
-        let expression_result = self
-            .send_raw(
-                self.expression_prompt.clone(),
-                vec![ChatCompletionMessage {
-                    role: ChatCompletionMessageRole::User,
-                    content: Some(personality_result + "/no_think"),
-                    ..Default::default()
-                }],
-                1.0,
-                0.8
-            )
-            .await
-            .inspect(|result| log::info!("Expression response: {result}"))?;
+        let response_object = serde_json::from_str::<AiResponse>(&result)
+            .map_err(AiError::DeserialisationError)?;
 
-        Ok(expression_result)
+        *memories = response_object.memories;
+        log::debug!("Memories updated to: {:#?}", memories.0);
+
+        Ok(response_object.kamoji + " " + &response_object.emoji)
     }
 }
