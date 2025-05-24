@@ -34,7 +34,7 @@ impl ObsController {
         Ok(ObsController {
             client: Client::connect(host.as_ref(), port, Some(password.as_ref()))
                 .await
-                .map_err(|e| ObsControllerError::Unknown(e))?,
+                .map_err(ObsControllerError::Unknown)?,
         })
     }
 
@@ -49,7 +49,7 @@ impl ObsController {
             .scenes()
             .list()
             .await
-            .map_err(|e| ObsControllerError::Unknown(e))?
+            .map_err(ObsControllerError::Unknown)?
             .scenes
         {
             let scene_item = match self
@@ -57,7 +57,7 @@ impl ObsController {
                 .scene_items()
                 .list(scene.id.into())
                 .await
-                .map_err(|e| ObsControllerError::Unknown(e))?
+                .map_err(ObsControllerError::Unknown)?
                 .iter()
                 .find(|item| item.source_name == source_name.as_ref())
             {
@@ -78,7 +78,7 @@ impl ObsController {
                     overlay: None,
                 })
                 .await
-                .map_err(|e| ObsControllerError::Unknown(e));
+                .map_err(ObsControllerError::Unknown);
         }
 
         Err(ObsControllerError::NoSceneName(

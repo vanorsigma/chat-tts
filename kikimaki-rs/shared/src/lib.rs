@@ -6,6 +6,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 pub mod ai;
+pub mod memory;
 pub mod obs;
 pub mod twitch;
 pub mod webserver;
@@ -17,11 +18,8 @@ pub enum PipelineError {
 }
 
 pub struct Settings<F: Fn(twitch::TwitchIRCMessage) -> Option<String>> {
-    /// Personality Prompt
-    pub prompt_personality: String,
-
-    /// Expression Prompt
-    pub prompt_expression: String,
+    /// Prompt
+    pub prompt: String,
 
     /// Local AI host
     pub local_ai_host: String,
@@ -72,8 +70,7 @@ pub async fn make_pipeline<
     let ai = ai::Ai::new(
         settings.local_ai_host,
         settings.local_ai_port,
-        settings.prompt_personality,
-        settings.prompt_expression,
+        settings.prompt,
     )
     .await;
 

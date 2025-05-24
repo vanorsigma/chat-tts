@@ -26,7 +26,7 @@ impl CatWebServer {
             let read_guard = face_arc_handle_clone.blocking_read();
             let current_rendered_html = TEMPLATE_HTML.replace(
                 "{FACE}",
-                &html_escape::encode_safe(&read_guard.to_string()).to_string(),
+                html_escape::encode_safe(&read_guard.to_string()).as_ref(),
             );
             Response::text(current_rendered_html).with_additional_header("Access-Control-Allow-Origin", "*")
         })
