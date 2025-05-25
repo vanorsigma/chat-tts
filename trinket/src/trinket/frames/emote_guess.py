@@ -14,6 +14,8 @@ from PyQt6.QtGui import QImage, QPixmap, QMovie, QTextCursor, QTextCharFormat, Q
 from trinket.frames.shared import SingleLineTextEdit, CloseSignalableWidget, SevenTVAPI, SevenTVEmoteData, \
     get_emotes_from_emote_set_id
 
+HEADERS = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
+
 # pylint: disable=too-few-public-methods, too-many-instance-attributes
 class EmoteWindow(CloseSignalableWidget):
     """
@@ -109,7 +111,14 @@ def create_emote_window_from_emote_set_id(emote_set_id: str,
     window_references = []
     for _ in range(no_windows):
         idx = random.randint(0, len(emotes) - 1)
-        with urllib.request.urlopen(emotes[idx].url) as response:
+        request = urllib.request.Request(
+            url=emotes[idx].url,
+            data=None,
+            headers={
+                'User-Agent': HEADERS
+            }
+        )
+        with urllib.request.urlopen(request) as response:
             returned_bytes: bytes = response.read()
         window_references.append(EmoteWindow(emotes[idx].name,
                                              returned_bytes, emotes[idx].animated))
