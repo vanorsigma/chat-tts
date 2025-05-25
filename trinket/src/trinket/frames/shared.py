@@ -75,6 +75,8 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
 
     url = 'https://7tv.io/v3/gql'
     query_template = 'query { emoteSet(id: "%s") { emotes { name, data { id, animated } } } }'
+    headers = \
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36' # pylint: disable=line-too-long
 
     def __init__(self, emote_set_id: str):
         self.query = self.query_template % (emote_set_id,)
@@ -94,8 +96,14 @@ class SevenTVAPI: # pylint: disable=too-few-public-methods
         """
         Get the emotes from the 7TV API
         """
-        with urllib.request.urlopen(self.url,
-                                    json.dumps({'query': self.query}).encode()) as response:
+        request = urllib.request.Request(
+            url=self.url,
+            data=json.dumps({'query': self.query}).encode(),
+            headers={
+                'User-Agent': self.headers
+            }
+        )
+        with urllib.request.urlopen(request) as response:
             raw_data = response.read()
             raw_data_as_json = json.loads(raw_data)
 
