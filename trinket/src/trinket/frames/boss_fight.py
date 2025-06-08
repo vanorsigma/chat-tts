@@ -17,6 +17,7 @@ from trinket.frames.shared import (CloseSignalableOpenGLWidget,
                                    SevenTVEmoteData,
                                    get_emotes_from_emote_set_id)
 
+HEADERS = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
 
 class TwitchIRCKeywordListener:
     def __init__(self, channel: str, keyword: str, callback: Callable[[str], None]) -> None:
@@ -146,7 +147,14 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
 
     def choose_random_emote(self) -> tuple[str, bytes]:
         emote = random.choice(self.emotes)
-        with urllib.request.urlopen(emote.url) as response:
+        request = urllib.request.Request(
+            url=emote.url,
+            data=None,
+            headers={
+                'User-Agent': HEADERS
+            }
+        )
+        with urllib.request.urlopen(request) as response:
             return (emote.name, response.read())
 
     def irc_message_callback(self, message: str) -> None:
