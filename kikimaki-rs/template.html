@@ -9,7 +9,7 @@
 
   <script>
     setInterval(() => {
-      fetch('http://localhost:8000')
+      fetch('http://localhost:9123')
         .then(response => response.text()
                                   .then(text => document.getElementById('aiface').innerHTML = text));
     }, 3000);
