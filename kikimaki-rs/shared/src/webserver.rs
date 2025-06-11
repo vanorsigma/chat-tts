@@ -22,7 +22,7 @@ impl CatWebServer {
         let face_arc = Arc::new(RwLock::new(face));
 
         let face_arc_handle_clone = face_arc.clone();
-        let server = Server::new("localhost:8000", move |_request| {
+        let server = Server::new("localhost:9123", move |_request| {
             let read_guard = face_arc_handle_clone.blocking_read();
             let current_rendered_html = TEMPLATE_HTML.replace(
                 "{FACE}",
