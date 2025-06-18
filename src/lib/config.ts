@@ -58,6 +58,7 @@ export class ParseableConfig {
   standaloneSongConfig?: StandaloneSongConfig;
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
+  ignorePrefix?: string;
 
   constructor(arbitraryObject: any) {
     this.channelName = arbitraryObject['channelName'];
@@ -72,6 +73,7 @@ export class ParseableConfig {
     this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
     this.remoteVoiceConfig = arbitraryObject['remoteVoiceConfig'];
     this.distractConfig = arbitraryObject['distractConfig'];
+    this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
   }
 
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
@@ -110,6 +112,7 @@ export class ParseableConfig {
         songPitchSpeedAffected: true
       },
       distractConfig: this.distractConfig,
+      ignorePrefix: '~',
     };
   }
 }
@@ -128,6 +131,7 @@ export interface FullConfig {
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
   dynamicConfig: DynamicConfig;
+  ignorePrefix: string;
 }
 
 export function parseYaml(input: string): ParseableConfig {

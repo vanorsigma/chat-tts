@@ -576,6 +576,10 @@ export class Controller {
     return false;
   }
 
+  private mustIgnore(ignore_prefix: string, message: string): boolean {
+    return message.trim().startsWith(ignore_prefix);
+  }
+
   updateChatLog(entry: string) {
     this.chat_logs.update((val) => {
       return [...val, entry];
@@ -594,7 +598,7 @@ export class Controller {
     this._matchAndPlaySong(message);
 
     const voice = await this.voice.getVoiceMapForUser(user);
-    const filtered = this.isFiltered(message);
+    const filtered = ((!user.mod && !user.badges?.vip) ? this.isFiltered(message) : false) || this.mustIgnore(this.config.ignorePrefix, message);
     this.updateChatLog(
       `${user.username} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
     );
