@@ -9,7 +9,7 @@ from threading import Thread
 from typing import Callable
 
 from irc.client import Event, Reactor, ServerConnection, ServerConnectionError
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QByteArray, QBuffer, QSize
 from PyQt6.QtGui import QImage, QMovie, QPixmap
 from PyQt6.QtWidgets import (QApplication, QLabel, QLayout, QProgressBar,
                              QVBoxLayout)
@@ -125,7 +125,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self.health_bar = QProgressBar()
         self.health_bar.setMaximum(max_health)
         self.health_bar.setMinimum(0)
-        self.health_bar.setValue(max_health)
+        self.health_bar.setValue(max_health + 1) # HACK: make timer do something once
         self.health_bar.setTextVisible(False)
         self.health_bar.setStyleSheet(self.PROGRESS_BAR_STYLE)
         self.layout.addWidget(self.health_bar)
@@ -137,6 +137,11 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self.boss_tick.timeout.connect(self.update_boss)
         self.boss_tick.start(int(1000 / 30))
 
+        # force python to maintain these references.
+        # in theory, we would need to get rid of these with a proper lifecycle,
+        # but we'll only be storing a small number of references, so this is fine, surely...
+        self.other_references = []
+
         screen = QApplication.screens()[0].size()
         self.boss_target_pos = (
             random.randint(0, screen.width() - 300),
@@ -145,7 +150,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
                          random.randint(0, screen.height() - 300),
                          300, 300)
 
-    def choose_random_emote(self) -> tuple[str, bytes]:
+    def choose_random_emote(self) -> tuple[str, bool, bytes]:
         emote = random.choice(self.emotes)
         request = urllib.request.Request(
             url=emote.url,
@@ -155,7 +160,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
             }
         )
         with urllib.request.urlopen(request) as response:
-            return (emote.name, response.read())
+            return (emote.name, emote.animated, response.read())
 
     def irc_message_callback(self, message: str) -> None:
         """
@@ -174,20 +179,39 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         Moves the boss towards the target, regenerating new coordinates if needed.
         Also updates the health bar
         """
-        self.health_bar.setValue(self.health)
-        if self.health <= 0:
-            self.boss_tick.stop()
-            self.close()
-            return
+        display_changes = self.health_bar.value() != self.health
 
-        for idx, (label, picture) in enumerate(zip(self.emote_labels, self.emote_pictures)):
-            if idx >= self.EMOTE_QUEUE - 1:
-                continue
+        if display_changes:
+            self.health_bar.setValue(self.health)
+            if self.health <= 0:
+                self.boss_tick.stop()
+                self.close()
+                return
 
-            picture = QImage()
-            picture.loadFromData(self.current_emotes[idx][1])
-            picture = picture.scaledToWidth(50)
-            label.setPixmap(QPixmap(picture))
+            for idx, (label, picture) in enumerate(zip(self.emote_labels, self.emote_pictures)):
+                if idx >= self.EMOTE_QUEUE - 1:
+                    continue
+
+                if self.current_emotes[idx][1]: # animated
+                    bytearray = QByteArray(self.current_emotes[idx][2])
+                    buffer = QBuffer(bytearray)
+                    buffer.open(QBuffer.OpenModeFlag.ReadOnly)
+
+                    movie = QMovie()
+                    movie.setDevice(buffer)
+                    movie.start()
+                    aspect_ratio = movie.scaledSize().height() / movie.scaledSize().width()
+                    movie.setScaledSize(QSize(50, int(50 * aspect_ratio)))
+                    label.setMovie(movie)
+
+                    self.other_references.append(bytearray)
+                    self.other_references.append(buffer)
+                    self.other_references.append(movie)
+                else:
+                    picture = QImage()
+                    picture.loadFromData(self.current_emotes[idx][2])
+                    picture = picture.scaledToWidth(50)
+                    label.setPixmap(QPixmap(picture))
 
         x, y, w, h = self.geometry().getCoords()
 
@@ -203,6 +227,8 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self.update()
 
     def closeEvent(self, event):
+        self.boss_tick.stop()
+
         if self.irc_thread.is_alive():
             print('IRC thread still alive, joining...')
             self.irc.disconnect()
