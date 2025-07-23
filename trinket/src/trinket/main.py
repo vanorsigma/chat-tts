@@ -88,6 +88,7 @@ def gui_thread_timer_callback(
                 if not WARNING_FRAME.is_completed():
                     return
                 WARNING_FRAME.close()
+            print("Going to spawn distractions")
             spawn_distractions()
         case "rotate":
             if ROTATE_FRAME is not None:
