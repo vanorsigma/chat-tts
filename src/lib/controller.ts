@@ -396,7 +396,9 @@ class RemoteVoiceController implements VoiceController {
   async processMessage(
     user: tmi.ChatUserstate,
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _onSpeedChange: (arg0: number) => void,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _onSpeechStart: () => void
   ): Promise<void> {
     await axios.get(`${this.baseurl}/processMessage`, {

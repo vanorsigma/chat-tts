@@ -23,8 +23,7 @@ class Rotate extends Command {
       return true;
     }
 
-    // TODO: hardcoded for now, I need to re-write the config module
-    if (this.lastTimestamp + 60 * 1000 > Date.now()) {
+    if (this.lastTimestamp + (controller.config.distractConfig?.rotateCooldown ?? 0) * 1000 > Date.now()) {
       controller.updateChatLog(`${user.username} tried to rotate, but it was under cooldown.`)
       return true;
     }
@@ -47,7 +46,7 @@ class Distract extends Command {
       return true;
     }
 
-    if (this.lastTimestamp + (controller.config.distractConfig?.cooldown ?? 0) * 1000 > Date.now()) {
+    if (this.lastTimestamp + (controller.config.distractConfig?.distractCooldown ?? 0) * 1000 > Date.now()) {
       controller.updateChatLog(`${user.username} tried to send a distraction, but it was under cooldown.`)
       return true;
     }

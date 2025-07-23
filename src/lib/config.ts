@@ -31,9 +31,16 @@ export interface StandaloneSongConfig {
   wsUrl: string;
 }
 
+export interface DistractConfigOptional {
+  wsUrl?: string;
+  distractCooldown?: number;
+  rotateCooldown?: number;
+}
+
 export interface DistractConfig {
   wsUrl: string;
-  cooldown: number;
+  distractCooldown: number;
+  rotateCooldown: number;
 }
 
 export interface RemoteVoiceConfig {
@@ -59,7 +66,7 @@ export class ParseableConfig {
   soundEffects?: SoundEffect[];
   standaloneSongConfig?: StandaloneSongConfig;
   remoteVoiceConfig?: RemoteVoiceConfig;
-  distractConfig?: DistractConfig;
+  distractConfig?: DistractConfigOptional;
   ignorePrefix?: string;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,9 +128,14 @@ export class ParseableConfig {
       standaloneSongConfig: this.standaloneSongConfig,
       remoteVoiceConfig: this.remoteVoiceConfig,
       dynamicConfig: {
-        songPitchSpeedAffected: true
+        songPitchSpeedAffected: false
       },
-      distractConfig: this.distractConfig,
+      distractConfig: {
+        wsUrl: '',
+        distractCooldown: 900,
+        rotateCooldown: 300,
+        ...this.distractConfig,
+      },
       ignorePrefix: this.ignorePrefix ?? '~',
     };
   }
