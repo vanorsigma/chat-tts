@@ -42,7 +42,7 @@ class RotateFrame(QOpenGLWidget): # pylint: disable=too-few-public-methods,too-m
 
     def update_angle(self): # pylint: disable=missing-function-docstring
         self.angle = self.angle + self.speed * 0.1
-        if self.angle >= 360:
+        if self.angle >= 360 or self.angle <= -360:
             self.completed = True
             self.angle_timer.stop()
             self.close()
