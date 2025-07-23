@@ -45,6 +45,8 @@ export interface DynamicConfig {
   songPitchSpeedAffected: boolean;
 }
 
+export class ConfigParsingError extends Error {}
+
 export class ParseableConfig {
   channelName?: string;
   commandsDisabled: boolean;
@@ -60,7 +62,16 @@ export class ParseableConfig {
   distractConfig?: DistractConfig;
   ignorePrefix?: string;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(arbitraryObject: any) {
+    const nonOptionalFields = ['channelName', 'commandsDisabled'];
+
+    for (const field of nonOptionalFields) {
+      if (!Object.hasOwn(arbitraryObject, field)) {
+        throw new ConfigParsingError(`Field ${field} is missing from the config, cannot continue`);
+      }
+    }
+
     this.channelName = arbitraryObject['channelName'];
     this.commandsDisabled = arbitraryObject['commandsDisabled'] ?? false;
     this.obsSettings = this.verifyObsSettings(arbitraryObject);
@@ -76,6 +87,7 @@ export class ParseableConfig {
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
     if (
       arbitrary['obsSettings'] &&
@@ -112,7 +124,7 @@ export class ParseableConfig {
         songPitchSpeedAffected: true
       },
       distractConfig: this.distractConfig,
-      ignorePrefix: '~',
+      ignorePrefix: this.ignorePrefix ?? '~',
     };
   }
 }
