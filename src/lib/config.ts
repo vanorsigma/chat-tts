@@ -35,12 +35,16 @@ export interface DistractConfigOptional {
   wsUrl?: string;
   distractCooldown?: number;
   rotateCooldown?: number;
+  distractChance?: number;
+  rotateChance?: number;
 }
 
 export interface DistractConfig {
   wsUrl: string;
   distractCooldown: number;
   rotateCooldown: number;
+  distractChance: number;
+  rotateChance: number;
 }
 
 export interface RemoteVoiceConfig {
@@ -134,6 +138,8 @@ export class ParseableConfig {
         wsUrl: '',
         distractCooldown: 900,
         rotateCooldown: 300,
+        distractChance: 0.001,
+        rotateChance: 0.01,
         ...this.distractConfig,
       },
       ignorePrefix: this.ignorePrefix ?? '~',

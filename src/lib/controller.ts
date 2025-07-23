@@ -616,11 +616,11 @@ export class Controller {
     }
 
     // random chance to rotate the screen
-    if (Math.random() < 0.01 && this.obsController) {
+    if (Math.random() < (this.config.distractConfig?.rotateChance ?? 0) && this.obsController && this.trinketController) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
     }
 
-    if (Math.random() < 0.005 && this.trinketController) {
+    if (Math.random() < (this.config.distractConfig?.distractChance ?? 0) && this.trinketController) {
       await this.trinketController.sendDistract();
     }
 
