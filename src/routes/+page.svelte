@@ -4,14 +4,10 @@
   import { Controller } from '$lib/controller';
   import Editor from '$lib/Editor.svelte';
   import Faker from '$lib/Faker.svelte';
-  import { getVoicesList } from '$lib/speech';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { readable } from 'svelte/store';
 
-  let voices = getVoicesList();
   let config: FullConfig | undefined;
-  let selectedVoice: SpeechSynthesisVoice | undefined = undefined;
-
   let previousConfigText = '';
   let configText = '';
   let controller: Controller | undefined;
@@ -56,13 +52,6 @@
     controller?.cancel();
   }
 
-  onMount(() => {
-    // NOTE: edge hides the voice list for some reason, need to rerun just to get
-    setTimeout(() => {
-      voices = getVoicesList();
-    }, 1000);
-  });
-
   onDestroy(() => {
     controller?.end();
   });
@@ -74,19 +63,6 @@
 
 <h1>Vanor's TTS</h1>
 <p>Magical TTS system for streaming purposes</p>
-
-<!-- NOTE: This section isn't strictly necessary -->
-<!-- <section> -->
-<!--   <h2>Voice ID picker</h2> -->
-<!--   <p>Use this section to get voice IDs for config purposes</p> -->
-<!--   <label for="voices">Choose a voice:</label> -->
-<!--   <select bind:value={selectedVoice} id="voices" name="voices"> -->
-<!--     {#each voices as voice} -->
-<!--       <option value={voice}>{voice.name}</option> -->
-<!--     {/each} -->
-<!--   </select> -->
-<!--   <pre>{selectedVoice?.name}</pre> -->
-<!-- </section> -->
 
 <section>
   <h2>Faker</h2>
