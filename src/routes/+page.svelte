@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { parseYaml, type FullConfig } from '$lib/config';
+  import { ConfigParsingError, parseYaml, type FullConfig } from '$lib/config';
   import ConfigDisplay from '$lib/ConfigDisplay.svelte';
   import { Controller } from '$lib/controller';
   import Editor from '$lib/Editor.svelte';
@@ -32,7 +32,18 @@
   };
 
   function onReloadConfig() {
-    config = parseYaml(configText).toFullConfig();
+    try {
+      config = parseYaml(configText).toFullConfig();
+    } catch (e) {
+      if (e instanceof ConfigParsingError) {
+        alert(`Error while parsing config: ${e}`);
+        return;
+      }
+
+      console.error(e);
+      return;
+    }
+
     controller?.end();
 
     controller = new Controller(config);
