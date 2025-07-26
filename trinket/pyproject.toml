@@ -12,7 +12,7 @@ dependencies = [
     "dataclasses-json==0.6.7",
     "websocket-client==1.8.0",
     "cachetools==5.5.2",
-    "irc==20.5.0"
+    "irc==20.5.0",
 ]
 
 [tool.poetry.group.dev.dependencies]
