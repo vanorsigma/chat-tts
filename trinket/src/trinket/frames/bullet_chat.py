@@ -7,6 +7,7 @@ import random
 import urllib.request
 import threading
 
+from dataclasses import dataclass
 from queue import Queue
 from irc.client import Event, Reactor, ServerConnection, ServerConnectionError
 from PyQt6.QtCore import (
@@ -17,6 +18,9 @@ from PyQt6.QtCore import (
     QThread,
     QRunnable,
     pyqtSlot,
+    QSize,
+    QByteArray,
+    QBuffer,
 )
 from PyQt6.QtGui import (
     QGuiApplication,
@@ -29,7 +33,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QLabel, QLayout, QHBoxLayout, QWidget
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from trinket.frames.shared import (
-    SevenTVAPI,
+    get_emotes_from_emote_set_id,
     SevenTVEmoteData,
     CloseSignalableOpenGLWidget,
 )
@@ -37,7 +41,13 @@ from typing import Union, Callable
 
 EMOTE_SET_ID = "01J452JCVG0000352W25T9VEND"
 HEADERS = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-DESPAWN_AFTER = 30
+DESPAWN_AFTER = 60
+
+
+@dataclass
+class BytesWithMetadata:
+    data: bytes
+    animated: bool
 
 
 def fetch_bytes(url: str) -> bytes:
@@ -49,9 +59,11 @@ def fetch_bytes(url: str) -> bytes:
         return response.read()
 
 
-def break_message_into_text_and_emotes(message: str) -> list[Union[str | bytes]]:
-    api = SevenTVAPI(EMOTE_SET_ID)
-    emotes = {emote.name: emote for emote in api.get_emotes()}
+def break_message_into_text_and_emotes(
+    message: str,
+) -> list[Union[str | BytesWithMetadata]]:
+    emotes_raw = get_emotes_from_emote_set_id(EMOTE_SET_ID)
+    emotes = {emote.name: emote for emote in emotes_raw}
     combined_objects = []
 
     for text in message.split():
@@ -66,25 +78,41 @@ def break_message_into_text_and_emotes(message: str) -> list[Union[str | bytes]]
     return combined_objects
 
 
-def finalize_message(obj: str | SevenTVEmoteData) -> Union[str | bytes]:
+def finalize_message(obj: str | SevenTVEmoteData) -> Union[str | BytesWithMetadata]:
     if isinstance(obj, SevenTVEmoteData):
-        return fetch_bytes(obj.url)
+        return BytesWithMetadata(fetch_bytes(obj.url), obj.animated)
     return obj
 
 
 def add_labels_to_layout(
-    root: QWidget, layout: QHBoxLayout, objs: list[Union[str | bytes]]
+    root: QWidget, layout: QHBoxLayout, objs: list[Union[str | BytesWithMetadata]]
 ) -> list[QWidget]:
     references = []
 
     for obj in objs:
         label = QLabel()
 
-        if isinstance(obj, bytes):
-            picture = QImage()
-            picture.loadFromData(obj)
-            picture = picture.scaledToWidth(50)
-            label.setPixmap(QPixmap(picture))
+        if isinstance(obj, BytesWithMetadata):
+            if obj.animated:
+                bytearray = QByteArray(obj.data)
+                buffer = QBuffer(bytearray)
+                buffer.open(QBuffer.OpenModeFlag.ReadOnly)
+
+                movie = QMovie()
+                movie.setDevice(buffer)
+                movie.start()
+                aspect_ratio = movie.scaledSize().height() / movie.scaledSize().width()
+                movie.setScaledSize(QSize(50, int(50 * aspect_ratio)))
+                label.setMovie(movie)
+
+                references.append(bytearray)
+                references.append(buffer)
+                references.append(movie)
+            else:
+                picture = QImage()
+                picture.loadFromData(obj.data)
+                picture = picture.scaledToWidth(50)
+                label.setPixmap(QPixmap(picture))
         else:
             label.setText(obj)
 
@@ -148,7 +176,7 @@ class SingleBulletChat(
 
     def __init__(
         self,
-        message: list[Union[str | bytes]],
+        message: list[Union[str | BytesWithMetadata]],
         speed: int,
         x_range: tuple[int, int],
         y_range: tuple[int, int],
@@ -203,7 +231,7 @@ class BulletChatContainer(
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_InputMethodTransparent, True)
         self.active_bullets = []
-        self.messages_queue = Queue[str | bytes]()
+        self.messages_queue = Queue[str | BytesWithMetadata]()
         self.irc = TwitchIRCMessageEmitter(channel, self.__irc_callback)
 
         self.timer = QTimer()
@@ -277,7 +305,6 @@ class BulletChatContainer(
     def bullet_died(self, obj: CloseSignalableOpenGLWidget):
         if obj in self.active_bullets:
             self.active_bullets.remove(obj)
-        print("Active Bullets: ", len(self.active_bullets))
 
     def closeEvent(self, __event):
         self.timer.stop()
