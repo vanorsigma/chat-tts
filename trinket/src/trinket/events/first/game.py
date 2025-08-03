@@ -52,6 +52,9 @@ class Game:
         self._state = new_state
         self.__inform_all_observers()
 
+    def get_state(self) -> GameState:
+        return self._state
+
     def subscribe(self, observer: GameObserver) -> None:
         if not isinstance(observer, GameObserver):
             raise RuntimeError("Trying to subscribe to a non-GameObsever!")

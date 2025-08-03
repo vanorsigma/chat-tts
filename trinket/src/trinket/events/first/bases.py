@@ -11,11 +11,12 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QProgressBar, QLabel,
     QVBoxLayout, QHBoxLayout
 )
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QFont
 
 
-class FloatingWindow(QWidget):
+class FloatingWindow(QOpenGLWidget):
     """
     Frameless, always-on-top windows
     """

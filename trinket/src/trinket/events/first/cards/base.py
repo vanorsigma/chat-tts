@@ -5,6 +5,7 @@ Represents a card. A CardWindow can initialize any card
 import sys
 import copy
 from abc import ABC, abstractmethod
+from trinket.events.first.game import Game
 from dataclasses import dataclass, asdict
 from typing import Protocol, runtime_checkable
 from PyQt6.QtWidgets import (
@@ -12,13 +13,24 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QMouseEvent, QFont
+from PyQt6.QtGui import QMouseEvent, QFont, QImage
 
-@dataclass
 class Card(ABC):
-    name: str
-    description: str
+    def __init__(self, game: Game):
+        pass
 
     @abstractmethod
     def do_action(self, game: Game):
+        pass
+
+    @abstractmethod
+    def get_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_description(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_image(self) -> QImage:
         pass
