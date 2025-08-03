@@ -6,13 +6,14 @@ import sys
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, TypeVar, Generic
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QProgressBar, QLabel,
     QVBoxLayout, QHBoxLayout
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QFont
+
 
 class FloatingWindow(QWidget):
     """
@@ -47,10 +48,11 @@ class GameStatistics:
     max_health: int
     max_mana: int
 
+T = TypeVar("T")
 @runtime_checkable
-class GameObserver(Protocol):
+class GameObserver(Protocol, Generic[T]):
     @abstractmethod
-    def state_changed(self, statistics: GameStatistics):
+    def state_changed(self, game: T):
         """
         This function is called when the state of the game is changed
         """

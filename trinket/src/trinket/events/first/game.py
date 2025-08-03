@@ -6,52 +6,67 @@ import sys
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, Callable, Self
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QProgressBar, QLabel,
-    QVBoxLayout, QHBoxLayout
+    QApplication,
+    QWidget,
+    QProgressBar,
+    QLabel,
+    QVBoxLayout,
+    QHBoxLayout,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QFont
 from trinket.events.first.bases import GameStatistics, GameObserver
-from trinket.events.first.stats_window import StatsWindow
-from trinket.events.first.vital_stats_window import VitalStatsWindow
+from enum import Enum
+
+
+class GameState(Enum):
+    PRE_PLAYER_SELECTION = 1
+    PLAYER_SELECTION = 2
+    POST_PLAYER_SELECTION = 3
+    PRE_ENEMY_TURN = 4
+    ENEMY_TURN = 5
+    POST_ENEMY_TURN = 6
+
 
 class Game:
-    def __init__(self, initial_statistics: GameStatistics):
-        self.observers = []
-        self.statistics = initial_statistics
+    def __init__(
+        self,
+        initial_statistics: GameStatistics,
+        initialiser: Callable[[GameStatistics], list[GameObserver[Self]]],
+    ):
+        self._observers = []
+        self._statistics = initial_statistics
+        self._state = GameState.PRE_PLAYER_SELECTION
 
-        vital_win = VitalStatsWindow(self.statistics)
-        vital_win.show()
+        observers = initialiser(self._statistics)
+        for observer in observers:
+            self.subscribe(observer)
 
-        stats_win = StatsWindow(self.statistics)
-        stats_win.move(vital_win.x() + vital_win.width() + 20, vital_win.y())
-        stats_win.show()
+    def __inform_all_observers(self) -> None:
+        for observer in self._observers:
+            observer.state_changed(self)
 
-        # empty_win = EmptyWindow()
-        # empty_win.move(stats_win.x() + stats_win.width() + 20, stats_win.y())
-        # empty_win.show()
-
-        self.subscribe(vital_win)
-        self.subscribe(stats_win)
+    def change_state(self, new_state: GameState) -> None:
+        self._state = new_state
+        self.__inform_all_observers()
 
     def subscribe(self, observer: GameObserver) -> None:
         if not isinstance(observer, GameObserver):
             raise RuntimeError("Trying to subscribe to a non-GameObsever!")
-        self.observers.append(observer)
+        self._observers.append(observer)
 
     def unsubscribe(self, observer: GameObserver) -> None:
         if not isinstance(observer, GameObserver):
             raise RuntimeError("Trying to unsubscribe to a non-GameObsever!")
 
-        if observer in self.observers:
-            self.observers.remove(observer)
+        if observer in self._observers:
+            self._observers.remove(observer)
 
     def update_statistics(self, statistics: GameStatistics) -> None:
-        self.statistics = statistics
-        for observer in self.observers:
-            observer.state_changed(statistics)
+        self._statistics = statistics
+        self.__inform_all_observers()
 
     def get_statistics(self) -> GameStatistics:
-        return copy.deepcopy(self.statistics)
+        return copy.deepcopy(self._statistics)

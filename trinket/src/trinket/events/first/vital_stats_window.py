@@ -5,6 +5,7 @@ Vital Statistics Window
 import sys
 import copy
 from trinket.events.first.bases import FloatingWindow, GameStatistics
+from trinket.events.first.game import Game
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from typing import Protocol, runtime_checkable
@@ -54,6 +55,6 @@ class VitalStatsWindow(FloatingWindow):
 
         self.setLayout(layout)
 
-    def state_changed(self, statistics: GameStatistics):
-        self.hp_bar.setValue(statistics.health)
-        self.mana_bar.setValue(statistics.mana)
+    def state_changed(self, game: Game):
+        self.hp_bar.setValue(game.get_statistics().health)
+        self.mana_bar.setValue(game.get_statistics().mana)

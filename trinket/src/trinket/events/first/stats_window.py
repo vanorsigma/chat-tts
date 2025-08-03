@@ -5,6 +5,7 @@ Stats Window
 import sys
 import copy
 from trinket.events.first.bases import FloatingWindow, GameStatistics
+from trinket.events.first.game import Game
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from typing import Protocol, runtime_checkable
@@ -60,5 +61,5 @@ class StatsWindow(FloatingWindow):
             value_label: QLabel
             value_label.setText(str(value))
 
-    def state_changed(self, statistics: GameStatistics):
-        self.update_statistics(statistics)
+    def state_changed(self, game: Game):
+        self.update_statistics(game.get_statistics())
