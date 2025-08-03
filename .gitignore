@@ -28,3 +28,6 @@ data.db
 
 # Config
 config.yml
+
+# UV
+uv.lock
