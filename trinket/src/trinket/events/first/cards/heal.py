@@ -27,7 +27,8 @@ class HealingObserver:
 
 class HealingCard(Card):
     def do_action(self, game: Game):
-        game.subscribe(HealingObserver())
+        # game.subscribe(HealingObserver())
+        pass
 
     def get_name(self) -> str:
         return "Healing"
@@ -40,3 +41,6 @@ class HealingCard(Card):
         black_color = QColor(0, 0, 0)
         image.fill(black_color)
         return image
+
+    def get_base_cost(self) -> int:
+        return 2

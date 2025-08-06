@@ -15,10 +15,33 @@ from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QFont
 
+class FloatingWindowNoGL(QWidget):
+    """
+    Frameless, always-on-top windows (No OpenGL)
+    """
+    def __init__(self, size=(300, 200), title="Floating Window") -> None:
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setFixedSize(size[0], size[1])
+
+        self.setWindowFlags(
+            Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint
+        )
+
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: rgba(30, 30, 30, 200); /* Dark gray, semi-transparent */
+                color: #ffffff; /* White text */
+                border: 2px solid #555555;
+                border-radius: 10px;
+                font-family: Arial;
+            }
+        """)
 
 class FloatingWindow(QOpenGLWidget):
     """
-    Frameless, always-on-top windows
+    Frameless, always-on-top windows (OpenGL)
     """
     def __init__(self, size=(300, 200), title="Floating Window") -> None:
         super().__init__()

@@ -34,3 +34,7 @@ class Card(ABC):
     @abstractmethod
     def get_image(self) -> QImage:
         pass
+
+    @abstractmethod
+    def get_base_cost(self) -> int:
+        pass
