@@ -61,5 +61,5 @@ class StatsWindow(FloatingWindow):
             value_label: QLabel
             value_label.setText(str(value))
 
-    def state_changed(self, game: Game):
+    def state_changed(self, game: Game, _reason) -> None:
         self.update_statistics(game.get_statistics())

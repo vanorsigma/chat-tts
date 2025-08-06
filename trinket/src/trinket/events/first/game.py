@@ -6,7 +6,7 @@ import sys
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from typing import Protocol, runtime_checkable, Callable, Self
+from typing import Protocol, runtime_checkable, Callable, Self, Optional, TypeVar, Generic
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -29,24 +29,55 @@ class GameState(Enum):
     ENEMY_TURN = 5
     POST_ENEMY_TURN = 6
 
+class ObserverCalledReason(Enum):
+    GENERAL = 1
+    HAND_CHANGED = 2
 
-class Game:
+
+C = TypeVar("C")
+class Game(Generic[C]):
     def __init__(
         self,
         initial_statistics: GameStatistics,
-        initialiser: Callable[[GameStatistics], list[GameObserver[Self]]],
+        initialiser: Callable[[Optional[QWidget], GameStatistics], list[GameObserver[Self]]],
+        parent_widget: Optional[QWidget] = None
     ):
+        self._parent_widget = parent_widget
         self._observers = []
         self._statistics = initial_statistics
         self._state = GameState.PRE_PLAYER_SELECTION
+        self._hand = []
+        self._card_size = (210, 350)
 
-        observers = initialiser(self._statistics)
+        observers = initialiser(self._statistics, parent_widget=self._parent_widget)
         for observer in observers:
             self.subscribe(observer)
 
-    def __inform_all_observers(self) -> None:
+    def __inform_all_observers(self, reason: ObserverCalledReason = ObserverCalledReason.GENERAL) -> None:
         for observer in self._observers:
-            observer.state_changed(self)
+            observer.state_changed(self, reason)
+
+    def set_card_size(self, card_size: tuple[int, int]) -> None:
+        self._card_size = card_size
+        self.__inform_all_observers()
+
+    def get_card_size(self) -> tuple[int, int]:
+        return self._card_size
+
+    def hand_add(self, card: C) -> None:
+        self._hand.append(card)
+        self.__inform_all_observers(ObserverCalledReason.HAND_CHANGED)
+
+    def hand_remove(self, card: C) -> None:
+        if card in self._hand:
+            self._hand.remove(card)
+            self.__inform_all_observers(ObserverCalledReason.HAND_CHANGED)
+
+    def get_hand(self) -> list[C]:
+        return copy.deepcopy(self._hand)
+
+    def get_parent_widget(self) -> QWidget:
+        return self._parent_widget
 
     def change_state(self, new_state: GameState) -> None:
         self._state = new_state

@@ -55,6 +55,6 @@ class VitalStatsWindow(FloatingWindow):
 
         self.setLayout(layout)
 
-    def state_changed(self, game: Game):
+    def state_changed(self, game: Game, _reason) -> None:
         self.hp_bar.setValue(game.get_statistics().health)
         self.mana_bar.setValue(game.get_statistics().mana)

@@ -27,7 +27,7 @@ class CardWindow(FloatingWindowNoGL):
     This does not have OpenGL backing, because QOpenGLWidget does not properly
     paint it
     """
-    def __init__(self, card: Card, backing_color: str = '#FFDAB9', initial_size=(300, 500)):
+    def __init__(self, card: Card, initial_size: tuple[int, int], backing_color: str = '#FFDAB9'):
         super().__init__(size=initial_size, title="Card")
 
         self.inital_size = initial_size
@@ -119,14 +119,3 @@ class CardWindow(FloatingWindowNoGL):
         scaling_factor = min(votes / float(total_votes) + 0.5, 1.0)
         w, h = self.inital_size
         self.setFixedSize(int(w * scaling_factor), int(h * scaling_factor))
-
-if __name__ == "__main__":
-    from trinket.events.first.cards.heal import HealingCard
-
-    app = QApplication(sys.argv)
-
-    card = HealingCard(None)
-    card_win = CardWindow(card)
-    card_win.show()
-
-    sys.exit(app.exec())
