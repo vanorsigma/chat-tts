@@ -257,7 +257,7 @@ class BulletChatContainer(
 
         self.min_x = 0
         self.max_x = self.min_x + screen.width()
-        self.min_y = 256
+        self.min_y = 840
         self.max_y = self.min_y + screen.height() - 256
 
         # TODO: remove these debug messages
