@@ -10,3 +10,17 @@ export function createNewTwitchClient(channelName: string): tmi.Client {
     channels: [channelName]
   });
 }
+
+export function createNewAuthenticatedSelfTwitchClient(username: string, oauth: string): tmi.Client {
+  return tmi.Client({
+    connection: {
+      secure: true,
+      reconnect: true,
+    },
+    channels: [username],
+    identity: {
+      username,
+      password: `oauth:${oauth}`
+    }
+  })
+}

@@ -1,0 +1,96 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { ChatBulletContainer } from './chatbullet';
+  import { createNewAuthenticatedSelfTwitchClient } from '$lib/twitch';
+  import { PUBLIC_TWITCH_OAUTH } from '$env/static/public';
+  import { OverlayDispatchers } from './dispatcher';
+  import { Commands } from './commands';
+  import { pollStore } from './stores.svelte';
+
+  export let chatBulletContainer: HTMLDivElement;
+  let client = createNewAuthenticatedSelfTwitchClient('vanorsigma', PUBLIC_TWITCH_OAUTH);
+
+  onMount(() => {
+    new ChatBulletContainer(chatBulletContainer, client);
+    let dispatchers = new OverlayDispatchers(client);
+    dispatchers.addObserver(new Commands(dispatchers));
+    client.connect();
+  });
+</script>
+
+<div class="overlay">
+  <!-- I've checked, it's possible to embed StreamElements the thing here, but I'm not gonna -->
+  <div bind:this={chatBulletContainer} class="chatbullet"></div>
+  {#if pollStore.data}
+    <div class="poll-box">
+      <h3>{pollStore.data?.title}</h3>
+      {#each pollStore.data?.options ?? [] as option, idx}
+        <div class="option">
+          <div class="option-title">{option.name} [%vote {idx + 1}] ({option.votes} votes)</div>
+          <div class="progress-container">
+            <div
+              class="progress-bar"
+              style="width: {(option.votes / pollStore.totalVotes) * 100}%;"
+            ></div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .overlay {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+  }
+
+  .chatbullet {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    color: grey;
+    font-size: 42px;
+    overflow: none;
+  }
+
+  .poll-box {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 400px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  .progress-bar {
+    height: 10px;
+    background-color: #4caf50;
+    border-radius: 5px;
+  }
+
+  .progress-container {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+
+  .option {
+    margin-bottom: 5px;
+  }
+
+  .option-title {
+    font-size: 0.9em;
+    margin-bottom: 2px;
+  }
+</style>
