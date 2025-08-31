@@ -27,7 +27,12 @@ type EmoteSetResponse = {
 
 const GRAPHQL_ENDPOINT = 'https://7tv.io/v3/gql';
 
-export async function is7TVEmote(emoteSetId: string, word: string): Promise<Emote | null> {
+let cached_emote_list: Emote[] = [];
+async function getAllEmotesListCached(emoteSetId: string): Promise<Emote[]> {
+  if (cached_emote_list.length > 0) {
+    return cached_emote_list;
+  }
+
   const query = `
     query GetEmoteSet($id: String!) {
       emoteSet(id: $id) {
@@ -66,19 +71,19 @@ export async function is7TVEmote(emoteSetId: string, word: string): Promise<Emot
 
     const result: EmoteSetResponse = await response.json();
 
-    const emote = result.data.emoteSet.emotes.find((e) => e.name === word);
+    cached_emote_list = result.data.emoteSet.emotes.map(emote => ({
+      id: emote.id,
+      name: emote.name,
+      urls: emote.data.host.files.map(file => `${emote.data.host.url}/${file.name}`),
+    }))
 
-    if (emote) {
-      return {
-        id: emote.id,
-        name: emote.name,
-        urls: emote.data.host.files.map(file => `${emote.data.host.url}/${file.name}`),
-      };
-    }
-
-    return null;
+    return cached_emote_list;
   } catch (error) {
     console.error('Error fetching emote set:', error);
-    return null;
+    return [];
   }
+}
+
+export async function is7TVEmote(emoteSetId: string, word: string): Promise<Emote | null> {
+  return (await getAllEmotesListCached(emoteSetId)).filter((e) => e.name === word).at(0) ?? null;
 }

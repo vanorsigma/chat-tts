@@ -1,4 +1,19 @@
-import type { Poll } from "./poll.svelte";
+import type { Poll } from './poll.svelte';
+
+function createFlashbangStore() {
+  let flashbangTargetCount = $state(0);
+
+  function increment() {
+    flashbangTargetCount++;
+  }
+
+  return {
+    get count() {
+      return flashbangTargetCount;
+    },
+    increment
+  };
+}
 
 function createPollStore() {
   let poll: Poll | undefined | null = $state(undefined);
@@ -19,3 +34,4 @@ function createPollStore() {
 }
 
 export const pollStore = createPollStore();
+export const flashbangStore = createFlashbangStore();

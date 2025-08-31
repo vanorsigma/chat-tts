@@ -1,17 +1,17 @@
-import type { ChatUserstate } from "tmi.js";
-import type { OverlayDispatchers, OverlayObserver } from "./dispatcher";
-import { pollStore } from "./stores.svelte";
+import type { ChatUserstate } from 'tmi.js';
+import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
+import { pollStore } from './stores.svelte';
 
 export let GLOBAL_POLL_LOCK = false;
 
 export interface PollOption {
-  name: string,
-  votes: number
+  name: string;
+  votes: number;
 }
 
 export interface Poll {
-  title: string,
-  options: PollOption[],
+  title: string;
+  options: PollOption[];
   expiryTime: number;
 }
 
@@ -40,9 +40,18 @@ export class PollObserver implements OverlayObserver {
 
     const splits = message.split(' ');
     switch (splits[0]) {
-      case '%vote': {
+      case '%endpoll':
+        if (user.badges?.moderator || user.badges?.vip || user.badges?.broadcaster) {
+          clearTimeout(this.timeout);
+          this.timeUp();
+          return;
+        }
+        break;
+
+      default: {
         const votedFor = Number(message.replace('%vote', '').trim());
-        if (votedFor > this.poll.options.length) return;
+        if (!votedFor || votedFor > this.poll.options.length) return;
+
         this.poll.options[votedFor - 1].votes += 1;
 
         pollStore?.set(this.poll);
@@ -50,25 +59,23 @@ export class PollObserver implements OverlayObserver {
         this.alreadyVoted.add(user.username ?? '');
         return;
       }
-      case '%endpoll':
-        if (user.badges?.moderator || user.badges?.vip || user.badges?.broadcaster) {
-          clearTimeout(this.timeout);
-          this.timeUp()
-          return;
-        }
     }
   }
 
   timeUp(): void {
     this.dispatcher.removeObserver(this);
-    this.dispatcher.sendMessageAsUser(`Poll over! Winner: ${this.poll.options.reduce((prev, curr) => {
-      if (curr.votes > prev.votes) return curr;
-      if (curr.votes === prev.votes) return {
-        name: `${curr.name} & ${prev.name}`,
-        votes: curr.votes,
-      }
-      return prev;
-    }).name}`);
+    this.dispatcher.sendMessageAsUser(
+      `Poll over! Winner: ${this.poll.options.reduce((prev, curr) => {
+        if (curr.votes > prev.votes) return curr;
+        if (curr.votes === prev.votes)
+          return {
+            name: `${curr.name} & ${prev.name}`,
+            votes: curr.votes
+          };
+        return prev;
+      }).name
+      }`
+    );
     pollStore?.set(null);
     GLOBAL_POLL_LOCK = false;
   }
@@ -85,14 +92,18 @@ export function getPollParameters(message: string): Poll {
   return {
     title: splits[0],
     expiryTime: new Date().getTime() + Number(splits[1]) * 1000,
-    options: splits.slice(2).map(message => ({
+    options: splits.slice(2).map((message) => ({
       name: message,
-      votes: 0,
+      votes: 0
     }))
-  }
+  };
 }
 
-export function pollCommandHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string): void {
+export function pollCommandHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string
+): void {
   if (GLOBAL_POLL_LOCK) return;
   if (user.badges?.moderator || user.badges?.vip || user.badges?.broadcaster) {
     const observer = new PollObserver(dispatcher, getPollParameters(message));
