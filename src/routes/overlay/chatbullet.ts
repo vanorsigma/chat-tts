@@ -19,7 +19,7 @@ export interface TextBulletPart {
 
 export type BulletPart = ImageBulletPart | TextBulletPart;
 
-export function isImageBulletPart(part: BulletPart): part is ImageBulletPart {
+export function isImageBulletPart(part: BulletPart | string): part is ImageBulletPart {
   return (part as ImageBulletPart).imgsrc !== undefined;
 }
 
@@ -27,19 +27,92 @@ export function isTextBulletPart(part: BulletPart): part is TextBulletPart {
   return (part as TextBulletPart).text !== undefined;
 }
 
-export async function splitMessage(message: string): Promise<BulletPart[]> {
-  const parts = (await Promise.all(message.split(' ').map(potential => (async () => {
-    const emote = await is7TVEmote(EMOTE_SET_ID, potential);
-    if (emote !== null) {
-      return {
-        imgsrc: emote.urls.filter(url => url.includes("4x.webp"))[0] ?? ''
-      } as ImageBulletPart;
-    } else {
-      return {
-        text: potential
-      } as TextBulletPart;
+function escapeHTML(str: string) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function messageEntryBreaker(
+  skips: Map<number, [number, string]>,
+  message: string
+): (string | ImageBulletPart)[] {
+  const result = [];
+  let last_i = 0;
+  let i = 0;
+  while (i < message.length) {
+    const skip = skips.get(i)!;
+    if (skips.has(i)) {
+      result.push(message.slice(last_i, i));
+      result.push({
+        imgsrc: `https://static-cdn.jtvnw.net/emoticons/v1/${skip[1]}/3.0`
+      });
+      i += skip[0];
+      last_i = i;
+      continue;
     }
-  })())));
+
+    i++;
+  }
+
+  result.push(message.slice(last_i, i));
+  return result;
+}
+
+export async function splitMessage(
+  ranges: { [key: string]: string[] },
+  message: string
+): Promise<BulletPart[]> {
+  // split by twitch messages, and then call splitMessage to split by 7tv
+  // if and only if there are no twitch message splits, then we proceed with 7tv splits
+  const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(
+    new Map(
+      Object.entries(ranges).flatMap(([k, vs]) =>
+        vs.map((v) => {
+          const [start, end] = v.split('-').map((e) => Number(e));
+          return [start, [end - start + 1, k]];
+        })
+      )
+    ),
+    message
+  );
+
+  if (parsed.length === 0) {
+    parsed.push(message);
+  }
+
+  return (
+    await Promise.all(
+      parsed.map(async (partial) => {
+        if (!isImageBulletPart(partial)) {
+          return await sevenSplitMessage(partial);
+        }
+        return [partial];
+      })
+    )
+  ).flatMap((e) => e);
+}
+
+async function sevenSplitMessage(message: string): Promise<BulletPart[]> {
+  const parts = await Promise.all(
+    message.split(' ').map((potential) =>
+      (async () => {
+        const emote = await is7TVEmote(EMOTE_SET_ID, potential);
+        if (emote !== null) {
+          return {
+            imgsrc: emote.urls.filter((url) => url.includes('4x.webp'))[0] ?? ''
+          } as ImageBulletPart;
+        } else {
+          return {
+            text: potential
+          } as TextBulletPart;
+        }
+      })()
+    )
+  );
 
   const finalParts = [];
   for (const part of parts) {
@@ -58,35 +131,75 @@ export async function splitMessage(message: string): Promise<BulletPart[]> {
   return finalParts;
 }
 
+export interface ChatBulletProperties {
+  element: HTMLDivElement;
+  rate: number;
+  lastMovement: number;
+  offset: number;
+}
 
 export class ChatBulletContainer {
   private root: HTMLDivElement;
-  private bulletToInterval = new Map<HTMLDivElement, unknown>();
+  private bulletProperties: ChatBulletProperties[] = [];
+  private width: number;
+  private height: number;
 
   constructor(root: HTMLDivElement, twitch: tmi.Client) {
     this.root = root;
     twitch.on('message', (_, userstate, message) => this.onMessage(userstate, message));
+
+    /// NOTE: This is important, we only ever want to get this once if possible.
+    [this.height, this.width] = this.getWidthHeight();
+    window.requestAnimationFrame(this.drawFrameLoop.bind(this));
   }
 
-  async onMessage(user: tmi.Userstate, message: string) {
-    this.spawnBullet(await splitMessage(message));
+  drawFrameLoop(): void {
+    /// TODO: Migrate this to use a HTMLCanvasElement instead.
+    /// This is hard for these reasons:
+    /// 1. We will need to animate the animated pictures and bullet movement separate
+    /// 2. Won't be able to easily do anything tbh
+    for (const bulletProp of this.bulletProperties) {
+      const currentTimestamp = window.performance.now();
+      const offset = (currentTimestamp - bulletProp.lastMovement) / bulletProp.rate;
+      const textWidth = Number(getComputedStyle(bulletProp.element).width.replace('px', ''));
+
+      bulletProp.offset += offset;
+      bulletProp.element.style.right = `${bulletProp.offset - textWidth}px`;
+
+      if (bulletProp.offset >= this.width) {
+        bulletProp.element.style.width = `${textWidth + 1}px`;
+      }
+
+      if (bulletProp.offset > this.width + textWidth) {
+        this.root.removeChild(bulletProp.element);
+        this.bulletProperties = this.bulletProperties.filter((thing) => thing !== bulletProp);
+      }
+      bulletProp.lastMovement = currentTimestamp;
+    }
+
+    window.requestAnimationFrame(this.drawFrameLoop.bind(this));
+  }
+
+  async onMessage(user: tmi.ChatUserstate, message: string) {
+    this.spawnBullet(await splitMessage(user.emotes ?? {}, message), user.color);
   }
 
   getWidthHeight(): [number, number] {
     const computedStyle = window.getComputedStyle(this.root);
-    return [Number(computedStyle.height.replace('px', '')), Number(computedStyle.width.replace('px', ''))];
+    return [
+      Number(computedStyle.height.replace('px', '')),
+      Number(computedStyle.width.replace('px', ''))
+    ];
   }
 
-  spawnBullet(parts: BulletPart[]) {
-    console.log('going to spawn ', parts);
+  spawnBullet(parts: BulletPart[], color: string = 'lightgrey') {
     const [height, width] = this.getWidthHeight();
     const rate = Math.max(Math.random(), 0.5) * (1000 / 60);
 
     // TODO: yes, this is ugly, yes, we should build it with a builder pattern, no, i don't care
     const bulletBuilding = document.createElement('div');
-    let offset = 0;
     bulletBuilding.style.position = 'absolute';
-    bulletBuilding.style.top = `${(Math.random() * (height - 50))}px`;
+    bulletBuilding.style.top = `${Math.random() * (height - 50)}px`;
     bulletBuilding.style.right = `-999px`;
 
     for (const part of parts) {
@@ -99,36 +212,19 @@ export class ChatBulletContainer {
 
       if (isTextBulletPart(part)) {
         const textEle = document.createElement('span');
-        textEle.textContent = part.text;
+        textEle.textContent = escapeHTML(part.text);
+        textEle.style.color = color;
         bulletBuilding.appendChild(textEle);
       }
     }
 
-    let lastTimestamp = new Date().getTime();
-    // TODO: can probably roll it into one timer
-    const interval = setInterval(() => {
-      offset += 1;
-      const textWidth = Number(getComputedStyle(bulletBuilding).width.replace('px', ''));
-      const currentTimestamp = new Date().getTime();
-      const delta = currentTimestamp - lastTimestamp;
-      // const framesSkipped = Math.min(Math.max(1, Math.round(delta / rate)), 3); // allow only 3 frame skips
-      const framesSkipped = 1;
-      offset = offset * framesSkipped;
-      bulletBuilding.style.right = `${(offset - textWidth)}px`;
+    this.bulletProperties.push({
+      element: bulletBuilding,
+      lastMovement: window.performance.now(),
+      offset: 0,
+      rate
+    });
 
-      if (offset >= width) {
-        bulletBuilding.style.width = `${textWidth + 20}px`;
-      }
-
-      if (offset > width + textWidth) {
-        clearInterval(interval);
-        this.root.removeChild(bulletBuilding);
-        this.bulletToInterval.delete(bulletBuilding);
-      }
-      lastTimestamp = currentTimestamp;
-    }, rate);
-
-    this.bulletToInterval.set(bulletBuilding, interval);
     this.root.append(bulletBuilding);
   }
 }

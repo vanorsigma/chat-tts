@@ -5,28 +5,40 @@
   import { PUBLIC_TWITCH_OAUTH } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { Commands } from './commands';
-  import { pollStore } from './stores.svelte';
+  import { pollStore, flashbangStore } from './stores.svelte';
 
   export let chatBulletContainer: HTMLDivElement;
+  let flashbangCount: number = 0;
   let client = createNewAuthenticatedSelfTwitchClient('vanorsigma', PUBLIC_TWITCH_OAUTH);
 
   onMount(() => {
     new ChatBulletContainer(chatBulletContainer, client);
     let dispatchers = new OverlayDispatchers(client);
-    dispatchers.addObserver(new Commands(dispatchers));
+    let commands = new Commands(dispatchers);
+    dispatchers.addObserver(commands);
     client.connect();
   });
+
+  function onFlashbangDone() {
+    flashbangCount = flashbangStore.count;
+  }
 </script>
 
 <div class="overlay">
   <!-- I've checked, it's possible to embed StreamElements the thing here, but I'm not gonna -->
   <div bind:this={chatBulletContainer} class="chatbullet"></div>
+  {#if flashbangCount < flashbangStore.count}<div class="flashbang">
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay onended={onFlashbangDone}>
+        <source src="/thinkfast.webm" /> Video tag smile
+      </video>
+    </div>{/if}
   {#if pollStore.data}
     <div class="poll-box">
       <h3>{pollStore.data?.title}</h3>
       {#each pollStore.data?.options ?? [] as option, idx}
         <div class="option">
-          <div class="option-title">{option.name} [%vote {idx + 1}] ({option.votes} votes)</div>
+          <div class="option-title">{option.name} [type {idx + 1}] ({option.votes} votes)</div>
           <div class="progress-container">
             <div
               class="progress-bar"
@@ -40,6 +52,11 @@
 </div>
 
 <style>
+  video {
+    min-width: 100%;
+    min-height: 100%;
+  }
+
   .overlay {
     position: absolute;
     top: 0px;
@@ -55,14 +72,14 @@
     left: 0px;
     width: 100%;
     height: 100%;
-    color: grey;
+    color: lightgrey;
     font-size: 42px;
     overflow: none;
   }
 
   .poll-box {
     position: absolute;
-    top: 10px;
+    top: 40px;
     right: 10px;
     width: 400px;
     padding: 10px;
