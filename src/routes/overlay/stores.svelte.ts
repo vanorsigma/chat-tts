@@ -1,5 +1,20 @@
 import type { Poll } from './poll.svelte';
 
+function createBlackSilenceStore() {
+  let blackSilenceCount = $state(0);
+
+  function increment() {
+    blackSilenceCount++;
+  }
+
+  return {
+    get count() {
+      return blackSilenceCount;
+    },
+    increment
+  }
+}
+
 function createFlashbangStore() {
   let flashbangTargetCount = $state(0);
 
@@ -35,3 +50,4 @@ function createPollStore() {
 
 export const pollStore = createPollStore();
 export const flashbangStore = createFlashbangStore();
+export const blackSilenceStore = createBlackSilenceStore();
