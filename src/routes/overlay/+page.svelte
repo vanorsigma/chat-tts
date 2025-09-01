@@ -5,10 +5,11 @@
   import { PUBLIC_TWITCH_OAUTH } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { Commands } from './commands';
-  import { pollStore, flashbangStore } from './stores.svelte';
+  import { pollStore, flashbangStore, blackSilenceStore } from './stores.svelte';
 
   export let chatBulletContainer: HTMLDivElement;
   let flashbangCount: number = 0;
+  let blackSilenceCount: number = 0;
   let client = createNewAuthenticatedSelfTwitchClient('vanorsigma', PUBLIC_TWITCH_OAUTH);
 
   onMount(() => {
@@ -22,6 +23,10 @@
   function onFlashbangDone() {
     flashbangCount = flashbangStore.count;
   }
+
+  function onBlackSilenceDone() {
+    blackSilenceCount = blackSilenceStore.count;
+  }
 </script>
 
 <div class="overlay">
@@ -31,6 +36,12 @@
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay onended={onFlashbangDone}>
         <source src="/thinkfast.webm" /> Video tag smile
+      </video>
+    </div>{/if}
+  {#if blackSilenceCount < blackSilenceStore.count}<div class="blacksilence">
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay onended={onBlackSilenceDone}>
+        <source src="/blacksilence.webm" /> Video tag smile
       </video>
     </div>{/if}
   {#if pollStore.data}
@@ -52,6 +63,22 @@
 </div>
 
 <style>
+  .blacksilence {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    /* background-color: black; */
+  }
+
+  .blacksilence video {
+    min-width: 25%;
+    min-height: 25%;
+    width: 25%;
+    height: 25%;
+  }
+
   video {
     min-width: 100%;
     min-height: 100%;
