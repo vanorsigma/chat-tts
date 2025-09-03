@@ -2,26 +2,40 @@
   import { onMount } from 'svelte';
   import { ChatBulletContainer } from './chatbullet';
   import { createNewAuthenticatedSelfTwitchClient } from '$lib/twitch';
-  import { PUBLIC_TWITCH_OAUTH } from '$env/static/public';
+  import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
-  import { Commands } from './commands';
+  import { BLACK_SILENCE_DURATION, Commands } from './commands';
   import { pollStore, flashbangStore, blackSilenceStore } from './stores.svelte';
 
   export let chatBulletContainer: HTMLDivElement;
   let flashbangCount: number = 0;
   let blackSilenceCount: number = 0;
   let client = createNewAuthenticatedSelfTwitchClient('vanorsigma', PUBLIC_TWITCH_OAUTH);
+  let chatBulletBackend: ChatBulletContainer | undefined = undefined;
+
+  let blackSilenceBorder = false;
 
   onMount(() => {
-    new ChatBulletContainer(chatBulletContainer, client);
+    chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
     let dispatchers = new OverlayDispatchers(client);
     let commands = new Commands(dispatchers);
+    commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);
     client.connect();
   });
 
   function onFlashbangDone() {
     flashbangCount = flashbangStore.count;
+  }
+
+  function onBlackSilenceStart() {
+    chatBulletBackend?.deleteAllBullets();
+    chatBulletBackend?.setEnabled(false);
+    blackSilenceBorder = true;
+    setTimeout(() => {
+      chatBulletBackend?.setEnabled(true);
+      blackSilenceBorder = false;
+    }, BLACK_SILENCE_DURATION);
   }
 
   function onBlackSilenceDone() {
@@ -31,17 +45,20 @@
 
 <div class="overlay">
   <!-- I've checked, it's possible to embed StreamElements the thing here, but I'm not gonna -->
+  {#if blackSilenceBorder}
+    <div class="blackSilenceBorder"></div>
+  {/if}
+  {#if blackSilenceCount < blackSilenceStore.count}<div class="blacksilence">
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay onended={onBlackSilenceDone} onplaying={onBlackSilenceStart}>
+        <source src="/blacksilence.webm" /> Video tag smile
+      </video>
+    </div>{/if}
   <div bind:this={chatBulletContainer} class="chatbullet"></div>
   {#if flashbangCount < flashbangStore.count}<div class="flashbang">
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay onended={onFlashbangDone}>
         <source src="/thinkfast.webm" /> Video tag smile
-      </video>
-    </div>{/if}
-  {#if blackSilenceCount < blackSilenceStore.count}<div class="blacksilence">
-      <!-- svelte-ignore a11y_media_has_caption -->
-      <video autoplay onended={onBlackSilenceDone}>
-        <source src="/blacksilence.webm" /> Video tag smile
       </video>
     </div>{/if}
   {#if pollStore.data}
@@ -70,6 +87,28 @@
     align-items: center;
     justify-content: center;
     /* background-color: black; */
+  }
+
+  .blackSilenceBorder {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    background: radial-gradient(
+      farthest-side,
+      transparent 0%,
+      /* transparent 40%, */ rgba(0, 0, 0, 0.9) 100%
+    );
+    background-size: 10000% 10000%; /* Initial size of the gradient */
+    background-repeat: no-repeat;
+    background-position: center; /* Centers the gradient */
+    animation: growGradient 2s ease-in-out forwards;
+  }
+
+  @keyframes growGradient {
+    to {
+      background-size: 120% 120%;
+    }
   }
 
   .blacksilence video {

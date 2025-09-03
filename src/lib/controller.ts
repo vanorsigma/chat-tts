@@ -7,6 +7,7 @@ import OBSWebSocket from 'obs-websocket-js';
 import { COMMANDS, LEADER, type Command } from './commands';
 import { Synth } from 'beepbox';
 import axios from 'axios';
+import { isRemoteTTSMessage } from './remoteTTSMessages';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -35,10 +36,51 @@ interface VoiceSettings {
   rate: number;
 }
 
+class RemoteChatTTSController {
+  private socket: WebSocket;
+  private parentController: Controller;
+
+  constructor(controller: Controller, busUrl: string) {
+    this.socket = new WebSocket(busUrl);
+    this.socket.onopen = () => {
+      console.log('connected to chat tts controller');
+    };
+
+    this.socket.onclose = () => {
+      console.log('disconnected from chat tts controller');
+    };
+
+    this.socket.onmessage = (ev) => this.onMessage(ev.data);
+
+    this.parentController = controller;
+  }
+
+  onMessage(message: string) {
+    const data = JSON.parse(message);
+    if (!isRemoteTTSMessage(data)) return;
+
+    switch (data.command.type) {
+      case 'cancel':
+        this.parentController.cancel();
+        break;
+      case 'disable':
+        this.parentController.setEnabled(false);
+        setTimeout(() => {
+          this.parentController.setEnabled(true);
+        }, data.command.duration * 1000);
+        break;
+      default:
+        console.error(`Forgot to implement ${data.command} in Remote TTS Controller`);
+        break;
+    }
+  }
+}
+
 class TrinketController {
   private socket: WebSocket;
+  private disabled: boolean = false;
 
-  constructor(senderUrl: string) {
+  constructor(enabled: boolean, senderUrl: string) {
     this.socket = new WebSocket(senderUrl);
     this.socket.onopen = () => {
       console.log('connected to remote distract controller');
@@ -47,15 +89,36 @@ class TrinketController {
     this.socket.onclose = () => {
       console.log('disconnected from remote distract controller');
     };
+
+    this.disabled = !enabled;
+  }
+
+
+  get enabled() {
+    return !this.disabled;
+  }
+
+  enable(invert: boolean = false) {
+    this.disabled = invert;
   }
 
   async sendDistract(): Promise<void> {
+    if (this.disabled) {
+      console.log('Trinkets are disabled');
+      return;
+    }
+
     this.socket.send(
       JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: Math.random() } })
     );
   }
 
   async sendRotate(): Promise<void> {
+    if (this.disabled) {
+      console.log('Trinkets are disabled');
+      return;
+    }
+
     this.socket.send(
       JSON.stringify({
         type: 'trinket',
@@ -544,9 +607,20 @@ export class Controller {
   obsController?: ObsController;
   songController: SongController;
   trinketController?: TrinketController;
+  remoteChatTTSController?: RemoteChatTTSController;
 
   config: FullConfig;
   filters: string[];
+
+  private ttsEnabled: boolean = true;
+
+  get enabled() {
+    return this.ttsEnabled;
+  }
+
+  setEnabled(enable: boolean) {
+    this.ttsEnabled = enable;
+  }
 
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
@@ -563,8 +637,9 @@ export class Controller {
 
     this.trinketController =
       config.distractConfig != null
-        ? new TrinketController(config.distractConfig?.wsUrl)
+        ? new TrinketController(config.distractConfig?.enabled, config.distractConfig?.wsUrl)
         : undefined;
+    this.remoteChatTTSController = config.remoteChatTTS ? new RemoteChatTTSController(this, config.remoteChatTTS.busURL) : undefined;
     this.config = config;
   }
 
@@ -611,7 +686,7 @@ export class Controller {
       return;
     }
 
-    if (filtered) {
+    if (filtered || !this.enabled) {
       return;
     }
 
@@ -654,6 +729,7 @@ export class Controller {
   async cancel() {
     this.voice.cancel();
     this.songController.cancelSong();
+    this.trinketController?.cancel();
     this.config.obsSettings?.rotationNames.forEach((source) => {
       this.obsController?.resetSourceRotation(source);
     });

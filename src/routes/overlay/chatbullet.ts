@@ -143,6 +143,7 @@ export class ChatBulletContainer {
   private bulletProperties: ChatBulletProperties[] = [];
   private width: number;
   private height: number;
+  private enabled: boolean = true;
 
   constructor(root: HTMLDivElement, twitch: tmi.Client) {
     this.root = root;
@@ -151,6 +152,26 @@ export class ChatBulletContainer {
     /// NOTE: This is important, we only ever want to get this once if possible.
     [this.height, this.width] = this.getWidthHeight();
     window.requestAnimationFrame(this.drawFrameLoop.bind(this));
+  }
+
+  get isEnabled() {
+    return this.enabled;
+  }
+
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
+
+  private removeBullet(bullet: ChatBulletProperties) {
+    /// NOTE: performance assumption; the bullet exists
+    this.root.removeChild(bullet.element);
+    this.bulletProperties = this.bulletProperties.filter((thing) => thing !== bullet);
+  }
+
+  deleteAllBullets(): void {
+    for (const bulletProp of this.bulletProperties) {
+      this.removeBullet(bulletProp);
+    }
   }
 
   drawFrameLoop(): void {
@@ -171,8 +192,7 @@ export class ChatBulletContainer {
       }
 
       if (bulletProp.offset > this.width + textWidth) {
-        this.root.removeChild(bulletProp.element);
-        this.bulletProperties = this.bulletProperties.filter((thing) => thing !== bulletProp);
+        this.removeBullet(bulletProp);
       }
       bulletProp.lastMovement = currentTimestamp;
     }
@@ -181,7 +201,9 @@ export class ChatBulletContainer {
   }
 
   async onMessage(user: tmi.ChatUserstate, message: string) {
-    this.spawnBullet(await splitMessage(user.emotes ?? {}, message), user.color);
+    if (this.isEnabled) {
+      this.spawnBullet(await splitMessage(user.emotes ?? {}, message), user.color);
+    }
   }
 
   getWidthHeight(): [number, number] {

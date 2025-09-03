@@ -52,6 +52,10 @@
     controller?.cancel();
   }
 
+  function onBlackSilence() {
+    controller?.trinketController?.enable(controller?.trinketController.enabled);
+  }
+
   onDestroy(() => {
     controller?.end();
   });
@@ -106,6 +110,9 @@
   </label>
   <label for="cancel">
     <button name="cancel" on:click={onCancelSpeech}>Cancel Speech</button>
+  </label>
+  <label for="black-silence">
+    <button name="black-silence" on:click={onBlackSilence}>Black Silence</button>
   </label>
   <div use:scrollToBottom={$chatLogsStore} class="chatlogs">
     {#each $chatLogsStore as message}
