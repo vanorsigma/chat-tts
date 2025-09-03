@@ -4,7 +4,7 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
   import { yaml } from '@codemirror/lang-yaml';
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
 
   const extensions = [
     yaml(),

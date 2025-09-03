@@ -32,6 +32,7 @@ export interface StandaloneSongConfig {
 }
 
 export interface DistractConfigOptional {
+  enabled?: boolean;
   wsUrl?: string;
   distractCooldown?: number;
   rotateCooldown?: number;
@@ -40,6 +41,7 @@ export interface DistractConfigOptional {
 }
 
 export interface DistractConfig {
+  enabled: boolean;
   wsUrl: string;
   distractCooldown: number;
   rotateCooldown: number;
@@ -49,6 +51,10 @@ export interface DistractConfig {
 
 export interface RemoteVoiceConfig {
   controlURL: string;
+}
+
+export interface RemoteChatTTSControllerConfig {
+  busURL: string;
 }
 
 // For anything adjustable from the UI
@@ -71,6 +77,7 @@ export class ParseableConfig {
   standaloneSongConfig?: StandaloneSongConfig;
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfigOptional;
+  remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix?: string;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +102,7 @@ export class ParseableConfig {
     this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
     this.remoteVoiceConfig = arbitraryObject['remoteVoiceConfig'];
     this.distractConfig = arbitraryObject['distractConfig'];
+    this.remoteChatTTS = arbitraryObject['remoteChatTTS'];
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
   }
 
@@ -135,6 +143,7 @@ export class ParseableConfig {
         songPitchSpeedAffected: false
       },
       distractConfig: {
+        enabled: false,
         wsUrl: '',
         distractCooldown: 900,
         rotateCooldown: 300,
@@ -142,6 +151,7 @@ export class ParseableConfig {
         rotateChance: 0.01,
         ...this.distractConfig,
       },
+      remoteChatTTS: this.remoteChatTTS,
       ignorePrefix: this.ignorePrefix ?? '~',
     };
   }
@@ -161,6 +171,7 @@ export interface FullConfig {
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
   dynamicConfig: DynamicConfig;
+  remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix: string;
 }
 
