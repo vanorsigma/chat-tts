@@ -16,7 +16,7 @@ export class CaptchaObserver implements OverlayObserver {
   private dispatcher: OverlayDispatchers;
   private onSolve: () => void;
   private alreadyClaimed: Set<string> = new Set();
-  private timeout: number | null;
+  private timeout: number | null = null;
 
   constructor(dispatcher: OverlayDispatchers, onSolve: () => void) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -34,6 +34,10 @@ export class CaptchaObserver implements OverlayObserver {
     if (message.trim() === this.answer) {
       const username = user.username;
       if (!username) return;
+
+      if (this.alreadyClaimed.has(username)) return;
+      this.alreadyClaimed.add(username);
+
       const points = await getPointsForUser(username) ?? 0;
       setPointsForUser(username, points + CAPTCHA_POINTS);
       this.dispatcher.sendMessageAsUser(`${username} claimed ${CAPTCHA_POINTS}!`);
