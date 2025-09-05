@@ -5,7 +5,7 @@
   import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
-  import { pollStore, flashbangStore, blackSilenceStore } from './stores.svelte';
+  import { pollStore, flashbangStore, blackSilenceStore, maxwellStore } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
 
   export let chatBulletContainer: HTMLDivElement;
@@ -20,6 +20,79 @@
   let captchaText: string | null = null;
   let captchaTop = 0;
   let captchaLeft = 0;
+
+  let catDVDElement: HTMLImageElement;
+  let catDVDCount = 0;
+  let catDVDTop: number = 0;
+  let catDVDLeft: number = 0;
+  let catDVDVector: [number, number] = normalizeVector([
+    (Math.random() - 0.5) * 2,
+    (Math.random() - 0.5) * 2
+  ]);
+
+  let catDVDLastAnimate = performance.now();
+  let catDVDStartTime = new Date().getTime();
+
+  $: {
+    if (new Date().getTime() - catDVDStartTime < 30 * 1000 && catDVDElement) {
+      catDVDAnimationFrame();
+      catDVDStartTime = new Date().getTime();
+    }
+  }
+
+  function normalizeVector(vector: [number, number]): [number, number] {
+    const sumSquared = Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
+    return [vector[0] / sumSquared, vector[1] / sumSquared];
+  }
+
+  function catDVDHitEdge(maxHeight: number, maxWidth: number): boolean {
+    return catDVDTop <= 0 || catDVDLeft <= 0 || catDVDTop >= maxHeight || catDVDLeft >= maxWidth;
+  }
+
+  function catDVDModifyVector(maxHeight: number, maxWidth: number) {
+    const hitHori = catDVDLeft <= 0 || catDVDLeft >= maxWidth;
+    const hitVert = catDVDTop <= 0 || catDVDTop >= maxHeight;
+
+    let newX = catDVDVector[1];
+    let newY = catDVDVector[0];
+
+    if (hitHori) {
+      newX = (catDVDVector[1] + 0.0) * -1;
+    }
+
+    if (hitVert) {
+      newY = (catDVDVector[0] + 0.0) * -1;
+    }
+
+    catDVDVector = normalizeVector([newY, newX]);
+  }
+
+  function catDVDAnimationFrame() {
+    const width = catDVDElement.width;
+    const height = catDVDElement.height;
+
+    const edgeWidth = 1920 - width;
+    const edgeHeight = 1080 - height;
+
+    const currentTime = performance.now();
+    const delta = currentTime - catDVDLastAnimate;
+    catDVDLastAnimate = currentTime;
+
+    if (catDVDHitEdge(edgeHeight, edgeWidth)) {
+      catDVDModifyVector(edgeHeight, edgeWidth);
+    }
+
+    catDVDTop += catDVDVector[0] * delta;
+    catDVDLeft += catDVDVector[1] * delta;
+
+    requestAnimationFrame(() => {
+      if (new Date().getTime() - catDVDStartTime < 30 * 1000) {
+        catDVDAnimationFrame();
+      } else {
+        catDVDCount += 1;
+      }
+    });
+  }
 
   onMount(() => {
     chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
@@ -70,6 +143,14 @@
 </script>
 
 <div class="overlay">
+  <img
+    class="catDVD"
+    bind:this={catDVDElement}
+    style={`visibility: ${catDVDCount < maxwellStore.count ? 'visible' : 'hidden'}; top: ${catDVDTop}px; left: ${catDVDLeft}px`}
+    src="/catBreadSpin.gif"
+    alt="goaway"
+    width="200px"
+  />
   <div
     bind:this={captchaElement}
     class="captcha"
@@ -113,6 +194,9 @@
 </div>
 
 <style>
+  .catDVD {
+    position: absolute;
+  }
   .captcha {
     position: absolute;
     width: 30em;

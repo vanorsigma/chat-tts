@@ -1,5 +1,20 @@
 import type { Poll } from './poll.svelte';
 
+function createMaxwellStore() {
+  let maxwellCount = $state(0);
+
+  function increment() {
+    maxwellCount++;
+  }
+
+  return {
+    get count() {
+      return maxwellCount;
+    },
+    increment
+  }
+}
+
 function createBlackSilenceStore() {
   let blackSilenceCount = $state(0);
 
@@ -51,3 +66,4 @@ function createPollStore() {
 export const pollStore = createPollStore();
 export const flashbangStore = createFlashbangStore();
 export const blackSilenceStore = createBlackSilenceStore();
+export const maxwellStore = createMaxwellStore();
