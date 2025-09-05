@@ -16,7 +16,7 @@ export const BLACK_SILENCE_COST = 500;
 export const FLASHBANG_COST = 50;
 
 export const MAXWELL_COST = 100;
-export const MAXWELL_USER = '5kulI';
+export const MAXWELL_USER = '5kuli';
 
 export const CHECK_IN_POINTS = 100;
 
