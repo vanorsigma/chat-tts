@@ -5,7 +5,7 @@
 import type { ChatUserstate } from 'tmi.js';
 import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
 import { pollCommandHandler } from './poll.svelte';
-import { blackSilenceStore, flashbangStore } from './stores.svelte';
+import { blackSilenceStore, flashbangStore, maxwellStore } from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 
@@ -14,6 +14,9 @@ export const BLACK_SILENCE_DURATION = 10 * 1000;
 export const BLACK_SILENCE_COST = 500;
 
 export const FLASHBANG_COST = 50;
+
+export const MAXWELL_COST = 100;
+export const MAXWELL_USER = '5kulI';
 
 export const CHECK_IN_POINTS = 100;
 
@@ -30,6 +33,23 @@ async function checkCostAddIfEnough(dispatcher: OverlayDispatchers, username: st
     dispatcher.sendMessageAsUser(`${username}, you can't afford this`);
     return false;
   }
+}
+
+async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+  if (!user.username) return;
+
+  const username = user.username;
+
+  (async () => {
+    if (username === MAXWELL_USER) {
+      dispatcher.sendMessageAsUser('ok');
+    } else {
+      if (!await checkCostAddIfEnough(dispatcher, username, -MAXWELL_COST)) return;
+      dispatcher.sendMessageAsUser(`-${MAXWELL_COST}`);
+    }
+
+    maxwellStore.increment();
+  })();
 }
 
 async function transferHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
@@ -64,8 +84,12 @@ function getCostHandler(dispatcher: OverlayDispatchers, message: string) {
       dispatcher.sendMessageAsUser(`${FLASHBANG_COST}`);
       break;
 
+    case 'maxwell':
+      dispatcher.sendMessageAsUser(`${MAXWELL_COST}`);
+      break;
+
     default:
-      dispatcher.sendMessageAsUser(`~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}`);
+      dispatcher.sendMessageAsUser(`~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}; %maxwell: ${MAXWELL_COST}`);
       break;
   }
 }
@@ -233,6 +257,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%transfer':
         transferHandler(dispatcher, user, message);
+        break;
+      case '%maxwell':
+        maxwellHandler(dispatcher, user, message);
         break;
     }
     return;
