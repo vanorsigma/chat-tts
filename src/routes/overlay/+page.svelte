@@ -89,7 +89,7 @@
       if (new Date().getTime() - catDVDStartTime < 30 * 1000) {
         catDVDAnimationFrame();
       } else {
-        catDVDCount += 1;
+        catDVDCount += maxwellStore.count;
       }
     });
   }
