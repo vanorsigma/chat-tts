@@ -6,6 +6,7 @@
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
   import { pollStore, flashbangStore, blackSilenceStore } from './stores.svelte';
+  import { CaptchaObserver } from './captcha';
 
   export let chatBulletContainer: HTMLDivElement;
   let flashbangCount: number = 0;
@@ -15,6 +16,11 @@
 
   let blackSilenceBorder = false;
 
+  let captchaElement: HTMLDivElement;
+  let captchaText: string | null = null;
+  let captchaTop = 0;
+  let captchaLeft = 0;
+
   onMount(() => {
     chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
     let dispatchers = new OverlayDispatchers(client);
@@ -22,7 +28,27 @@
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);
     client.connect();
+    captchaLoop(dispatchers);
   });
+
+  function captchaLoop(dispatcher: OverlayDispatchers) {
+    setTimeout(
+      () => {
+        captchaTop =
+          Math.random() *
+          (1080 - Number(getComputedStyle(captchaElement).height.replace('px', '')));
+        captchaLeft =
+          Math.random() * (1920 - Number(getComputedStyle(captchaElement).width.replace('px', '')));
+
+        let captcha = new CaptchaObserver(dispatcher, () => {
+          captchaText = null;
+          captchaLoop(dispatcher);
+        });
+        captchaText = captcha.value;
+      },
+      Math.max(1000, Math.random() * 10 * 60 * 1000)
+    );
+  }
 
   function onFlashbangDone() {
     flashbangCount = flashbangStore.count;
@@ -44,6 +70,13 @@
 </script>
 
 <div class="overlay">
+  <div
+    bind:this={captchaElement}
+    class="captcha"
+    style={`top: ${captchaTop}px; left: ${captchaLeft}px; visibility: ${captchaText ? 'visible' : 'hidden'}`}
+  >
+    <span style="font-size: 5em">{captchaText}</span>
+  </div>
   <!-- I've checked, it's possible to embed StreamElements the thing here, but I'm not gonna -->
   {#if blackSilenceBorder}
     <div class="blackSilenceBorder"></div>
@@ -80,6 +113,18 @@
 </div>
 
 <style>
+  .captcha {
+    position: absolute;
+    width: 30em;
+    height: 10em;
+    background-color: white;
+    border-radius: 10px;
+    border: 2px solid black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .blacksilence {
     display: flex;
     width: 100%;

@@ -690,6 +690,11 @@ export class Controller {
       return;
     }
 
+    // hard command filter
+    if (message.startsWith('%')) {
+      return;
+    }
+
     // random chance to rotate the screen
     if (Math.random() < (this.config.distractConfig?.rotateChance ?? 0) && this.obsController && this.trinketController) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
