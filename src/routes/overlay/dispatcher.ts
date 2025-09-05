@@ -34,6 +34,6 @@ export class OverlayDispatchers {
   }
 
   async sendMessageAsUser(message: string) {
-    await this.twitch.say(this.twitch.getUsername(), message);
+    await this.twitch.say(this.twitch.getUsername(), `~ ${message}`);
   }
 }
