@@ -42,6 +42,7 @@
     "discord.js": "^14.22.1",
     "dotenv": "^16.6.1",
     "obs-websocket-js": "^5.0.6",
+    "pixi.js": "^8.13.2",
     "speaker": "^0.5.5",
     "sqlite3": "^5.1.7",
     "tmi.js": "^1.8.5",
