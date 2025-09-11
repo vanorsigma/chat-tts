@@ -1,10 +1,12 @@
 /**
  * This is like the 3rd re-write of this
  * Implemented in pure JavaScript/TypeScript because Svelte won't be powerful enough for this
+ * 4th re-write LULE
  */
 
 import tmi from 'tmi.js';
-import { is7TVEmote } from '$lib/seventv';
+import { fetchAnimatedSprite, is7TVEmote } from '$lib/seventv';
+import { Application, Assets, Container, Sprite, TextStyle, Ticker, Text } from 'pixi.js';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';
@@ -25,15 +27,6 @@ export function isImageBulletPart(part: BulletPart | string): part is ImageBulle
 
 export function isTextBulletPart(part: BulletPart): part is TextBulletPart {
   return (part as TextBulletPart).text !== undefined;
-}
-
-function escapeHTML(str: string) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function messageEntryBreaker(
@@ -132,26 +125,30 @@ async function sevenSplitMessage(message: string): Promise<BulletPart[]> {
 }
 
 export interface ChatBulletProperties {
-  element: HTMLDivElement;
+  element: Container;
   rate: number;
-  lastMovement: number;
-  offset: number;
 }
+
+const PADDING = 5;
 
 export class ChatBulletContainer {
   private root: HTMLDivElement;
+  private app: Application;
   private bulletProperties: ChatBulletProperties[] = [];
-  private width: number;
-  private height: number;
   private enabled: boolean = true;
 
   constructor(root: HTMLDivElement, twitch: tmi.Client) {
     this.root = root;
-    twitch.on('message', (_, userstate, message) => this.onMessage(userstate, message));
+    this.app = new Application();
 
-    /// NOTE: This is important, we only ever want to get this once if possible.
-    [this.height, this.width] = this.getWidthHeight();
-    window.requestAnimationFrame(this.drawFrameLoop.bind(this));
+    this.initLater(twitch);
+  }
+
+  async initLater(twitch: tmi.Client) {
+    await this.app.init({ background: 'transparent', resizeTo: this.root, backgroundAlpha: 0 });
+    this.root.appendChild(this.app.canvas);
+    twitch.on('message', (_, userstate, message) => this.onMessage(userstate, message));
+    this.app.ticker.add((time) => this.drawFrameLoop(time));
   }
 
   get isEnabled() {
@@ -164,7 +161,7 @@ export class ChatBulletContainer {
 
   private removeBullet(bullet: ChatBulletProperties) {
     /// NOTE: performance assumption; the bullet exists
-    this.root.removeChild(bullet.element);
+    bullet.element.removeFromParent();
     this.bulletProperties = this.bulletProperties.filter((thing) => thing !== bullet);
   }
 
@@ -174,30 +171,16 @@ export class ChatBulletContainer {
     }
   }
 
-  drawFrameLoop(): void {
-    /// TODO: Migrate this to use a HTMLCanvasElement instead.
-    /// This is hard for these reasons:
-    /// 1. We will need to animate the animated pictures and bullet movement separate
-    /// 2. Won't be able to easily do anything tbh
+  drawFrameLoop(time: Ticker): void {
     for (const bulletProp of this.bulletProperties) {
-      const currentTimestamp = window.performance.now();
-      const offset = (currentTimestamp - bulletProp.lastMovement) / bulletProp.rate;
-      const textWidth = Number(getComputedStyle(bulletProp.element).width.replace('px', ''));
+      const offset = time.deltaTime * bulletProp.rate * 0.5;
 
-      bulletProp.offset += offset;
-      bulletProp.element.style.right = `${bulletProp.offset - textWidth}px`;
+      bulletProp.element.x -= offset;
 
-      if (bulletProp.offset >= this.width) {
-        bulletProp.element.style.width = `${textWidth + 1}px`;
-      }
-
-      if (bulletProp.offset > this.width + textWidth) {
+      if (bulletProp.element.x <= -bulletProp.element.width) {
         this.removeBullet(bulletProp);
       }
-      bulletProp.lastMovement = currentTimestamp;
     }
-
-    window.requestAnimationFrame(this.drawFrameLoop.bind(this));
   }
 
   async onMessage(user: tmi.ChatUserstate, message: string) {
@@ -206,47 +189,50 @@ export class ChatBulletContainer {
     }
   }
 
-  getWidthHeight(): [number, number] {
-    const computedStyle = window.getComputedStyle(this.root);
-    return [
-      Number(computedStyle.height.replace('px', '')),
-      Number(computedStyle.width.replace('px', ''))
-    ];
-  }
-
-  spawnBullet(parts: BulletPart[], color: string = 'lightgrey') {
-    const [height, width] = this.getWidthHeight();
+  async spawnBullet(parts: BulletPart[], color: string = '#D3D3D3') {
+    const { width, height } = this.app.screen;
     const rate = Math.max(Math.random(), 0.5) * (1000 / 60);
 
-    // TODO: yes, this is ugly, yes, we should build it with a builder pattern, no, i don't care
-    const bulletBuilding = document.createElement('div');
-    bulletBuilding.style.position = 'absolute';
-    bulletBuilding.style.top = `${Math.random() * (height - 50)}px`;
-    bulletBuilding.style.right = `-999px`;
+    let x = 0;
+    const y = Math.random() * (height - 50);
+
+    const container = new Container();
 
     for (const part of parts) {
       if (isImageBulletPart(part)) {
-        const imageEle = document.createElement('img');
-        imageEle.src = part.imgsrc;
-        imageEle.style.height = '1em';
-        bulletBuilding.appendChild(imageEle);
+        const partGif = await fetchAnimatedSprite(`https:${part.imgsrc.replace('https:', '')}`);
+        if (!partGif) return;
+
+        partGif.scale.set(0.3);
+        partGif.x = PADDING + x;
+        partGif.y = y;
+
+        x += partGif.width + PADDING;
+        container.addChild(partGif);
       }
 
       if (isTextBulletPart(part)) {
-        const textEle = document.createElement('span');
-        textEle.textContent = escapeHTML(part.text);
-        textEle.style.color = color;
-        bulletBuilding.appendChild(textEle);
+        const textStyle: TextStyle = new TextStyle({
+          fontFamily: 'Arial',
+          fontSize: 24,
+          fill: color
+        });
+
+        const partText = new Text({ text: part.text, style: textStyle });
+
+        partText.x = x;
+        partText.y = y;
+
+        x += partText.width;
+        container.addChild(partText);
       }
     }
 
+    container.x = width;
+    this.app.stage.addChild(container);
     this.bulletProperties.push({
-      element: bulletBuilding,
-      lastMovement: window.performance.now(),
-      offset: 0,
+      element: container,
       rate
     });
-
-    this.root.append(bulletBuilding);
   }
 }

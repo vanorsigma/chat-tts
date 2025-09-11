@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ChatBulletContainer } from './chatbullet';
-  import { createNewAuthenticatedSelfTwitchClient } from '$lib/twitch';
+  import { createNewAuthenticatedSelfTwitchClient, createNewTwitchClient } from '$lib/twitch';
   import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
