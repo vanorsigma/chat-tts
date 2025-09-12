@@ -5,7 +5,7 @@
 import type { ChatUserstate } from 'tmi.js';
 import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
 import { pollCommandHandler } from './poll.svelte';
-import { blackSilenceStore, flashbangStore, maxwellStore } from './stores.svelte';
+import { blackSilenceStore, flashbangStore, maxwellStore, mistakeStore } from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 
@@ -18,13 +18,20 @@ export const FLASHBANG_COST = 50;
 export const MAXWELL_COST = 100;
 export const MAXWELL_USER = '5kuli';
 
+export const MISTAKE_COST = 100;
+export const MISTAKE_USER = 'mr_auto';
+
 export const CHECK_IN_POINTS = 100;
 
 const COOLDOWN = 10 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
 
-async function checkCostAddIfEnough(dispatcher: OverlayDispatchers, username: string, difference: number): Promise<boolean> {
-  const points = await getPointsForUser(username) ?? 0;
+async function checkCostAddIfEnough(
+  dispatcher: OverlayDispatchers,
+  username: string,
+  difference: number
+): Promise<boolean> {
+  const points = (await getPointsForUser(username)) ?? 0;
 
   if (points + difference >= 0) {
     await setPointsForUser(username, points + difference);
@@ -35,7 +42,7 @@ async function checkCostAddIfEnough(dispatcher: OverlayDispatchers, username: st
   }
 }
 
-async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
   if (!user.username) return;
 
   const username = user.username;
@@ -44,7 +51,7 @@ async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstat
     if (username === MAXWELL_USER) {
       dispatcher.sendMessageAsUser('ok');
     } else {
-      if (!await checkCostAddIfEnough(dispatcher, username, -MAXWELL_COST)) return;
+      if (!(await checkCostAddIfEnough(dispatcher, username, -MAXWELL_COST))) return;
       dispatcher.sendMessageAsUser(`-${MAXWELL_COST}`);
     }
 
@@ -52,7 +59,11 @@ async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstat
   })();
 }
 
-async function transferHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+async function transferHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string
+) {
   const splits = message.split(' ');
   const target = splits[1].toLowerCase();
   const amount = Number(splits[2]);
@@ -66,8 +77,8 @@ async function transferHandler(dispatcher: OverlayDispatchers, user: ChatUsersta
     return;
   }
 
-  if (!await checkCostAddIfEnough(dispatcher, username, -amount)) return;
-  const points = await getPointsForUser(target) ?? 0;
+  if (!(await checkCostAddIfEnough(dispatcher, username, -amount))) return;
+  const points = (await getPointsForUser(target)) ?? 0;
   await setPointsForUser(target, points + amount);
   dispatcher.sendMessageAsUser(`${username} transferred ${amount} to ${target}`);
 }
@@ -88,13 +99,23 @@ function getCostHandler(dispatcher: OverlayDispatchers, message: string) {
       dispatcher.sendMessageAsUser(`${MAXWELL_COST}`);
       break;
 
+    case 'mistake':
+      dispatcher.sendMessageAsUser(`${MISTAKE_COST}`);
+      break;
+
     default:
-      dispatcher.sendMessageAsUser(`~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}; %maxwell: ${MAXWELL_COST}`);
+      dispatcher.sendMessageAsUser(
+        `~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}; %maxwell: ${MAXWELL_COST}; %mistake: ${MISTAKE_COST}`
+      );
       break;
   }
 }
 
-async function givePointsHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+async function givePointsHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string
+) {
   if (!user.username) return;
   if (!user.badges?.broadcaster) return;
 
@@ -102,7 +123,7 @@ async function givePointsHandler(dispatcher: OverlayDispatchers, user: ChatUsers
   const target = splitted[1];
   const cost = Number(splitted[2]);
 
-  const points = await getPointsForUser(target) ?? 0;
+  const points = (await getPointsForUser(target)) ?? 0;
   await setPointsForUser(target, points + cost);
   dispatcher.sendMessageAsUser(`given ${cost} to ${target}`);
 }
@@ -120,13 +141,13 @@ function getPointsHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, m
   })();
 }
 
-function checkInHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+function checkInHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
   if (!user.username) return;
 
   const username = user.username;
   if (PEOPLE_WHO_CHECKED_IN.includes(user.username)) {
     dispatcher.sendMessageAsUser(`${user.username} you've already checked in RAGEY`);
-    return
+    return;
   }
 
   dispatcher.sendMessageAsUser(`meow ${user.username} vedalWave, here's +${CHECK_IN_POINTS}`);
@@ -135,7 +156,7 @@ function checkInHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, mes
   checkCostAddIfEnough(dispatcher, username, CHECK_IN_POINTS);
 }
 
-async function flashbangHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+async function flashbangHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
   if (Math.random() < 0.5) {
     const username = user.username;
     if (!username) return;
@@ -158,7 +179,7 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, user: ChatUserstate
     if (username === BLACK_SILENCE_USER) {
       dispatcher.sendMessageAsUser('ok');
     } else {
-      if (!await checkCostAddIfEnough(dispatcher, username, -BLACK_SILENCE_COST)) return;
+      if (!(await checkCostAddIfEnough(dispatcher, username, -BLACK_SILENCE_COST))) return;
       dispatcher.sendMessageAsUser(`-${BLACK_SILENCE_COST}`);
     }
 
@@ -185,8 +206,21 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, user: ChatUserstate
   })();
 }
 
-function placeholderHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
-  dispatcher.sendMessageAsUser('meow');
+function mistakeHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
+  if (!user.username) return;
+
+  const username = user.username;
+
+  (async () => {
+    if (username === MISTAKE_USER) {
+      dispatcher.sendMessageAsUser('ok, but i hate u btw');
+    } else {
+      if (!(await checkCostAddIfEnough(dispatcher, username, -MISTAKE_COST))) return;
+      dispatcher.sendMessageAsUser(`-${MISTAKE_COST}`);
+    }
+
+    mistakeStore.increment();
+  })();
 }
 
 export class Commands implements OverlayObserver {
@@ -237,14 +271,14 @@ export class Commands implements OverlayObserver {
         this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, user, message));
         break;
       case '%checkin':
-        checkInHandler(dispatcher, user, message);
+        checkInHandler(dispatcher, user);
         break;
       case '%flashbang':
-        this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, user, message));
+        this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, user));
         break;
       case '%blacksilence':
         if (this.busWs) blackSilenceHandler(dispatcher, user, this.busWs);
-        else dispatcher.sendMessageAsUser('tell vanor he\'s dumb');
+        else dispatcher.sendMessageAsUser("tell vanor he's dumb");
         break;
       case '%points':
         getPointsHandler(dispatcher, user, message);
@@ -259,7 +293,10 @@ export class Commands implements OverlayObserver {
         transferHandler(dispatcher, user, message);
         break;
       case '%maxwell':
-        maxwellHandler(dispatcher, user, message);
+        maxwellHandler(dispatcher, user);
+        break;
+      case '%mistake':
+        mistakeHandler(dispatcher, user);
         break;
     }
     return;
