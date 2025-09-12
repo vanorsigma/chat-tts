@@ -2,16 +2,26 @@ import type { Poll } from './poll.svelte';
 
 function createMaxwellStore() {
   let maxwellCount = $state(0);
+  let callbacks: Array<(value: number) => void> = [];
 
   function increment() {
     maxwellCount++;
+    callbacks.forEach(cb => cb(maxwellCount));
+  }
+
+  function subscribe(subscription: (value: number) => void): (() => void) {
+    callbacks.push(subscription);
+    return () => {
+      callbacks = callbacks.filter(cb => cb !== subscription);
+    }
   }
 
   return {
     get count() {
       return maxwellCount;
     },
-    increment
+    increment,
+    subscribe
   }
 }
 

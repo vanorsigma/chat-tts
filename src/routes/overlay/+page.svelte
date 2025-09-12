@@ -32,11 +32,15 @@
 
   let catDVDLastAnimate = performance.now();
   let catDVDStartTime = new Date().getTime();
+  let catDVDLock = false; // lock so that the reactive block doesn't run more than once
 
   $: {
-    if (new Date().getTime() - catDVDStartTime < 30 * 1000 && catDVDElement) {
+    if (!catDVDLock && catDVDElement && catDVDCount < $maxwellStore) {
       catDVDAnimationFrame();
+      catDVDLock = true;
       catDVDStartTime = new Date().getTime();
+      catDVDTop = 0;
+      catDVDLeft = 0;
     }
   }
 
@@ -90,6 +94,7 @@
         catDVDAnimationFrame();
       } else {
         catDVDCount += maxwellStore.count;
+        catDVDLock = false;
       }
     });
   }
