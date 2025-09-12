@@ -5,7 +5,13 @@
   import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
-  import { pollStore, flashbangStore, blackSilenceStore, maxwellStore } from './stores.svelte';
+  import {
+    pollStore,
+    flashbangStore,
+    blackSilenceStore,
+    maxwellStore,
+    mistakeStore
+  } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
 
   export let chatBulletContainer: HTMLDivElement;
@@ -33,6 +39,8 @@
   let catDVDLastAnimate = performance.now();
   let catDVDStartTime = new Date().getTime();
   let catDVDLock = false; // lock so that the reactive block doesn't run more than once
+
+  let mistakeCount = 0;
 
   $: {
     if (!catDVDLock && catDVDElement && catDVDCount < $maxwellStore) {
@@ -145,6 +153,10 @@
   function onBlackSilenceDone() {
     blackSilenceCount = blackSilenceStore.count;
   }
+
+  function onMistakeDone() {
+    mistakeCount = mistakeStore.count;
+  }
 </script>
 
 <div class="overlay">
@@ -167,12 +179,20 @@
   {#if blackSilenceBorder}
     <div class="blackSilenceBorder"></div>
   {/if}
-  {#if blackSilenceCount < blackSilenceStore.count}<div class="blacksilence">
+  {#if blackSilenceCount < blackSilenceStore.count}<div class="fullscreenvideo">
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay onended={onBlackSilenceDone} onplaying={onBlackSilenceStart}>
         <source src="/blacksilence.webm" /> Video tag smile
       </video>
     </div>{/if}
+  {#if mistakeCount < mistakeStore.count}
+    <div class="fullscreenvideo">
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay onended={onMistakeDone}>
+        <source src="/mistake.webm" /> Video tag smile
+      </video>
+    </div>
+  {/if}
   <div bind:this={chatBulletContainer} class="chatbullet"></div>
   {#if flashbangCount < flashbangStore.count}<div class="flashbang">
       <!-- svelte-ignore a11y_media_has_caption -->
@@ -214,7 +234,7 @@
     justify-content: center;
   }
 
-  .blacksilence {
+  .fullscreenvideo {
     display: flex;
     width: 100%;
     height: 100%;

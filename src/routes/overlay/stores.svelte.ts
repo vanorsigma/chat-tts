@@ -1,5 +1,20 @@
 import type { Poll } from './poll.svelte';
 
+function createMistakeStore() {
+  let mistakeCount = $state(0);
+
+  function increment() {
+    mistakeCount++;
+  }
+
+  return {
+    get count() {
+      return mistakeCount;
+    },
+    increment
+  }
+}
+
 function createMaxwellStore() {
   let maxwellCount = $state(0);
   let callbacks: Array<(value: number) => void> = [];
@@ -77,3 +92,4 @@ export const pollStore = createPollStore();
 export const flashbangStore = createFlashbangStore();
 export const blackSilenceStore = createBlackSilenceStore();
 export const maxwellStore = createMaxwellStore();
+export const mistakeStore = createMistakeStore();
