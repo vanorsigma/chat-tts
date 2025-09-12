@@ -146,6 +146,7 @@ export class ChatBulletContainer {
 
   async initLater(twitch: tmi.Client) {
     await this.app.init({ background: 'transparent', resizeTo: this.root, backgroundAlpha: 0 });
+    this.app.ticker.maxFPS = 30;
     this.root.appendChild(this.app.canvas);
     twitch.on('message', (_, userstate, message) => this.onMessage(userstate, message));
     this.app.ticker.add((time) => this.drawFrameLoop(time));
