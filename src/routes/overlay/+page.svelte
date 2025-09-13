@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ChatBulletContainer } from './chatbullet';
-  import { createNewAuthenticatedSelfTwitchClient, createNewTwitchClient } from '$lib/twitch';
+  import { createNewAuthenticatedSelfTwitchClient } from '$lib/twitch';
   import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL, PUBLIC_HEARTRATE_URL } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
@@ -337,6 +337,7 @@
     width: 400px;
     padding-top: 40px;
     padding-right: 10px;
+    align-items: end;
   }
 
   .heartrate {

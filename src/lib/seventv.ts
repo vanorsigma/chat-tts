@@ -86,6 +86,10 @@ async function getAllEmotesListCached(emoteSetId: string): Promise<Emote[]> {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function is7TVEmote(emoteSetId: string, word: string): Promise<Emote | null> {
   return (await getAllEmotesListCached(emoteSetId)).filter((e) => e.name === word).at(0) ?? null;
 }
@@ -99,6 +103,7 @@ export async function fetchAnimatedSprite(url: string): Promise<Sprite | null> {
     type: response.headers.get('content-type') ?? 'image/webp'
   });
   await decoder.completed;
+  await sleep(1);
 
   const textures = [];
   for (let i = 0; i < decoder.tracks[0].frameCount; i++) {
