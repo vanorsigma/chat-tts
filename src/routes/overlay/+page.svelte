@@ -10,7 +10,8 @@
     flashbangStore,
     blackSilenceStore,
     maxwellStore,
-    mistakeStore
+    mistakeStore,
+    showImageStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -45,6 +46,28 @@
 
   let mistakeCount = 0;
 
+  function onShowImageLoad(event: Event) {
+    // once the image loads, reposition and rescale it immediately
+    const target = event.target;
+    if (!(target as HTMLImageElement).naturalWidth || !(target as HTMLImageElement).naturalHeight)
+      return;
+
+    const imgTarget = target as HTMLImageElement;
+    const style = getComputedStyle(chatBulletContainer);
+    const { width, height } = style;
+    const fullWidthNo = Number(width.replace('px', ''));
+    const fullHeightNo = Number(height.replace('px', ''));
+
+    const { naturalWidth, naturalHeight } = imgTarget;
+    const targetWidth = Math.random() * Math.max(naturalWidth, 80);
+    const targetHeight = (naturalHeight / naturalWidth) * targetWidth;
+
+    imgTarget.style.left = `${targetWidth + Math.random() * (fullWidthNo - 2 * targetWidth)}px`;
+    imgTarget.style.top = `${targetHeight + Math.random() * (fullHeightNo - 2 * targetHeight)}px`;
+    imgTarget.style.width = `${targetWidth}px`;
+    imgTarget.style.height = `${targetHeight}px`;
+  }
+
   $: {
     if (!catDVDLock && catDVDElement && catDVDCount < $maxwellStore) {
       catDVDAnimationFrame();
@@ -53,6 +76,14 @@
       catDVDTop = 0;
       catDVDLeft = 0;
     }
+
+    setTimeout(() => {
+      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
+      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
+      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
+      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
+      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
+    }, 2000);
   }
 
   function normalizeVector(vector: [number, number]): [number, number] {
@@ -147,6 +178,8 @@
     chatBulletBackend?.deleteAllBullets();
     chatBulletBackend?.setEnabled(false);
     blackSilenceBorder = true;
+    showImageStore.purge();
+
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);
       blackSilenceBorder = false;
@@ -203,6 +236,10 @@
         <source src="/thinkfast.webm" /> Video tag smile
       </video>
     </div>{/if}
+  {#each $showImageStore as [imgUrl]}
+    <img class="showImage" src={imgUrl} alt="erm" onload={onShowImageLoad} />
+  {/each}
+
   <div class="rightpanel">
     {#if pollStore.data}
       <div class="poll-box">
@@ -249,9 +286,14 @@
 </div>
 
 <style>
+  .showImage {
+    position: absolute;
+  }
+
   .catDVD {
     position: absolute;
   }
+
   .captcha {
     position: absolute;
     width: 30em;

@@ -3,7 +3,7 @@ import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const CAPTCHA_POINTS = 1000;
+const CAPTCHA_POINTS = 500;
 const CAPTCHA_DURATION = 10 * 1000;
 
 function choose<T>(choices: Array<T>): T {
@@ -20,7 +20,7 @@ export class CaptchaObserver implements OverlayObserver {
 
   constructor(dispatcher: OverlayDispatchers, onSolve: () => void) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    this.answer = [...Array(6).keys()].map(_ => choose(characters.split(''))).join('');
+    this.answer = [...Array(6).keys()].map((_) => choose(characters.split(''))).join('');
     this.dispatcher = dispatcher;
     this.dispatcher.addObserver(this);
     this.onSolve = onSolve;
@@ -38,7 +38,7 @@ export class CaptchaObserver implements OverlayObserver {
       if (this.alreadyClaimed.has(username)) return;
       this.alreadyClaimed.add(username);
 
-      const points = await getPointsForUser(username) ?? 0;
+      const points = (await getPointsForUser(username)) ?? 0;
       setPointsForUser(username, points + CAPTCHA_POINTS);
       this.dispatcher.sendMessageAsUser(`${username} claimed ${CAPTCHA_POINTS}!`);
 
