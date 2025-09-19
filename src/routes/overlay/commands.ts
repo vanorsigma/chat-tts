@@ -5,9 +5,16 @@
 import type { ChatUserstate } from 'tmi.js';
 import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
 import { pollCommandHandler } from './poll.svelte';
-import { blackSilenceStore, flashbangStore, maxwellStore, mistakeStore } from './stores.svelte';
+import {
+  blackSilenceStore,
+  flashbangStore,
+  maxwellStore,
+  mistakeStore,
+  showImageStore
+} from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
+import { ShowImageObserver } from './showImage';
 
 export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
@@ -18,10 +25,13 @@ export const FLASHBANG_COST = 50;
 export const MAXWELL_COST = 100;
 export const MAXWELL_USER = '5kuli';
 
-export const MISTAKE_COST = 100;
+export const MISTAKE_COST = 1000;
 export const MISTAKE_USER = 'mr_auto';
 
-export const CHECK_IN_POINTS = 100;
+export const SHOW_IMAGE_COST = 2000;
+export const SHOW_IMAGE_USER = 'mayoigo_qwq';
+
+export const CHECK_IN_POINTS = 999.99;
 
 const COOLDOWN = 10 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
@@ -137,7 +147,7 @@ function getPointsHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, m
   // immediate async execution
   (async () => {
     const points = await getPointsForUser(target);
-    dispatcher.sendMessageAsUser(`${target} has ${points} vanorsmol s`);
+    dispatcher.sendMessageAsUser(`${target} has ${points} meowDollars`);
   })();
 }
 
@@ -150,7 +160,7 @@ function checkInHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
     return;
   }
 
-  dispatcher.sendMessageAsUser(`meow ${user.username} vedalWave, here's +${CHECK_IN_POINTS}`);
+  dispatcher.sendMessageAsUser(`meow ${user.username} vedalWave , here's +${CHECK_IN_POINTS}`);
   PEOPLE_WHO_CHECKED_IN.push(user.username);
 
   checkCostAddIfEnough(dispatcher, username, CHECK_IN_POINTS);
@@ -220,6 +230,43 @@ function mistakeHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
     }
 
     mistakeStore.increment();
+  })();
+}
+
+function showImageHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
+  if (!user.username) return;
+
+  const username = user.username;
+  const args = message.replace('  ', ' ').split(' ');
+
+  if (args.length < 1) {
+    dispatcher.sendMessageAsUser('insufficient arguments');
+    return;
+  }
+
+  const imageUrl = args[1];
+
+  (async () => {
+    if (username === SHOW_IMAGE_USER) {
+      dispatcher.sendMessageAsUser('ok');
+      showImageStore.addUrl(imageUrl);
+    } else {
+      if (!(await checkCostAddIfEnough(dispatcher, username, -SHOW_IMAGE_COST))) return;
+      dispatcher.sendMessageAsUser(`-${SHOW_IMAGE_COST}`);
+
+      if (user.badges?.moderator || user.badges?.broadcaster) {
+        showImageStore.addUrl(imageUrl);
+      } else {
+        dispatcher.sendMessageAsUser(
+          '@pastel8844 , @deplytha , @mayoigo_QwQ pls check and approve'
+        );
+
+        const showImageObserver = new ShowImageObserver(dispatcher, [SHOW_IMAGE_USER], () =>
+          showImageStore.addUrl(imageUrl)
+        );
+        dispatcher.addObserver(showImageObserver);
+      }
+    }
   })();
 }
 
@@ -297,6 +344,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%mistake':
         mistakeHandler(dispatcher, user);
+        break;
+      case '%showimage':
+        showImageHandler(dispatcher, user, message);
         break;
     }
     return;
