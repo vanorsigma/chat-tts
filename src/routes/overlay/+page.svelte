@@ -59,7 +59,7 @@
     const fullHeightNo = Number(height.replace('px', ''));
 
     const { naturalWidth, naturalHeight } = imgTarget;
-    const targetWidth = Math.random() * Math.max(naturalWidth, 80);
+    const targetWidth = Math.max(Math.random(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
     const targetHeight = (naturalHeight / naturalWidth) * targetWidth;
 
     imgTarget.style.left = `${targetWidth + Math.random() * (fullWidthNo - 2 * targetWidth)}px`;
@@ -76,14 +76,6 @@
       catDVDTop = 0;
       catDVDLeft = 0;
     }
-
-    setTimeout(() => {
-      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
-      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
-      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
-      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
-      showImageStore.addUrl('https://cdn.7tv.app/emote/01H748FZJR000DCAAFQ2JM9SY7/4x.webp');
-    }, 2000);
   }
 
   function normalizeVector(vector: [number, number]): [number, number] {
