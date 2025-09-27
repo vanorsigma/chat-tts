@@ -14,7 +14,7 @@ async fn main() {
     let settings = Settings {
         prompt: PERSONALITY_PROMPT.to_string(),
         local_ai_host: "localhost".to_string(),
-        local_ai_port: 8543,
+        local_ai_port: 11434,
         obs_host: "localhost".to_string(),
         obs_port: 4455,
         obs_password,

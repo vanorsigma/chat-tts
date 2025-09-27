@@ -10,9 +10,9 @@ export interface PollOption {
 }
 
 export interface Poll {
-  title: string;
-  options: PollOption[];
-  expiryTime: number;
+  title: string | undefined;
+  options: PollOption[] | undefined;
+  expiryTime: number | undefined;
 }
 
 export class PollObserver implements OverlayObserver {
@@ -29,7 +29,7 @@ export class PollObserver implements OverlayObserver {
     console.log('Poll soon: ', poll);
     this.poll = poll;
     this.alreadyVoted = new Set();
-    this.timeout = setTimeout(this.timeUp.bind(this), poll.expiryTime - new Date().getTime());
+    this.timeout = setTimeout(this.timeUp.bind(this), (poll.expiryTime ?? 0) - new Date().getTime());
     this.dispatcher = dispatcher;
 
     pollStore?.set(this.poll);
@@ -50,6 +50,7 @@ export class PollObserver implements OverlayObserver {
 
       default: {
         const votedFor = Number(message.replace('%vote', '').trim());
+        if (!this.poll.options) return;
         if (!votedFor || votedFor > this.poll.options.length) return;
 
         this.poll.options[votedFor - 1].votes += 1;
@@ -63,17 +64,25 @@ export class PollObserver implements OverlayObserver {
   }
 
   timeUp(): void {
+    if (!this.poll.options || this.poll.options.length === 0) {
+      this.dispatcher.removeObserver(this);
+      pollStore?.set(null);
+      GLOBAL_POLL_LOCK = false;
+      return;
+    }
+
     this.dispatcher.removeObserver(this);
     this.dispatcher.sendMessageAsUser(
-      `Poll over! Winner: ${this.poll.options.reduce((prev, curr) => {
-        if (curr.votes > prev.votes) return curr;
-        if (curr.votes === prev.votes)
-          return {
-            name: `${curr.name} & ${prev.name}`,
-            votes: curr.votes
-          };
-        return prev;
-      }).name
+      `Poll over! Winner: ${
+        this.poll.options.reduce((prev, curr) => {
+          if (curr.votes > prev.votes) return curr;
+          if (curr.votes === prev.votes)
+            return {
+              name: `${curr.name} & ${prev.name}`,
+              votes: curr.votes
+            };
+          return prev;
+        }).name
       }`
     );
     pollStore?.set(null);
