@@ -15,6 +15,7 @@ import {
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 import { ShowImageObserver } from './showImage';
+import { GLOBAL_HEART_STOCK_MARKET, HeartrateStockMarketError } from './heartstockmarket.svelte';
 
 export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
@@ -270,6 +271,81 @@ function showImageHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, m
   })();
 }
 
+async function investHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string,
+  operation: 'invest' | 'uninvest'
+) {
+  if (!user.username) return;
+
+  const username = user.username;
+  const args = message.replace('  ', ' ').split(' ');
+  if (args.length < 1) {
+    dispatcher.sendMessageAsUser('insufficient arguments');
+    return;
+  }
+
+  const amount = Number(args[1]);
+
+  if (!amount) {
+    dispatcher.sendMessageAsUser('i blame Mr_Auto & swizzlerq');
+    return;
+  }
+
+  if (amount <= 0) {
+    dispatcher.sendMessageAsUser('Cannot un-invest a negative amount');
+    return;
+  }
+
+  try {
+    switch (operation) {
+      case 'invest':
+        if (!(await checkCostAddIfEnough(dispatcher, username, -amount))) return;
+        GLOBAL_HEART_STOCK_MARKET.invest(user.username, amount);
+        dispatcher.sendMessageAsUser(`${username} successfully invested ${amount}`);
+        break;
+      case 'uninvest':
+        GLOBAL_HEART_STOCK_MARKET.uninvest(user.username, amount);
+        const points = (await getPointsForUser(user.username)) ?? 0;
+        await setPointsForUser(user.username, points + amount);
+    }
+  } catch (e: unknown) {
+    if (e instanceof HeartrateStockMarketError) dispatcher.sendMessageAsUser(`${username}, ${e}`);
+    else console.error(e);
+  }
+}
+
+async function stockHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string,
+) {
+  if (!user.username) return;
+
+  const username = user.username;
+  const stock_value = GLOBAL_HEART_STOCK_MARKET.get_current_price_for(username);
+
+  dispatcher.sendMessageAsUser(`${username} has ${stock_value} in the heart rate stock market`);
+}
+
+async function closeMarketHandler(
+  dispatcher: OverlayDispatchers,
+  user: ChatUserstate,
+  message: string
+) {
+  if (!user.username) return;
+
+  if (user.badges?.broadcaster) {
+    const returns = GLOBAL_HEART_STOCK_MARKET.close();
+    for (const user_return of returns) {
+      const points = (await getPointsForUser(user_return.user)) ?? 0;
+      await setPointsForUser(user_return.user, points + user_return.currency);
+    }
+    await dispatcher.sendMessageAsUser('Stock market closed!');
+  }
+}
+
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   nextValid: number = new Date().getTime();
@@ -347,6 +423,18 @@ export class Commands implements OverlayObserver {
         break;
       case '%showimage':
         showImageHandler(dispatcher, user, message);
+        break;
+      case '%invest':
+        investHandler(dispatcher, user, message, 'invest');
+        break;
+      case '%uninvest':
+        investHandler(dispatcher, user, message, 'uninvest');
+        break;
+      case '%stock':
+        stockHandler(dispatcher, user, message);
+        break;
+      case '%closemarket':
+        closeMarketHandler(dispatcher, user, message);
         break;
     }
     return;

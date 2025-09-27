@@ -1,4 +1,4 @@
-FROM docker.io/nvidia/cuda:12.9.1-devel-ubuntu22.04 AS builder
+FROM docker.io/ollama/ollama AS builder
 
 LABEL stage="builder"
 
@@ -18,35 +18,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/ggerganov/llama.cpp.git /opt/llama.cpp && \
-    cd /opt/llama.cpp && \
-    cmake -B build -DGGML_CUDA=ON -DBUILD_SHARED_LIBS=off -DLLAMA_CURL=off && \
-    cmake --build build --config Release -j $(nproc)
-RUN python3 -m venv /opt/venv
-RUN . /opt/venv/bin/activate && pip install --no-cache-dir setuptools numpy && pip install --no-cache-dir chatterbox-tts
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-FROM docker.io/nvidia/cuda:12.9.1-base-ubuntu22.04
+RUN /root/.local/bin/uv python install 3.11 && \
+    /root/.local/bin/uv venv
+# RUN python3 -m venv /opt/venv
+RUN . .venv/bin/activate && \
+    /root/.local/bin/uv pip install pip setuptools wheel cython && \
+    pip install numpy && \
+    pip install pkuseg==0.0.25 && \
+    pip install chatterbox-tts
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
-ENV PATH="/opt/venv/bin:$PATH"
+FROM docker.io/ollama/ollama
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    libgomp1 && \
+    curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /opt/llama.cpp/build/bin/llama-cli /usr/local/bin/llama-cli
-COPY --from=builder /opt/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN /root/.local/bin/uv python install 3.11
 
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /.venv /.venv
 
-COPY --from=builder /usr/local/cuda/lib64/libcublas.so.12 /usr/local/lib/
-COPY --from=builder /usr/local/cuda/lib64/libcublasLt.so.12 /usr/local/lib/
-COPY --from=builder /usr/local/cuda/lib64/libcudart.so.12 /usr/local/lib/
+WORKDIR /opt/
 
-RUN ldconfig
-
-WORKDIR /opt
-
-CMD ["/bin/bash"]
+ENTRYPOINT ["/bin/bash"]

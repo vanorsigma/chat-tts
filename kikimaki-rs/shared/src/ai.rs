@@ -28,7 +28,7 @@ pub enum AiError {
     Unknown,
 }
 
-const MODEL_NAME: &str = "Qwen3-1.7B-Q_0";
+const MODEL_NAME: &str = "kiki";
 
 pub struct Ai {
     credentials: Credentials,
@@ -49,7 +49,7 @@ impl Ai {
         port: u16,
         prompt: impl Into<String>,
     ) -> Self {
-        let credentials = Credentials::new("", format!("http://{host}:{port}"));
+        let credentials = Credentials::new("", format!("http://{host}:{port}/v1"));
         Self {
             credentials,
             prompt: prompt.into(),

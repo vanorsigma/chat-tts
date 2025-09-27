@@ -15,9 +15,12 @@
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
+  import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
+  import * as d3 from 'd3';
 
   export let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
+  let stockMarket = GLOBAL_HEART_STOCK_MARKET;
 
   let flashbangCount: number = 0;
   let blackSilenceCount: number = 0;
@@ -45,6 +48,8 @@
   let catDVDLock = false; // lock so that the reactive block doesn't run more than once
 
   let mistakeCount = 0;
+
+  let heartrateGraphParent: HTMLDivElement;
 
   function onShowImageLoad(event: Event) {
     // once the image loads, reposition and rescale it immediately
@@ -133,7 +138,92 @@
     });
   }
 
+  function buildSvgGraphFor(numbers: number[]): SVGSVGElement | null {
+    const width = 928;
+    const height = 500;
+    const marginTop = 20;
+    const marginRight = 30;
+    const marginBottom = 30;
+    const marginLeft = 40;
+
+    const dataset = numbers.map((val, ind) => [val, ind]);
+    // Declare the x (horizontal position) scale.
+    const x = d3.scaleLinear(
+      [0, d3.max(dataset as [number, number][], (d: [number, number]) => d[1])] as any,
+      [marginLeft, width - marginRight]
+    );
+
+    // Declare the y (vertical position) scale.
+    const y = d3.scaleLinear(
+      [
+        d3.min(dataset as [number, number][], (d: [number, number]) => d[0]) as any,
+        d3.max(dataset as [number, number][], (d: [number, number]) => d[0]) as any
+      ],
+      [height - marginBottom, marginTop]
+    );
+
+    // Declare the line generator.
+    const line = d3
+      .line()
+      .x((d: [number, number]) => x(d[1]))
+      .y((d: [number, number]) => y(d[0]));
+
+    // Create the SVG container.
+    const svg = d3
+      .create('svg')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('viewBox', [0, 0, width, height])
+      .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
+
+    // Add the x-axis.
+    svg
+      .append('g')
+      .attr('transform', `translate(0,${height - marginBottom})`)
+      .call(
+        d3
+          .axisBottom(x)
+          .ticks(width / 80)
+          .tickSizeOuter(0)
+      );
+
+    // Add the y-axis, remove the domain line, add grid lines and a label.
+    svg
+      .append('g')
+      .attr('transform', `translate(${marginLeft},0)`)
+      .call(d3.axisLeft(y).ticks(height / 40))
+      .call((g: any) => g.select('.domain').remove())
+      .call((g) =>
+        g
+          .selectAll('.tick line')
+          .clone()
+          .attr('x2', width - marginLeft - marginRight)
+          .attr('stroke-opacity', 0.1)
+      )
+      .call((g: any) =>
+        g
+          .append('text')
+          .attr('x', -marginLeft)
+          .attr('y', 10)
+          .attr('fill', 'currentColor')
+          .attr('text-anchor', 'start')
+          .text('Heartrate')
+      );
+
+    // Append a path for the line.
+    svg
+      .append('path')
+      .attr('fill', 'none')
+      .attr('stroke', 'red')
+      .attr('stroke-width', 5.0)
+      .attr('d', line(dataset as any));
+
+    return svg.node();
+  }
+
   onMount(() => {
+    stockMarket.setHeartrateObject(heartrate);
+
     chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
     let dispatchers = new OverlayDispatchers(client);
     let commands = new Commands(dispatchers);
@@ -141,6 +231,13 @@
     dispatchers.addObserver(commands);
     client.connect();
     captchaLoop(dispatchers);
+
+    stockMarket.subscribe((heartrates) => {
+      const graph = buildSvgGraphFor(heartrates);
+      if (!graph) return;
+      heartrateGraphParent.innerHTML = '';
+      heartrateGraphParent.appendChild(graph);
+    });
   });
 
   function captchaLoop(dispatcher: OverlayDispatchers) {
@@ -274,6 +371,7 @@
       >
       <p>{$heartrate}</p>
     </div>
+    <div bind:this={heartrateGraphParent} class="heartrategraph"></div>
   </div>
 </div>
 
