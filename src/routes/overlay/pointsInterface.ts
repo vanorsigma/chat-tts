@@ -8,6 +8,10 @@ export async function getPointsForUser(username: string): Promise<number | null>
 }
 
 export async function setPointsForUser(username: string, points: number): Promise<void> {
+  // in development mode, we do not commit any writes
+  if (import.meta.env.DEV)
+    return;
+
   const response = await fetch(`${PUBLIC_POINTS_URL}?username=${username}&points=${points}`, {
     method: 'POST'
   });
