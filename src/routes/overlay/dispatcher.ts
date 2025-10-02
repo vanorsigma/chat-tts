@@ -39,7 +39,6 @@ export class OverlayDispatchers {
   }
 
   async sendMessageAsUser(channelId: string, message: string) {
-    console.log(this.botId, channelId)
     await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
   }
 }
