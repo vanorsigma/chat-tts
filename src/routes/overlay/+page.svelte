@@ -1,8 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ChatBulletContainer } from './chatbullet';
-  import { createNewAuthenticatedSelfTwitchClient } from '$lib/twitch';
-  import { PUBLIC_TWITCH_OAUTH, PUBLIC_BUS_URL, PUBLIC_HEARTRATE_URL } from '$env/static/public';
+  import { createNewTwitchApiClient, createNewTwitchClientV2 } from '$lib/twitch';
+  import {
+    PUBLIC_BUS_URL,
+    PUBLIC_HEARTRATE_URL,
+    PUBLIC_TWITCH_APP_ID,
+    PUBLIC_TWITCH_APP_SECRET,
+    PUBLIC_TWITCH_BOT_ID
+  } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
   import {
@@ -17,6 +23,7 @@
   import { Heartrate } from './heartrate';
   import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
   import * as d3 from 'd3';
+  import type { ChatClient } from '@twurple/chat';
 
   export let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -24,7 +31,7 @@
 
   let flashbangCount: number = 0;
   let blackSilenceCount: number = 0;
-  let client = createNewAuthenticatedSelfTwitchClient('vanorsigma', PUBLIC_TWITCH_OAUTH);
+  let client: ChatClient | null = null;
   let chatBulletBackend: ChatBulletContainer | undefined = undefined;
 
   let blackSilenceBorder = false;
@@ -221,11 +228,13 @@
     return svg.node();
   }
 
-  onMount(() => {
+  onMount(async () => {
+    client = createNewTwitchClientV2('vanorsigma');
     stockMarket.setHeartrateObject(heartrate);
+    let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
     chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
-    let dispatchers = new OverlayDispatchers(client);
+    let dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);

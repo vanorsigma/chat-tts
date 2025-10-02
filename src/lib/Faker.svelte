@@ -1,19 +1,20 @@
 <script lang="ts">
-  import tmi from 'tmi.js';
+  import type { ChatMessage, ChatUser } from '@twurple/chat';
+
   let message = '';
-  export let onSend: (arg0: tmi.ChatUserstate, arg1: string) => void;
+  export let onSend: (arg0: ChatMessage) => void;
 
   function handleSend() {
-    onSend(
-      {
+    onSend({
+      userInfo: {
         id: '12345678',
-        'display-name': 'Faker',
-        username: 'faker',
+        displayName: 'Faker',
+        userName: 'faker',
         color: '#000000',
-        emotes: {}
-      },
-      message
-    );
+        emotes: new Map()
+      } as any as ChatUser,
+      text: message
+    } as any as ChatMessage);
     message = '';
   }
 </script>

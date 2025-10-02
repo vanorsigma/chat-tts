@@ -1,6 +1,5 @@
 import { writable, type Readable, type Writable } from 'svelte/store';
-import tmi from 'tmi.js';
-import { createNewTwitchClient } from './twitch';
+import { createNewTwitchClientV2 } from './twitch';
 import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech';
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
@@ -8,6 +7,7 @@ import { COMMANDS, LEADER, type Command } from './commands';
 import { Synth } from 'beepbox';
 import axios from 'axios';
 import { isRemoteTTSMessage } from './remoteTTSMessages';
+import type { ChatClient, ChatMessage, ChatUser } from '@twurple/chat';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -317,12 +317,12 @@ class ObsController {
     this.setConnected(false);
   }
 
-  async updateSceneWith(user: tmi.ChatUserstate, voice: NewVoiceSettings) {
+  async updateSceneWith(user: ChatUser, voice: NewVoiceSettings) {
     const color = this.stringToColour(voice.voice_name);
     await this.obs.call('SetInputSettings', {
       inputName: this.settings.sourceName,
       inputSettings: {
-        text: `${user.username}`,
+        text: `${user.userName}`,
         color1: color,
         color2: color
       }
@@ -421,13 +421,12 @@ class ObsController {
 
 interface VoiceController {
   processMessage(
-    user: tmi.ChatUserstate,
-    message: string,
+    message: ChatMessage,
     onSpeedChange: (arg0: number) => void,
     onSpeechStart: () => void
   ): Promise<void>;
-  getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettings>;
-  refreshUser(user: tmi.ChatUserstate): void;
+  getVoiceMapForUser(user: ChatUser): Promise<NewVoiceSettings>;
+  refreshUser(user: ChatUser): void;
   cancel(): void;
 }
 
@@ -457,8 +456,7 @@ class RemoteVoiceController implements VoiceController {
   }
 
   async processMessage(
-    user: tmi.ChatUserstate,
-    message: string,
+    message: ChatMessage,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _onSpeedChange: (arg0: number) => void,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -466,25 +464,25 @@ class RemoteVoiceController implements VoiceController {
   ): Promise<void> {
     await axios.get(`${this.baseurl}/processMessage`, {
       params: {
-        'username': user.username ?? '',
+        'username': message.userInfo.userName ?? '',
         'message': message,
       }
     });
   }
 
-  async getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettings> {
+  async getVoiceMapForUser(user: ChatUser): Promise<NewVoiceSettings> {
     const result = await axios.get(`${this.baseurl}/getVoiceMapForUser`, {
       params: {
-        username: user.username
+        username: user.userName
       }
     });
     return result.data as NewVoiceSettings;
   }
 
-  refreshUser(user: tmi.ChatUserstate): void {
+  refreshUser(user: ChatUser): void {
     axios.get(`${this.baseurl}/refreshUser`, {
       params: {
-        username: user.username
+        username: user.userName
       }
     });
   }
@@ -511,13 +509,13 @@ class LocalVoiceController implements VoiceController {
     });
   }
 
-  refreshUser(user: tmi.ChatUserstate) {
-    if (!user.username) {
+  refreshUser(user: ChatUser) {
+    if (!user.userName) {
       return undefined;
     }
 
     const voice = this.chooseRandomVoice();
-    this.usernameVoiceMap.set(user.username ?? '', {
+    this.usernameVoiceMap.set(user.userName ?? '', {
       voice: voice,
       pitch: this.chooseRandomPitch(),
       rate: this.chooseRandomRate()
@@ -545,10 +543,10 @@ class LocalVoiceController implements VoiceController {
     cancelSpeech();
   }
 
-  async getVoiceMapForUser(user: tmi.ChatUserstate): Promise<NewVoiceSettingsWithSynthesis> {
-    if (!user.username) throw new Error('no username in chat state');
+  async getVoiceMapForUser(user: ChatUser): Promise<NewVoiceSettingsWithSynthesis> {
+    if (!user.userName) throw new Error('no username in chat state');
 
-    const username = user.username;
+    const username = user.userName;
 
     if (!this.usernameVoiceMap.has(username)) {
       this.refreshUser(user);
@@ -572,17 +570,16 @@ class LocalVoiceController implements VoiceController {
   }
 
   async processMessage(
-    user: tmi.ChatUserstate,
-    message: string,
+    message: ChatMessage,
     onSpeedChange: (arg0: number) => void,
     onSpeechStart: () => void
   ) {
-    const voiceSettings = await this.getVoiceMapForUser(user);
+    const voiceSettings = await this.getVoiceMapForUser(message.userInfo);
     await speak(
       {
         pitch: voiceSettings.pitch,
         rate: voiceSettings.rate,
-        text: message,
+        text: message.text,
         voice: voiceSettings.voice,
         speakConfiguration: {
           possibleSoundEffects: this.config.soundEffects,
@@ -601,7 +598,7 @@ class LocalVoiceController implements VoiceController {
  */
 export class Controller {
   chat_logs: Writable<string[]>;
-  twitch: tmi.Client;
+  twitch: ChatClient;
   voice: VoiceController;
   commands: CommandController;
   obsController?: ObsController;
@@ -624,7 +621,7 @@ export class Controller {
 
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
-    this.twitch = createNewTwitchClient(config.channelName);
+    this.twitch = createNewTwitchClientV2(config.channelName);
     this.voice = config.remoteVoiceConfig ? new RemoteVoiceController(config) : new LocalVoiceController(config);
     this.commands = new CommandController();
     if (config.obsSettings) {
@@ -671,18 +668,18 @@ export class Controller {
     }
   }
 
-  async updateWithMessage(user: tmi.ChatUserstate, message: string) {
-    this._matchAndPlaySong(message);
+  async updateWithMessage(message: ChatMessage) {
+    this._matchAndPlaySong(message.text);
 
-    const voice = await this.voice.getVoiceMapForUser(user);
-    const filtered = ((!user.mod && !user.badges?.vip) ? this.isFiltered(message) : false) || this.mustIgnore(this.config.ignorePrefix, message);
+    const voice = await this.voice.getVoiceMapForUser(message.userInfo);
+    const filtered = ((!message.userInfo.isMod && !message.userInfo.isVip) ? this.isFiltered(message.text) : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
     this.updateChatLog(
-      `${user.username} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message}`
+      `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
     );
 
-    const potentialCommand = this.commands.getCommand(message);
+    const potentialCommand = this.commands.getCommand(message.text);
     if (potentialCommand && !this.config.commandsDisabled) {
-      potentialCommand.processCommandMessage(this, user, message);
+      potentialCommand.processCommandMessage(this, message);
       return;
     }
 
@@ -691,7 +688,7 @@ export class Controller {
     }
 
     // hard command filter
-    if (message.startsWith('%')) {
+    if (message.text.startsWith('%')) {
       return;
     }
 
@@ -705,7 +702,6 @@ export class Controller {
     }
 
     await this.voice.processMessage(
-      user,
       message,
       async (speed) => {
         if (this.config.dynamicConfig.songPitchSpeedAffected) {
@@ -713,22 +709,23 @@ export class Controller {
         }
       },
       async () => {
-        await this.obsController?.updateSceneWith(user, voice);
+        await this.obsController?.updateSceneWith(message.userInfo, voice);
       }
     );
   }
 
   async start() {
-    this.twitch.on('connected', () => {
+    this.twitch.onConnect(() => {
       console.log('connected.');
     });
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    this.twitch.on('message', async (_x, user, message, _y) => {
-      await this.updateWithMessage(user, message);
-    });
+    this.twitch.onMessage(async (_channel, _user, _text, msg) => {
+      await this.updateWithMessage(msg);
+    })
+
     await this.obsController?.connect();
-    await this.twitch.connect();
+    this.twitch.connect();
   }
 
   async cancel() {
@@ -741,7 +738,7 @@ export class Controller {
   }
 
   async end() {
-    await this.twitch.disconnect();
+    this.twitch.quit();
     await this.cancel();
   }
 

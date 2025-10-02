@@ -2,19 +2,24 @@
  * Dispatches messages to any observers
  */
 
-import tmi from 'tmi.js';
+import type { ApiClient } from '@twurple/api';
+import type { ChatClient, ChatMessage } from '@twurple/chat';
 
 export interface OverlayObserver {
-  onMessage(user: tmi.ChatUserstate, message: string): void;
+  onMessage(message: ChatMessage): void;
 }
 
 export class OverlayDispatchers {
   observers: OverlayObserver[] = [];
-  private twitch: tmi.Client;
+  private twitch: ChatClient;
+  private api: ApiClient;
+  private botId: string;
 
-  constructor(twitch: tmi.Client) {
-    twitch.on('chat', (_, userstate, message) => this.onMessage(userstate, message));
+  constructor(twitch: ChatClient, api: ApiClient, botId: string) {
+    twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.twitch = twitch;
+    this.api = api;
+    this.botId = botId;
   }
 
   addObserver(observer: OverlayObserver) {
@@ -27,13 +32,14 @@ export class OverlayDispatchers {
     this.observers = this.observers.filter((ob) => observer !== ob);
   }
 
-  private onMessage(user: tmi.ChatUserstate, message: string) {
+  private onMessage(message: ChatMessage) {
     for (const observer of this.observers) {
-      observer.onMessage(user, message);
+      observer.onMessage(message);
     }
   }
 
-  async sendMessageAsUser(message: string) {
-    await this.twitch.say(this.twitch.getUsername(), `~ ${message}`);
+  async sendMessageAsUser(channelId: string, message: string) {
+    console.log(this.botId, channelId)
+    await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
   }
 }

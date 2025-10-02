@@ -1,6 +1,6 @@
-import type { ChatUserstate } from 'tmi.js';
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
+import type { ChatMessage } from '@twurple/chat';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CAPTCHA_POINTS = 500;
@@ -30,9 +30,9 @@ export class CaptchaObserver implements OverlayObserver {
     return this.answer;
   }
 
-  async onMessage(user: ChatUserstate, message: string): Promise<void> {
-    if (message.trim() === this.answer) {
-      const username = user.username;
+  async onMessage(message: ChatMessage): Promise<void> {
+    if (message.text.trim() === this.answer) {
+      const username = message.userInfo.userName;
       if (!username) return;
 
       if (this.alreadyClaimed.has(username)) return;
@@ -40,7 +40,10 @@ export class CaptchaObserver implements OverlayObserver {
 
       const points = (await getPointsForUser(username)) ?? 0;
       setPointsForUser(username, points + CAPTCHA_POINTS);
-      this.dispatcher.sendMessageAsUser(`${username} claimed ${CAPTCHA_POINTS}!`);
+      this.dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `${username} claimed ${CAPTCHA_POINTS}!`
+      );
 
       if (!this.timeout) {
         this.timeout = setTimeout(() => {

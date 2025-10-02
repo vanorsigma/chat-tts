@@ -2,7 +2,6 @@
  * Commands that only work if an overlay exists
  */
 
-import type { ChatUserstate } from 'tmi.js';
 import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
 import { pollCommandHandler } from './poll.svelte';
 import {
@@ -16,6 +15,7 @@ import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 import { ShowImageObserver } from './showImage';
 import { GLOBAL_HEART_STOCK_MARKET, HeartrateStockMarketError } from './heartstockmarket.svelte';
+import type { ChatMessage } from '@twurple/chat';
 
 export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
@@ -39,6 +39,7 @@ const PEOPLE_WHO_CHECKED_IN: string[] = [];
 
 async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
+  broadcaster_id: string,
   username: string,
   difference: number
 ): Promise<boolean> {
@@ -48,150 +49,147 @@ async function checkCostAddIfEnough(
     await setPointsForUser(username, points + difference);
     return true;
   } else {
-    dispatcher.sendMessageAsUser(`${username}, you can't afford this`);
+    dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this`);
     return false;
   }
 }
 
-async function maxwellHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
-  if (!user.username) return;
+async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!user.userName) return;
 
-  const username = user.username;
+  const username = user.userName;
 
   (async () => {
     if (username === MAXWELL_USER) {
-      dispatcher.sendMessageAsUser('ok');
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, username, -MAXWELL_COST))) return;
-      dispatcher.sendMessageAsUser(`-${MAXWELL_COST}`);
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -MAXWELL_COST))) return;
+      dispatcher.sendMessageAsUser(message.channelId!, `-${MAXWELL_COST}`);
     }
 
     maxwellStore.increment();
   })();
 }
 
-async function transferHandler(
-  dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string
-) {
-  const splits = message.split(' ');
+async function transferHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const splits = message.text.split(' ');
   const target = splits[1].toLowerCase();
   const amount = Number(splits[2]);
 
-  if (!user.username) return;
+  if (!message.userInfo.userName) return;
 
-  const username = user.username;
+  const username = message.userInfo.userName;
 
   if (amount <= 0) {
-    dispatcher.sendMessageAsUser('Must transfer a positive amount');
+    dispatcher.sendMessageAsUser(message.channelId!, 'Must transfer a positive amount');
     return;
   }
 
-  if (!(await checkCostAddIfEnough(dispatcher, username, -amount))) return;
+  if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
   const points = (await getPointsForUser(target)) ?? 0;
   await setPointsForUser(target, points + amount);
-  dispatcher.sendMessageAsUser(`${username} transferred ${amount} to ${target}`);
+  dispatcher.sendMessageAsUser(message.channelId!, `${username} transferred ${amount} to ${target}`);
 }
 
-function getCostHandler(dispatcher: OverlayDispatchers, message: string) {
-  const subcommand = message.split(' ')[1];
+function getCostHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const subcommand = message.text.split(' ')[1];
 
   switch (subcommand) {
     case 'blacksilence':
-      dispatcher.sendMessageAsUser(`${BLACK_SILENCE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${BLACK_SILENCE_COST}`);
       break;
 
     case 'flashbang':
-      dispatcher.sendMessageAsUser(`${FLASHBANG_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${FLASHBANG_COST}`);
       break;
 
     case 'maxwell':
-      dispatcher.sendMessageAsUser(`${MAXWELL_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${MAXWELL_COST}`);
       break;
 
     case 'mistake':
-      dispatcher.sendMessageAsUser(`${MISTAKE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${MISTAKE_COST}`);
       break;
 
     default:
       dispatcher.sendMessageAsUser(
+        message.channelId!,
         `~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}; %maxwell: ${MAXWELL_COST}; %mistake: ${MISTAKE_COST}`
       );
       break;
   }
 }
 
-async function givePointsHandler(
-  dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string
-) {
-  if (!user.username) return;
-  if (!user.badges?.broadcaster) return;
+async function givePointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
+  if (!message.userInfo.isBroadcaster) return;
 
-  const splitted = message.split(' ');
+  const splitted = message.text.split(' ');
   const target = splitted[1];
   const cost = Number(splitted[2]);
 
   const points = (await getPointsForUser(target)) ?? 0;
   await setPointsForUser(target, points + cost);
-  dispatcher.sendMessageAsUser(`given ${cost} to ${target}`);
+  dispatcher.sendMessageAsUser(message.channelId!, `given ${cost} to ${target}`);
 }
 
-function getPointsHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
-  if (!user.username) return;
+function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
 
-  const username = user.username;
-  const target = message.split(' ').at(1) ?? username;
+  const username = message.userInfo.userName;
+  const target = message.text.split(' ').at(1) ?? username;
 
   // immediate async execution
   (async () => {
     const points = await getPointsForUser(target);
-    dispatcher.sendMessageAsUser(`${target} has ${points} meowDollars`);
+    dispatcher.sendMessageAsUser(message.channelId!, `${target} has ${points} meowDollars`);
   })();
 }
 
-function checkInHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
-  if (!user.username) return;
+function checkInHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!user.userName) return;
 
-  const username = user.username;
-  if (PEOPLE_WHO_CHECKED_IN.includes(user.username)) {
-    dispatcher.sendMessageAsUser(`${user.username} you've already checked in RAGEY`);
+  const username = user.userName;
+  if (PEOPLE_WHO_CHECKED_IN.includes(user.userName)) {
+    dispatcher.sendMessageAsUser(message.channelId!, `${user.userName} you've already checked in RAGEY`);
     return;
   }
 
-  dispatcher.sendMessageAsUser(`meow ${user.username} vedalWave , here's +${CHECK_IN_POINTS}`);
-  PEOPLE_WHO_CHECKED_IN.push(user.username);
+  dispatcher.sendMessageAsUser(message.channelId!, `meow ${user.userName} vedalWave , here's +${CHECK_IN_POINTS}`);
+  PEOPLE_WHO_CHECKED_IN.push(user.userName);
 
-  checkCostAddIfEnough(dispatcher, username, CHECK_IN_POINTS);
+  checkCostAddIfEnough(dispatcher, message.channelId!, username, CHECK_IN_POINTS);
 }
 
-async function flashbangHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
+async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
   if (Math.random() < 0.5) {
-    const username = user.username;
+    const username = user.userName;
     if (!username) return;
 
-    if (await checkCostAddIfEnough(dispatcher, username, -FLASHBANG_COST)) {
+    if (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -FLASHBANG_COST)) {
       flashbangStore.increment();
-      dispatcher.sendMessageAsUser(`Throwing a flashbang, -${FLASHBANG_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `Throwing a flashbang, -${FLASHBANG_COST}`);
     }
   } else {
-    dispatcher.sendMessageAsUser('NO xdHAH');
+    dispatcher.sendMessageAsUser(message.channelId!, 'NO xdHAH');
   }
 }
 
-function blackSilenceHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, ws: WebSocket) {
-  if (!user.username) return;
+function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessage, ws: WebSocket) {
+  const user = message.userInfo;
+  if (!user.userName) return;
 
-  const username = user.username;
+  const username = user.userName;
 
   (async () => {
     if (username === BLACK_SILENCE_USER) {
-      dispatcher.sendMessageAsUser('ok');
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, username, -BLACK_SILENCE_COST))) return;
-      dispatcher.sendMessageAsUser(`-${BLACK_SILENCE_COST}`);
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -BLACK_SILENCE_COST))) return;
+      dispatcher.sendMessageAsUser(message.channelId!, `-${BLACK_SILENCE_COST}`);
     }
 
     blackSilenceStore.increment();
@@ -217,31 +215,32 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, user: ChatUserstate
   })();
 }
 
-function mistakeHandler(dispatcher: OverlayDispatchers, user: ChatUserstate) {
-  if (!user.username) return;
+function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!user.userName) return;
 
-  const username = user.username;
+  const username = user.userName;
 
   (async () => {
     if (username === MISTAKE_USER) {
-      dispatcher.sendMessageAsUser('ok, but i hate u btw');
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok, but i hate u btw');
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, username, -MISTAKE_COST))) return;
-      dispatcher.sendMessageAsUser(`-${MISTAKE_COST}`);
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -MISTAKE_COST))) return;
+      dispatcher.sendMessageAsUser(message.channelId!, `-${MISTAKE_COST}`);
     }
 
     mistakeStore.increment();
   })();
 }
 
-function showImageHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, message: string) {
-  if (!user.username) return;
+function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
 
-  const username = user.username;
-  const args = message.replace('  ', ' ').split(' ');
+  const username = message.userInfo.userName;
+  const args = message.text.replace('  ', ' ').split(' ');
 
   if (args.length < 1) {
-    dispatcher.sendMessageAsUser('insufficient arguments');
+    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
@@ -249,16 +248,17 @@ function showImageHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, m
 
   (async () => {
     if (username === SHOW_IMAGE_USER) {
-      dispatcher.sendMessageAsUser('ok');
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok');
       showImageStore.addUrl(imageUrl);
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, username, -SHOW_IMAGE_COST))) return;
-      dispatcher.sendMessageAsUser(`-${SHOW_IMAGE_COST}`);
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -SHOW_IMAGE_COST))) return;
+      dispatcher.sendMessageAsUser(message.channelId!, `-${SHOW_IMAGE_COST}`);
 
-      if (user.badges?.moderator || user.badges?.broadcaster) {
+      if (message.userInfo.isMod || message.userInfo.isBroadcaster) {
         showImageStore.addUrl(imageUrl);
       } else {
         dispatcher.sendMessageAsUser(
+          message.channelId!,
           '@pastel8844 , @deplytha , @mayoigo_QwQ pls check and approve'
         );
 
@@ -273,76 +273,67 @@ function showImageHandler(dispatcher: OverlayDispatchers, user: ChatUserstate, m
 
 async function investHandler(
   dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string,
+  message: ChatMessage,
   operation: 'invest' | 'uninvest'
 ) {
-  if (!user.username) return;
+  if (!message.userInfo.userName) return;
 
-  const username = user.username;
-  const args = message.replace('  ', ' ').split(' ');
+  const username = message.userInfo.userName;
+  const args = message.text.replace('  ', ' ').split(' ');
   if (args.length < 1) {
-    dispatcher.sendMessageAsUser('insufficient arguments');
+    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
   const amount = Number(args[1]);
 
   if (!amount) {
-    dispatcher.sendMessageAsUser('i blame Mr_Auto & swizzlerq');
+    dispatcher.sendMessageAsUser(message.channelId!, 'i blame Mr_Auto & swizzlerq');
     return;
   }
 
   if (amount <= 0) {
-    dispatcher.sendMessageAsUser('Cannot un-invest a negative amount');
+    dispatcher.sendMessageAsUser(message.channelId!, 'Cannot un-invest a negative amount');
     return;
   }
 
   try {
     switch (operation) {
       case 'invest':
-        if (!(await checkCostAddIfEnough(dispatcher, username, -amount))) return;
-        GLOBAL_HEART_STOCK_MARKET.invest(user.username, amount);
-        dispatcher.sendMessageAsUser(`${username} successfully invested ${amount}`);
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
+        GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
+        dispatcher.sendMessageAsUser(message.channelId!, `${username} successfully invested ${amount}`);
         break;
       case 'uninvest':
-        GLOBAL_HEART_STOCK_MARKET.uninvest(user.username, amount);
-        const points = (await getPointsForUser(user.username)) ?? 0;
-        await setPointsForUser(user.username, points + amount);
+        GLOBAL_HEART_STOCK_MARKET.uninvest(message.userInfo.userName, amount);
+        const points = (await getPointsForUser(message.userInfo.userName)) ?? 0;
+        await setPointsForUser(message.userInfo.userName, points + amount);
     }
   } catch (e: unknown) {
-    if (e instanceof HeartrateStockMarketError) dispatcher.sendMessageAsUser(`${username}, ${e}`);
+    if (e instanceof HeartrateStockMarketError) dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
     else console.error(e);
   }
 }
 
-async function stockHandler(
-  dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string,
-) {
-  if (!user.username) return;
+async function stockHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
 
-  const username = user.username;
+  const username = message.userInfo.userName;
   const stock_value = GLOBAL_HEART_STOCK_MARKET.get_current_price_for(username);
 
-  dispatcher.sendMessageAsUser(`${username} has ${stock_value} in the heart rate stock market`);
+  dispatcher.sendMessageAsUser(message.channelId!, `${username} has ${stock_value} in the heart rate stock market`);
 }
 
-async function closeMarketHandler(
-  dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string
-) {
-  if (!user.username) return;
+async function closeMarketHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
 
-  if (user.badges?.broadcaster) {
+  if (message.userInfo.isBroadcaster) {
     const returns = GLOBAL_HEART_STOCK_MARKET.close();
     for (const user_return of returns) {
       const points = (await getPointsForUser(user_return.user)) ?? 0;
       await setPointsForUser(user_return.user, points + user_return.currency);
     }
-    await dispatcher.sendMessageAsUser('Stock market closed!');
+    await dispatcher.sendMessageAsUser(message.channelId!, 'Stock market closed!');
   }
 }
 
@@ -382,59 +373,59 @@ export class Commands implements OverlayObserver {
     }
   }
 
-  onMessage(user: ChatUserstate, message: string): void {
+  onMessage(message: ChatMessage): void {
     if (!this.dispatchers) {
       throw new Error('No dispatcher');
     }
 
     const dispatcher = this.dispatchers;
-    const commandIndicator = message.split(' ')[0];
+    const commandIndicator = message.text.split(' ')[0];
     switch (commandIndicator) {
       case '%poll':
-        this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, user, message));
+        this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, message));
         break;
       case '%checkin':
-        checkInHandler(dispatcher, user);
+        checkInHandler(dispatcher, message);
         break;
       case '%flashbang':
-        this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, user));
+        this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, message));
         break;
       case '%blacksilence':
-        if (this.busWs) blackSilenceHandler(dispatcher, user, this.busWs);
-        else dispatcher.sendMessageAsUser("tell vanor he's dumb");
+        if (this.busWs) blackSilenceHandler(dispatcher, message, this.busWs);
+        else dispatcher.sendMessageAsUser(message.channelId!, "tell vanor he's dumb");
         break;
       case '%points':
-        getPointsHandler(dispatcher, user, message);
+        getPointsHandler(dispatcher, message);
         break;
       case '%cost':
         getCostHandler(dispatcher, message);
         break;
       case '%givepoints':
-        givePointsHandler(dispatcher, user, message);
+        givePointsHandler(dispatcher, message);
         break;
       case '%transfer':
-        transferHandler(dispatcher, user, message);
+        transferHandler(dispatcher, message);
         break;
       case '%maxwell':
-        maxwellHandler(dispatcher, user);
+        maxwellHandler(dispatcher, message);
         break;
       case '%mistake':
-        mistakeHandler(dispatcher, user);
+        mistakeHandler(dispatcher, message);
         break;
       case '%showimage':
-        showImageHandler(dispatcher, user, message);
+        showImageHandler(dispatcher, message);
         break;
       case '%invest':
-        investHandler(dispatcher, user, message, 'invest');
+        investHandler(dispatcher, message, 'invest');
         break;
       case '%uninvest':
-        investHandler(dispatcher, user, message, 'uninvest');
+        investHandler(dispatcher, message, 'uninvest');
         break;
       case '%stock':
-        stockHandler(dispatcher, user, message);
+        stockHandler(dispatcher, message);
         break;
       case '%closemarket':
-        closeMarketHandler(dispatcher, user, message);
+        closeMarketHandler(dispatcher, message);
         break;
     }
     return;
