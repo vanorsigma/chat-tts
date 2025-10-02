@@ -1,6 +1,6 @@
-import type { ChatUserstate } from 'tmi.js';
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { pollStore } from './stores.svelte';
+import type { ChatMessage } from '@twurple/chat';
 
 export let GLOBAL_POLL_LOCK = false;
 
@@ -29,27 +29,30 @@ export class PollObserver implements OverlayObserver {
     console.log('Poll soon: ', poll);
     this.poll = poll;
     this.alreadyVoted = new Set();
-    this.timeout = setTimeout(this.timeUp.bind(this), (poll.expiryTime ?? 0) - new Date().getTime());
+    this.timeout = setTimeout(
+      this.timeUp.bind(this),
+      (poll.expiryTime ?? 0) - new Date().getTime()
+    );
     this.dispatcher = dispatcher;
 
     pollStore?.set(this.poll);
   }
 
-  onMessage(user: ChatUserstate, message: string): void {
-    if (this.alreadyVoted.has(user.username ?? '')) return;
+  onMessage(message: ChatMessage): void {
+    if (this.alreadyVoted.has(message.userInfo.userName ?? '')) return;
 
-    const splits = message.split(' ');
+    const splits = message.text.split(' ');
     switch (splits[0]) {
       case '%endpoll':
-        if (user.badges?.moderator || user.badges?.vip || user.badges?.broadcaster) {
+        if (message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster) {
           clearTimeout(this.timeout);
-          this.timeUp();
+          this.timeUp(message.channelId!);
           return;
         }
         break;
 
       default: {
-        const votedFor = Number(message.replace('%vote', '').trim());
+        const votedFor = Number(message.text.replace('%vote', '').trim());
         if (!this.poll.options) return;
         if (!votedFor || votedFor > this.poll.options.length) return;
 
@@ -57,13 +60,13 @@ export class PollObserver implements OverlayObserver {
 
         pollStore?.set(this.poll);
 
-        this.alreadyVoted.add(user.username ?? '');
+        this.alreadyVoted.add(message.userInfo.userName ?? '');
         return;
       }
     }
   }
 
-  timeUp(): void {
+  timeUp(broadcaster_id: string): void {
     if (!this.poll.options || this.poll.options.length === 0) {
       this.dispatcher.removeObserver(this);
       pollStore?.set(null);
@@ -73,6 +76,7 @@ export class PollObserver implements OverlayObserver {
 
     this.dispatcher.removeObserver(this);
     this.dispatcher.sendMessageAsUser(
+      broadcaster_id,
       `Poll over! Winner: ${
         this.poll.options.reduce((prev, curr) => {
           if (curr.votes > prev.votes) return curr;
@@ -108,14 +112,10 @@ export function getPollParameters(message: string): Poll {
   };
 }
 
-export function pollCommandHandler(
-  dispatcher: OverlayDispatchers,
-  user: ChatUserstate,
-  message: string
-): void {
+export function pollCommandHandler(dispatcher: OverlayDispatchers, message: ChatMessage): void {
   if (GLOBAL_POLL_LOCK) return;
-  if (user.badges?.moderator || user.badges?.vip || user.badges?.broadcaster) {
-    const observer = new PollObserver(dispatcher, getPollParameters(message));
+  if (message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster) {
+    const observer = new PollObserver(dispatcher, getPollParameters(message.text));
     dispatcher.addObserver(observer);
   }
 }

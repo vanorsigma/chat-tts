@@ -16,7 +16,6 @@
     "@sveltejs/kit": "^2.36.2",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
     "@types/eslint": "^9.6.1",
-    "@types/tmi.js": "^1.8.6",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-svelte": "^2.46.1",
@@ -37,6 +36,10 @@
     "@codemirror/view": "^6.38.1",
     "@descript/web-audio-js": "0.15.3-patched.6",
     "@sveltejs/adapter-node": "^5.3.1",
+    "@twurple/api": "^7.4.0",
+    "@twurple/auth": "^7.4.0",
+    "@twurple/chat": "^7.4.0",
+    "@twurple/eventsub-ws": "^7.4.0",
     "@types/d3": "^7.4.3",
     "axios": "^1.11.0",
     "beepbox": "github:vanorsigma/jummbox",
@@ -47,7 +50,6 @@
     "pixi.js": "^8.13.2",
     "speaker": "^0.5.5",
     "sqlite3": "^5.1.7",
-    "tmi.js": "^1.8.5",
     "ws": "^8.18.3",
     "yaml": "^2.8.1"
   }

@@ -1,5 +1,5 @@
-import type { ChatUserstate } from 'tmi.js';
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
+import type { ChatMessage } from '@twurple/chat';
 
 export const SHOW_IMAGE_COOLDOWN = 60 * 1000;
 const AUTHORIZATION_PERIOD = 300 * 1000;
@@ -29,20 +29,20 @@ export class ShowImageObserver implements OverlayObserver {
     }, AUTHORIZATION_PERIOD);
   }
 
-  onMessage(user: ChatUserstate, message: string): void {
+  onMessage(message: ChatMessage): void {
     const isAuthorised =
-      user.badges?.moderator ||
-      user.badges?.broadcaster ||
-      this.authUsers.includes(user?.username ?? '');
+      message.userInfo.isMod ||
+      message.userInfo.isBroadcaster ||
+      this.authUsers.includes(message.userInfo.userName ?? '');
 
     if (!isAuthorised) return;
-    if (message === 'approve') {
+    if (message.text === 'approve') {
       this.dispatcher.removeObserver(this);
       this.onAuthorised();
       return;
     }
 
-    if (message === 'deny') {
+    if (message.text === 'deny') {
       this.dispatcher.removeObserver(this);
       return;
     }

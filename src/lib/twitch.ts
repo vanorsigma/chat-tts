@@ -1,29 +1,21 @@
 // Connects to the Twitch IRC server
-import tmi from 'tmi.js';
+import { AppTokenAuthProvider } from '@twurple/auth';
+import { ChatClient } from '@twurple/chat';
+import { ApiClient } from '@twurple/api';
 
-export function createNewTwitchClient(channelName: string): tmi.Client {
-  return tmi.Client({
-    connection: {
-      secure: true,
-      reconnect: true
-    },
-    channels: [channelName]
+export function createNewTwitchClientV2(channelName: string): ChatClient {
+  return new ChatClient({
+    channels: [channelName],
+    ssl: true,
+    rejoinChannelsOnReconnect: true
   });
 }
 
-export function createNewAuthenticatedSelfTwitchClient(
-  username: string,
-  oauth: string
-): tmi.Client {
-  return tmi.Client({
-    connection: {
-      secure: true,
-      reconnect: true
-    },
-    channels: [username],
-    identity: {
-      username,
-      password: `oauth:${oauth}`
-    }
+export function createNewTwitchApiClient(client_id: string, client_secret: string): ApiClient {
+  const scopes = ['user:write:chat', 'user:bot'];
+
+  const authProvider = new AppTokenAuthProvider(client_id, client_secret, scopes);
+  return new ApiClient({
+    authProvider
   });
 }

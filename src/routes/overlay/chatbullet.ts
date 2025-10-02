@@ -4,9 +4,9 @@
  * 4th re-write LULE
  */
 
-import tmi from 'tmi.js';
 import { fetchAnimatedSprite, is7TVEmote } from '$lib/seventv';
-import { Application, Assets, Container, Sprite, TextStyle, Ticker, Text } from 'pixi.js';
+import { Application, Container, TextStyle, Ticker, Text } from 'pixi.js';
+import type { ChatClient, ChatMessage } from '@twurple/chat';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';
@@ -56,14 +56,14 @@ function messageEntryBreaker(
 }
 
 export async function splitMessage(
-  ranges: { [key: string]: string[] },
+  ranges: Map<string, string[]>,
   message: string
 ): Promise<BulletPart[]> {
   // split by twitch messages, and then call splitMessage to split by 7tv
   // if and only if there are no twitch message splits, then we proceed with 7tv splits
   const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(
     new Map(
-      Object.entries(ranges).flatMap(([k, vs]) =>
+      ranges.entries().flatMap(([k, vs]) =>
         vs.map((v) => {
           const [start, end] = v.split('-').map((e) => Number(e));
           return [start, [end - start + 1, k]];
@@ -137,18 +137,18 @@ export class ChatBulletContainer {
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
 
-  constructor(root: HTMLDivElement, twitch: tmi.Client) {
+  constructor(root: HTMLDivElement, twitch: ChatClient) {
     this.root = root;
     this.app = new Application();
 
     this.initLater(twitch);
   }
 
-  async initLater(twitch: tmi.Client) {
+  async initLater(twitch: ChatClient) {
     await this.app.init({ background: 'transparent', resizeTo: this.root, backgroundAlpha: 0 });
     this.app.ticker.maxFPS = 30;
     this.root.appendChild(this.app.canvas);
-    twitch.on('message', (_, userstate, message) => this.onMessage(userstate, message));
+    twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.app.ticker.add((time) => this.drawFrameLoop(time));
   }
 
@@ -184,9 +184,13 @@ export class ChatBulletContainer {
     }
   }
 
-  async onMessage(user: tmi.ChatUserstate, message: string) {
+  async onMessage(message: ChatMessage) {
+    if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
     if (this.isEnabled) {
-      this.spawnBullet(await splitMessage(user.emotes ?? {}, message), user.color);
+      this.spawnBullet(
+        await splitMessage(message.emoteOffsets, message.text),
+        message.userInfo.color
+      );
     }
   }
 
