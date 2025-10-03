@@ -465,7 +465,7 @@ class RemoteVoiceController implements VoiceController {
     await axios.get(`${this.baseurl}/processMessage`, {
       params: {
         'username': message.userInfo.userName ?? '',
-        'message': message,
+        'message': message.text,
       }
     });
   }
