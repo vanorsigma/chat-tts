@@ -413,6 +413,9 @@
   }
 
   .fullscreenvideo {
+    position: absolute;
+    top: 0px;
+    left: 0px;
     display: flex;
     width: 100%;
     height: 100%;
