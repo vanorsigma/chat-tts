@@ -171,7 +171,7 @@ export class HeartrateStockMarket {
   private heartrate_subscriber(value: number): void {
     this.heartrate_history.push(value);
     if (this.heartrate_history.length > this.maximum_heartrates) {
-      this.heartrate_history.splice(1);
+      this.heartrate_history = this.heartrate_history.slice(1);
     }
 
     this.subscribers.forEach((subber) => subber(this.heartrate_history.slice()));
