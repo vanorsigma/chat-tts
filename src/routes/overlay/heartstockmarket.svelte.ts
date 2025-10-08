@@ -89,6 +89,25 @@ export class HeartrateStockMarket {
     });
   }
 
+  /// Since we don't really care about concurrency (i.e. a mistake), we're going to fetch the
+  /// current price, and then just completely drop them from the map
+  uninvestAll(user: string): number {
+    if (this.is_closed) throw new HeartrateStockMarketError('The stock market is closed!');
+    const currentCurrency = this.get_current_price_for(user)!;
+
+    if (currentCurrency === null) {
+      throw new HeartrateStockMarketError('Nothing in stock market grrr');
+    }
+
+    const existingStock = this.stocks.get(user);
+    if (!existingStock) {
+      throw new HeartrateStockMarketError('No existing stock');
+    }
+
+    this.stocks.delete(user);
+    return existingStock.currency;
+  }
+
   uninvest(user: string, currency: number): void {
     if (this.is_closed) throw new HeartrateStockMarketError('The stock market is closed!');
 
@@ -106,7 +125,6 @@ export class HeartrateStockMarket {
     const currentCurrency = this.get_current_price_for(user)!;
 
     if (currentCurrency === null) {
-      console.error('wifjaowie');
       throw new HeartrateStockMarketError('Nothing in stock market grrr');
     }
 
