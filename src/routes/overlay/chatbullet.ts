@@ -225,13 +225,13 @@ export class ChatBulletContainer {
         text: displayName,
         style: {
           fontFamily: 'Arial',
-          fontSize: 12,
+          fontSize: 24,
           fill: color
         }
       });
 
       displayNameText.x = 0;
-      displayNameText.y = y - 12;
+      displayNameText.y = y - 24;
       container.addChild(displayNameText);
     }
 
@@ -240,7 +240,7 @@ export class ChatBulletContainer {
         text: 'Kiki is thinking...',
         style: new TextStyle({
           fontFamily: 'Arial',
-          fontSize: 12,
+          fontSize: 24,
           fill: 'pink'
         })
       });
@@ -274,7 +274,7 @@ export class ChatBulletContainer {
       if (isTextBulletPart(part)) {
         const textStyle: TextStyle = new TextStyle({
           fontFamily: 'Arial',
-          fontSize: 24,
+          fontSize: 48,
           fill: color
         });
 

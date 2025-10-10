@@ -1,6 +1,61 @@
 import type { Poll } from './poll.svelte';
 import { SHOW_IMAGE_COOLDOWN } from './showImage';
 
+function createGoodnightKissStore() {
+  interface KissProperties {
+    username: string;
+    color: string;
+    fast_version: boolean;
+  }
+
+  let properties: KissProperties = {
+    username: '',
+    color: 'black',
+    fast_version: false,
+  };
+  let subscribers: Array<(value: KissProperties) => void> = [];
+
+  function updateAllSubscribers() {
+    subscribers.forEach((subscriber) => subscriber(properties));
+  }
+
+  function setProperties(property: KissProperties) {
+    properties = property;
+    updateAllSubscribers();
+  }
+
+  function isPopulated(): boolean {
+    return properties.username.length !== 0;
+  }
+
+  function reset() {
+    properties = {
+      username: '',
+      color: properties.color,
+      fast_version: false,
+    }
+    updateAllSubscribers();
+  }
+
+  function subscribe(subscription: (value: KissProperties) => void): () => void {
+    subscribers.push(subscription);
+    subscription(properties);
+    return () => {
+      subscribers = subscribers.filter((sub) => sub !== subscription);
+    };
+  }
+
+  return {
+    get property() {
+      return properties;
+    },
+    isPopulated,
+    subscribe,
+    setProperties,
+    reset
+  };
+}
+
 function createShowImageStore() {
   let imageUrls: Array<[string, NodeJS.Timeout]> = [];
   let subscribers: Array<(value: [string, NodeJS.Timeout][]) => void> = [];
@@ -147,7 +202,7 @@ function createPollStore() {
       return poll;
     },
     get totalVotes() {
-      return poll?.options.reduce((sum, option) => sum + option.votes, 0) ?? 0;
+      return poll?.options?.reduce((sum, option) => sum + option.votes, 0) ?? 0;
     },
     set
   };
@@ -159,3 +214,4 @@ export const blackSilenceStore = createBlackSilenceStore();
 export const maxwellStore = createMaxwellStore();
 export const mistakeStore = createMistakeStore();
 export const showImageStore = createShowImageStore();
+export const goodnightKissStore = createGoodnightKissStore();

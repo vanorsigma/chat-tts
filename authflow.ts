@@ -16,7 +16,7 @@ if (!CLIENT_ID) throw new Error('Need to set PUBLIC_TWITCH_APP_ID in .venv');
 if (!CLIENT_SECRET) throw new Error('Need to set PUBLIC_TWITCH_APP_SECRET in .env');
 
 export function getAuthUrl(client_id: string, redirect_uri: string): string {
-  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=user:write:chat+user:bot`;
+  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=moderator:read:chatters+user:bot+user:read:chat`;
 }
 
 export function getFollowUpUrl(

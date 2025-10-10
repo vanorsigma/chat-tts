@@ -18,7 +18,8 @@
     blackSilenceStore,
     maxwellStore,
     mistakeStore,
-    showImageStore
+    showImageStore,
+    goodnightKissStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -325,6 +326,23 @@
         <source src="/blacksilence.webm" /> Video tag smile
       </video>
     </div>{/if}
+  {#if $goodnightKissStore.username}
+    <div class="goodnightkiss fullscreenvideo">
+      <div class="innercontainer">
+        <p style:color={$goodnightKissStore.color}>
+          {$goodnightKissStore.username}
+        </p>
+        <img src="/bedge.png" alt="bruh" />
+      </div>
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay loop>
+          <source src={$goodnightKissStore.fast_version ? "/bedgeborderfast.webm" : "/bedgeborder.webm"} /> Video tagsmile
+      </video>
+      <audio autoplay loop volume='0.2'>
+          <source src={$goodnightKissStore.fast_version ? "/bedgefast.mp3" : "/bedge.mp3"} type="audio/mpeg" /> Audio
+      </audio>
+    </div>
+  {/if}
   {#if mistakeCount < mistakeStore.count}
     <div class="fullscreenvideo">
       <!-- svelte-ignore a11y_media_has_caption -->
@@ -411,6 +429,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .goodnightkiss .innercontainer {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    position: absolute;
+  }
+
+  .goodnightkiss img {
+    width: 200px;
+  }
+
+  .goodnightkiss p {
+    font-size: 3em;
   }
 
   .fullscreenvideo {
