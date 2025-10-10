@@ -8,7 +8,7 @@
     PUBLIC_TWITCH_APP_ID,
     PUBLIC_TWITCH_APP_SECRET,
     PUBLIC_TWITCH_BOT_ID,
-    PUBLIC_KIKI_API,
+    PUBLIC_KIKI_API
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
@@ -430,6 +430,8 @@
     width: 100%;
     height: 100%;
     z-index: 1000;
+    top: 0px;
+    left: 0px;
     background: radial-gradient(
       farthest-side,
       transparent 0%,
