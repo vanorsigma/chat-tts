@@ -188,7 +188,7 @@ export class ChatBulletContainer {
   }
 
   private willKikiReadMessage(message: ChatMessage): boolean {
-    if (message.userInfo.userName === 'vanorgamma') return false;
+    if (message.userInfo.badges.has('bot-badge')) return false;
     if (message.text.toLowerCase().includes('kiki') || message.userInfo.isBroadcaster) return true;
 
     return Math.random() < 0.5; // TODO: haha, hard constants xdx
