@@ -8,28 +8,11 @@ const PERSONALITY_PROMPT: &str = "You are a highly intelligent cat named Kiki wi
 async fn main() {
     env_logger::init();
 
-    let obs_password = std::env::var("OBS_PASSWORD").expect("OBS_PASSWORD not configured");
-
     // hard-coded because surely only I use it clueless
     let settings = Settings {
         prompt: PERSONALITY_PROMPT.to_string(),
         local_ai_host: "localhost".to_string(),
         local_ai_port: 11434,
-        obs_host: "localhost".to_string(),
-        obs_port: 4455,
-        obs_password,
-        obs_source_name: "kikichatter".to_string(),
-        obs_animation_duration: 200,
-        twitch_target: "vanorsigma".to_string(),
-        twitch_message_to_string: |message| {
-            let num: f32 = rand::random();
-            if message.message.contains("kiki") || num < 0.5 {
-                format!("{0}: {1}", message.username, message.message).into()
-            } else {
-                None
-            }
-        },
-        default_cat_face: "(='.'=)".to_string()
     };
 
     let cancellation = CancellationToken::new();

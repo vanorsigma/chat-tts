@@ -7,6 +7,7 @@
 import { fetchAnimatedSprite, is7TVEmote } from '$lib/seventv';
 import { Application, Container, TextStyle, Ticker, Text } from 'pixi.js';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
+import { KikiAPI } from './kikiapi';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';
@@ -134,12 +135,14 @@ const PADDING = 5;
 export class ChatBulletContainer {
   private root: HTMLDivElement;
   private app: Application;
+  private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
 
-  constructor(root: HTMLDivElement, twitch: ChatClient) {
+  constructor(root: HTMLDivElement, twitch: ChatClient, kikiUrl: string) {
     this.root = root;
     this.app = new Application();
+    this.kiki = new KikiAPI(kikiUrl);
 
     this.initLater(twitch);
   }
@@ -184,24 +187,77 @@ export class ChatBulletContainer {
     }
   }
 
+  private willKikiReadMessage(message: ChatMessage): boolean {
+    if (message.userInfo.userName === 'vanorgamma') return false;
+    if (message.text.toLowerCase().includes('kiki') || message.userInfo.isBroadcaster) return true;
+
+    return Math.random() < 0.5; // TODO: haha, hard constants xdx
+  }
+
   async onMessage(message: ChatMessage) {
     if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
     if (this.isEnabled) {
       this.spawnBullet(
+        message.userInfo.displayName ?? message.userInfo.userName,
         await splitMessage(message.emoteOffsets, message.text),
+        this.willKikiReadMessage(message) ? this.kiki.fetchKikiResponse(message.text) : null, // TODO: don't make this a hardcoded constant
         message.userInfo.color
       );
     }
   }
 
-  async spawnBullet(parts: BulletPart[], color: string = '#D3D3D3') {
+  async spawnBullet(
+    displayName: string | null,
+    parts: BulletPart[],
+    kiki_response: Promise<string | null> | null,
+    color: string = '#D3D3D3'
+  ) {
     const { width, height } = this.app.screen;
-    const rate = Math.max(Math.random(), 0.5) * (1000 / 60);
+    const rate = Math.max(Math.random(), 0.25) * (1000 / 60);
 
     let x = 0;
-    const y = Math.random() * (height - 50);
+    let y = Math.random() * (height - 50);
 
     const container = new Container();
+
+    console.log(displayName);
+    if (displayName) {
+      const displayNameText = new Text({
+        text: displayName,
+        style: {
+          fontFamily: 'Arial',
+          fontSize: 12,
+          fill: color
+        }
+      });
+
+      displayNameText.x = 0;
+      displayNameText.y = y - 12;
+      container.addChild(displayNameText);
+    }
+
+    if (kiki_response) {
+      const kikiText = new Text({
+        text: 'Kiki is thinking...',
+        style: new TextStyle({
+          fontFamily: 'Arial',
+          fontSize: 12,
+          fill: 'pink'
+        })
+      });
+
+      kikiText.x = 0;
+      kikiText.y = y + 40;
+      container.addChild(kikiText);
+
+      (async () => {
+        const res = await kiki_response;
+        if (res) {
+          kikiText.text = res;
+          kikiText.style.update();
+        }
+      })(); // delay by one cycle
+    }
 
     for (const part of parts) {
       if (isImageBulletPart(part)) {

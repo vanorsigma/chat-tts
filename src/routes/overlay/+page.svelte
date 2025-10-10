@@ -7,7 +7,8 @@
     PUBLIC_HEARTRATE_URL,
     PUBLIC_TWITCH_APP_ID,
     PUBLIC_TWITCH_APP_SECRET,
-    PUBLIC_TWITCH_BOT_ID
+    PUBLIC_TWITCH_BOT_ID,
+    PUBLIC_KIKI_API,
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION, Commands } from './commands';
@@ -245,7 +246,7 @@
     stockMarket.setHeartrateObject(heartrate);
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
-    chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client);
+    chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client, PUBLIC_KIKI_API);
     let dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
