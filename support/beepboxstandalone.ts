@@ -44,7 +44,8 @@ export class LocalSongController {
   }
 
   async getSong(songname: string): Promise<string> {
-    const response = await fetch(`${baseUrl}/song?songname=${songname}`);
+    const encodedSongname = encodeURIComponent(songname);
+    const response = await fetch(`${baseUrl}/song?songname=${encodedSongname}`);
     if (response.status !== 200) {
       throw new Error('cannot fetch from songs endpoint');
     }

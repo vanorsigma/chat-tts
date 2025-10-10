@@ -221,7 +221,6 @@ export class LocalSongController implements SongController {
         const song = await this.getSong(songname);
         const synth = new Synth(song);
         this.masterSynth = synth;
-        console.log('synthcheck', this.masterSynth);
         this.expectedTempo = synth.song!.tempo;
         synth.song!.loopLength = 0;
         synth.loopRepeatCount = 0;
