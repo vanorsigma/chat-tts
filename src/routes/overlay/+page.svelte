@@ -334,7 +334,7 @@
     </div>
   {/if}
   <div bind:this={chatBulletContainer} class="chatbullet"></div>
-  {#if flashbangCount < flashbangStore.count}<div class="flashbang">
+  {#if flashbangCount < flashbangStore.count}<div class="fullscreenvideo flashbang">
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay onended={onFlashbangDone}>
         <source src="/thinkfast.webm" /> Video tag smile

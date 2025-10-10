@@ -186,7 +186,7 @@ function checkInHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
 
 async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const user = message.userInfo;
-  if (Math.random() < 0.5) {
+  if (Math.random() < 0.5 || message.userInfo.isBroadcaster) {
     const username = user.userName;
     if (!username) return;
 
