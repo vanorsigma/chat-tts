@@ -7,6 +7,7 @@ import { pollCommandHandler } from './poll.svelte';
 import {
   blackSilenceStore,
   flashbangStore,
+  goodnightKissStore,
   maxwellStore,
   mistakeStore,
   showImageStore
@@ -22,18 +23,21 @@ export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
 export const BLACK_SILENCE_COST = 500;
 
-export const FLASHBANG_COST = 50;
+export const FLASHBANG_COST = 500;
 
 export const MAXWELL_COST = 100;
 export const MAXWELL_USER = '5kuli';
 
-export const MISTAKE_COST = 1000;
+export const MISTAKE_COST = 5000;
 export const MISTAKE_USER = 'mr_auto';
 
-export const SHOW_IMAGE_COST = 2000;
+export const SHOW_IMAGE_COST = 10_000;
 export const SHOW_IMAGE_USER = 'mayoigo_qwq';
 
 export const SELF_THOUGHT_COST = 5000;
+
+export const GOOD_NIGHT_KISS_COST = 5000;
+export const GOOD_NIGHT_KISS_USER = 'pastel8844';
 
 export const CHECK_IN_POINTS = 999.99;
 
@@ -125,6 +129,10 @@ function getCostHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
 
     case 'selfThought':
       dispatcher.sendMessageAsUser(message.channelId!, `${SELF_THOUGHT_COST}`);
+      break;
+
+    case 'goodnightkiss':
+      dispatcher.sendMessageAsUser(message.channelId!, `${GOOD_NIGHT_KISS_COST}`);
       break;
 
     default:
@@ -347,30 +355,35 @@ async function investHandler(
     return;
   }
 
-  try {
-    switch (operation) {
-      case 'invest':
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount)))
-          return;
+  switch (operation) {
+    case 'invest':
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
+      try {
         GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          `${username} successfully invested ${amount}`
-        );
-        break;
-      case 'uninvest':
+      } catch (e: unknown) {
+        dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
+        console.log(e);
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+      }
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `${username} successfully invested ${amount}`
+      );
+      break;
+    case 'uninvest':
+      try {
         GLOBAL_HEART_STOCK_MARKET.uninvest(message.userInfo.userName, amount);
-        const points = (await getPointsForUser(message.userInfo.userName)) ?? 0;
-        await setPointsForUser(message.userInfo.userName, points + amount);
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          `${username} successfully uninvested ${amount}`
-        );
-    }
-  } catch (e: unknown) {
-    if (e instanceof HeartrateStockMarketError)
-      dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
-    else console.error(e);
+      } catch (e: unknown) {
+        dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
+        console.log(e);
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+      }
+
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `${username} successfully uninvested ${amount}`
+      );
   }
 }
 
@@ -421,6 +434,61 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
     } else {
       await dispatcher.sendMessageAsUser(message.channelId!, `@${username} -${SELF_THOUGHT_COST}`);
     }
+  }
+}
+
+async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!message.userInfo.userName) return;
+  const username = user.userName;
+  if (!username) return;
+
+  const args = message.text.split(' ').slice(1);
+  if (args[0] === 'clear' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
+    goodnightKissStore.reset();
+    dispatcher.sendMessageAsUser(message.channelId!, 'Cleared');
+    return;
+  }
+
+  if (goodnightKissStore.isPopulated()) {
+    await dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'An existing good night kiss already exists'
+    );
+    return;
+  }
+
+  let targetUser = message.userInfo.userName;
+  // only the VIP owner can change the target user
+  if (message.userInfo.userName === GOOD_NIGHT_KISS_USER && args[0]) targetUser = args[0];
+  else if (args[0]) {
+    await dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'Only the owner of the VIP command can target another person for the good night kiss'
+    );
+    return;
+  }
+
+  if (
+    message.userInfo.userName === GOOD_NIGHT_KISS_USER ||
+    (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -SELF_THOUGHT_COST))
+  ) {
+    goodnightKissStore.setProperties({
+      username: targetUser ?? 'no username?',
+      color: message.userInfo.color ?? 'lightgrey',
+      fast_version: message.userInfo.userName === 'spookiestspooks' || Math.random() < 0.1
+    });
+
+    if (message.userInfo.userName === GOOD_NIGHT_KISS_USER) {
+      await dispatcher.sendMessageAsUser(message.channelId!, `...`);
+    } else {
+      await dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `why did u claim this -${GOOD_NIGHT_KISS_COST}`
+      );
+    }
+  } else {
+    await dispatcher.sendMessageAsUser(message.channelId!, 'cannot afford this');
   }
 }
 
@@ -515,7 +583,10 @@ export class Commands implements OverlayObserver {
         closeMarketHandler(dispatcher, message);
         break;
       case '%selfthought':
-        selfThoughtHandler(dispatcher, message);
+        this.callOnlyIfPastCooldown(() => selfThoughtHandler(dispatcher, message));
+        break;
+      case '%goodnightkiss':
+        goodnightkissHandler(dispatcher, message);
         break;
     }
     return;
