@@ -220,7 +220,6 @@ export class ChatBulletContainer {
 
     const container = new Container();
 
-    console.log(displayName);
     if (displayName) {
       const displayNameText = new Text({
         text: displayName,
