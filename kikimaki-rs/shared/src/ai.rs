@@ -103,8 +103,7 @@ impl Ai {
                 self.prompt
                     .replace(
                         "{{memories}}",
-                        &serde_json::to_string(&memories.0)
-                            .map_err(AiError::SerialisationError)?,
+                        &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
                     )
                     .clone(),
                 vec![ChatCompletionMessage {
@@ -118,8 +117,8 @@ impl Ai {
             .await
             .inspect(|result| log::info!("Raw response: {result}"))?;
 
-        let response_object = serde_json::from_str::<AiResponse>(&result)
-            .map_err(AiError::DeserialisationError)?;
+        let response_object =
+            serde_json::from_str::<AiResponse>(&result).map_err(AiError::DeserialisationError)?;
 
         *memories = response_object.memories;
         log::debug!("Memories updated to: {:#?}", memories.0);
