@@ -1,5 +1,63 @@
+import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
 import { SHOW_IMAGE_COOLDOWN } from './showImage';
+
+/// createCheckInStore() is special in the sense that it requires a URL.
+/// As such, this store should be constructed in the overlay, so that the overlay
+/// manages the injection of the receiver ws
+export function createCheckInStore(receiver: WebSocket) {
+  let checkInsLeft: CheckInResponse[] = [];
+  let subscribers: Array<(value: CheckInResponse[]) => void> = [];
+
+  function updateAllSubscribers() {
+    subscribers.forEach((subscriber) => subscriber(checkInsLeft));
+  }
+
+  function addCheckInResponse(response: CheckInResponse) {
+    checkInsLeft.push(response);
+    updateAllSubscribers();
+  }
+
+  function addCheckInClearResponse(response: CheckInClearResponse) {
+    checkInsLeft = checkInsLeft.filter((r) => r.username !== response.username);
+    updateAllSubscribers();
+  }
+
+  receiver.addEventListener('message', (message_event) => {
+    const data = JSON.parse(message_event.data);
+    if ('type' in data) {
+      switch (data['type']) {
+        case 'checkincleared':
+          addCheckInClearResponse(data as CheckInClearResponse);
+          break;
+
+        case 'checkinresponse':
+          addCheckInResponse(data as CheckInResponse);
+          break;
+
+        default:
+          console.log('unknown message in bus, ignoring...');
+      }
+    }
+  });
+
+  function subscribe(subscription: (value: CheckInResponse[]) => void): () => void {
+    subscribers.push(subscription);
+    subscription(checkInsLeft);
+    return () => {
+      subscribers = subscribers.filter((sub) => sub !== subscription);
+    };
+  }
+
+  return {
+    get checkInsLeft() {
+      return checkInsLeft;
+    },
+    addCheckInClearResponse,
+    addCheckInResponse,
+    subscribe
+  };
+}
 
 function createGoodnightKissStore() {
   interface KissProperties {
@@ -11,7 +69,7 @@ function createGoodnightKissStore() {
   let properties: KissProperties = {
     username: '',
     color: 'black',
-    fast_version: false,
+    fast_version: false
   };
   let subscribers: Array<(value: KissProperties) => void> = [];
 
@@ -32,8 +90,8 @@ function createGoodnightKissStore() {
     properties = {
       username: '',
       color: properties.color,
-      fast_version: false,
-    }
+      fast_version: false
+    };
     updateAllSubscribers();
   }
 

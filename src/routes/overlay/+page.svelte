@@ -4,6 +4,7 @@
   import { createNewTwitchApiClient, createNewTwitchClientV2 } from '$lib/twitch';
   import {
     PUBLIC_BUS_URL,
+    PUBLIC_RECEIVER_URL,
     PUBLIC_HEARTRATE_URL,
     PUBLIC_TWITCH_APP_ID,
     PUBLIC_TWITCH_APP_SECRET,
@@ -19,7 +20,8 @@
     maxwellStore,
     mistakeStore,
     showImageStore,
-    goodnightKissStore
+    goodnightKissStore,
+    createCheckInStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -49,6 +51,8 @@
   let mistakeCount = 0;
 
   let heartrateGraphParent: HTMLDivElement;
+
+  const checkInStore = createCheckInStore(new WebSocket(PUBLIC_RECEIVER_URL));
 
   function onShowImageLoad(event: Event) {
     // once the image loads, reposition and rescale it immediately
@@ -326,6 +330,14 @@
         <source src="/blacksilence.webm" /> Video tag smile
       </video>
     </div>{/if}
+  {#if $checkInStore.length !== 0}
+    <div class="checkInRedeems">
+      <h1>Starting Soon Check Ins (next time show up on time HAH)</h1>
+      {#each $checkInStore as checkInObject}
+        <p>{checkInObject.username}: {checkInObject.message}</p>
+      {/each}
+    </div>
+  {/if}
   {#if $goodnightKissStore.username}
     <div class="goodnightkiss fullscreenvideo">
       <div class="innercontainer">
@@ -336,10 +348,15 @@
       </div>
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay loop>
-          <source src={$goodnightKissStore.fast_version ? "/bedgeborderfast.webm" : "/bedgeborder.webm"} /> Video tagsmile
+        <source
+          src={$goodnightKissStore.fast_version ? '/bedgeborderfast.webm' : '/bedgeborder.webm'}
+        /> Video tagsmile
       </video>
-      <audio autoplay loop volume='0.2'>
-          <source src={$goodnightKissStore.fast_version ? "/bedgefast.mp3" : "/bedge.mp3"} type="audio/mpeg" /> Audio
+      <audio autoplay loop volume="0.2">
+        <source
+          src={$goodnightKissStore.fast_version ? '/bedgefast.mp3' : '/bedge.mp3'}
+          type="audio/mpeg"
+        /> Audio
       </audio>
     </div>
   {/if}
@@ -411,6 +428,32 @@
 <style>
   .showImage {
     position: absolute;
+  }
+
+  .checkInRedeems {
+    display: flex;
+    flex-direction: column;
+    margin: 10%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+  }
+
+  .checkInRedeems p {
+    width: 50%;
+    font-size: 24px;
+    text-wrap: pretty;
+    background-color: black;
+    color: white;
+    padding: 4px;
+  }
+
+  .checkInRedeems h1 {
+    color: white;
+    background-color: black;
+    width: 50%;
   }
 
   .catDVDOverlay {
