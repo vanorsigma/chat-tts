@@ -1,0 +1,17 @@
+[project]
+name = "checkin"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "nltk>=3.9.2",
+    "numpy>=2.3.4",
+    "openai>=2.4.0",
+    "openai-whisper>=20250625",
+    "pyaudio>=0.2.14",
+    "pydantic>=2.12.2",
+    "speechrecognition>=3.14.3",
+    "torch>=2.9.0",
+    "websockets>=15.0.1",
+]

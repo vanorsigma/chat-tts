@@ -18,6 +18,7 @@ import { ShowImageObserver } from './showImage';
 import { GLOBAL_HEART_STOCK_MARKET, HeartrateStockMarketError } from './heartstockmarket.svelte';
 import type { ChatMessage } from '@twurple/chat';
 import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
+import { checkinUser } from './checkinInterface';
 
 export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
@@ -170,7 +171,11 @@ function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
   })();
 }
 
-function checkInHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+function checkInHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  sender: WebSocket | undefined = undefined
+) {
   const user = message.userInfo;
   if (!user.userName) return;
 
@@ -190,6 +195,7 @@ function checkInHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   PEOPLE_WHO_CHECKED_IN.push(user.userName);
 
   checkCostAddIfEnough(dispatcher, message.channelId!, username, CHECK_IN_POINTS);
+  if (sender) checkinUser(username, sender);
 }
 
 async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -540,7 +546,7 @@ export class Commands implements OverlayObserver {
         this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, message));
         break;
       case '%checkin':
-        checkInHandler(dispatcher, message);
+        checkInHandler(dispatcher, message, this.busWs);
         break;
       case '%flashbang':
         this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, message));
