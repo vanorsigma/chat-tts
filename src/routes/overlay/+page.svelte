@@ -72,8 +72,10 @@
     const targetWidth = Math.max(Math.random(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
     const targetHeight = (naturalHeight / naturalWidth) * targetWidth;
 
-    imgTarget.style.left = `${targetWidth + Math.random() * (fullWidthNo - 2 * targetWidth)}px`;
-    imgTarget.style.top = `${targetHeight + Math.random() * (fullHeightNo - 2 * targetHeight)}px`;
+    const randoms = new Uint8Array(2);
+    crypto.getRandomValues(randoms);
+    imgTarget.style.left = `${(randoms[0] / 255.0) * (fullWidthNo - targetWidth)}px`;
+    imgTarget.style.top = `${(randoms[1] / 255.0) * (fullHeightNo - targetWidth)}px`;
     imgTarget.style.width = `${targetWidth}px`;
     imgTarget.style.height = `${targetHeight}px`;
   }
@@ -306,6 +308,7 @@
     chatBulletBackend?.setEnabled(false);
     blackSilenceBorder = true;
     showImageStore.purge();
+    playAudioStore.purge();
 
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);

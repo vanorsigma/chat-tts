@@ -22,7 +22,12 @@ import { checkinUser } from './checkinInterface';
 import { ApprovableObserver } from './approvable';
 
 import * as Constants from './constants';
-import { playAudio } from '$lib/speech';
+import {
+  extractTag,
+  getAttachmentUrlForTag,
+  isTagExist,
+  registerTag
+} from './attachmentsInterface';
 
 const COOLDOWN = 10 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
@@ -283,7 +288,7 @@ function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   })();
 }
 
-function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
@@ -294,12 +299,35 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
     return;
   }
 
-  const imageUrl = args[1];
+  let imageUrl = args[1];
+  let optionalTagName = args.at(2);
+  let isTag = false;
+
+  if (extractTag(imageUrl)) {
+    const tag = extractTag(imageUrl)!;
+    if (await isTagExist(tag)) {
+      imageUrl = getAttachmentUrlForTag(tag);
+      optionalTagName = undefined;
+      isTag = true;
+    } else {
+      dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
+      return;
+    }
+  }
+
+  const addUrl = async () => {
+    showImageStore.addUrl(imageUrl);
+    try {
+      if (optionalTagName) await registerTag(optionalTagName, imageUrl);
+    } catch (e) {
+      dispatcher.sendMessageAsUser(message.channelId!, 'cannot add tag image: {e}');
+    }
+  };
 
   (async () => {
     if (username === Constants.SHOW_IMAGE_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
-      showImageStore.addUrl(imageUrl);
+      addUrl();
     } else {
       if (
         !(await checkCostAddIfEnough(
@@ -312,8 +340,8 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
         return;
       dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.SHOW_IMAGE_COST}`);
 
-      if (message.userInfo.isMod || message.userInfo.isBroadcaster) {
-        showImageStore.addUrl(imageUrl);
+      if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
+        addUrl();
       } else {
         dispatcher.sendMessageAsUser(
           message.channelId!,
@@ -323,7 +351,7 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.SHOW_IMAGE_USER],
-          () => showImageStore.addUrl(imageUrl),
+          () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
         );
         dispatcher.addObserver(approverObserver);
@@ -332,7 +360,7 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
   })();
 }
 
-function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
@@ -343,12 +371,34 @@ function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
     return;
   }
 
-  const audioUrl = args[1];
+  let audioUrl = args[1];
+  let optionalTagName = args.at(2);
+  let isTag = false;
+
+  if (extractTag(audioUrl)) {
+    const tag = extractTag(audioUrl)!;
+    if (await isTagExist(tag)) {
+      audioUrl = getAttachmentUrlForTag(tag);
+      optionalTagName = undefined;
+      isTag = true;
+    } else {
+      dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
+      return;
+    }
+  }
+  const addUrl = async () => {
+    try {
+      playAudioStore.addUrl(audioUrl);
+      if (optionalTagName) await registerTag(optionalTagName, audioUrl);
+    } catch (e) {
+      dispatcher.sendMessageAsUser(message.channelId!, 'cannot add tag audio: {e}');
+    }
+  };
 
   (async () => {
     if (username === Constants.SHOW_IMAGE_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
-      playAudioStore.addUrl(audioUrl);
+      addUrl();
     } else {
       if (
         !(await checkCostAddIfEnough(
@@ -361,8 +411,8 @@ function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
         return;
       dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.PLAY_AUDIO_COST}`);
 
-      if (message.userInfo.isMod || message.userInfo.isBroadcaster) {
-        playAudioStore.addUrl(audioUrl);
+      if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
+        addUrl();
       } else {
         dispatcher.sendMessageAsUser(
           message.channelId!,
@@ -372,7 +422,7 @@ function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.PLAY_AUDIO_USER],
-          () => playAudioStore.addUrl(audioUrl),
+          () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
         );
         dispatcher.addObserver(approverObserver);
