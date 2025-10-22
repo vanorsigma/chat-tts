@@ -22,8 +22,8 @@ BASE_URL = "http://127.0.0.1:11434/v1"
 PROMPT_STR = """You will be given a username. Assuming that you are a catmaid programmer called VanorSigma, come up with an embarrasing and short response (< 20 words) to greet the user into the stream."""
 WS_SENDER_URL = "ws://127.0.0.1:3001/senders"
 WS_RECEIVERS_URL = "ws://127.0.0.1:3001/receivers"
-# MODEL_NAME = "gemma3:12b-it-qat"
-MODEL_NAME = "gemma3:4b"
+MODEL_NAME = "gemma3:12b-it-qat"
+# MODEL_NAME = "gemma3:4b"
 MIC_NAME = "pipewire"  # change to pulse to use pulse
 
 checkins_mutex = asyncio.Lock()

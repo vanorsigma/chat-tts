@@ -49,6 +49,9 @@ export class OverlayDispatchers {
   }
 
   async sendMessageAsUser(channelId: string, message: string) {
+    if (import.meta.env.DEV)
+      return;
+
     await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
   }
 }
