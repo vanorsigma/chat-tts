@@ -1,6 +1,50 @@
 import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
-import { SHOW_IMAGE_COOLDOWN } from './showImage';
+import { SHOW_IMAGE_COOLDOWN } from './constants';
+
+function createPlayAudioStore() {
+  let audioUrls: Array<string> = [];
+  let subscribers: Array<(value: string | undefined) => void> = [];
+
+  function updateAllSubscribers() {
+    subscribers.forEach((subscriber) => subscriber(audioUrls.at(0)));
+  }
+
+  function addUrl(audioUrl: string) {
+    audioUrls.push(audioUrl);
+    updateAllSubscribers();
+  }
+
+  function dequeue() {
+    audioUrls = audioUrls.slice(1);
+    updateAllSubscribers();
+  }
+
+  function purge() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    audioUrls = [];
+    updateAllSubscribers();
+  }
+
+  function subscribe(subscription: (value: string | undefined) => void): () => void {
+    subscribers.push(subscription);
+    subscription(audioUrls.at(0));
+    return () => {
+      subscribers = subscribers.filter((sub) => sub !== subscription);
+    };
+  }
+
+  return {
+    get audioUrls() {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      return audioUrls.slice();
+    },
+    dequeue,
+    subscribe,
+    addUrl,
+    purge
+  };
+}
 
 /// createCheckInStore() is special in the sense that it requires a URL.
 /// As such, this store should be constructed in the overlay, so that the overlay
@@ -127,11 +171,11 @@ function createShowImageStore() {
       imageUrl,
       setTimeout(() => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        imageUrls = imageUrls.filter(([url, _]) => url !== imageUrl);
+        const firstIndex = imageUrls.findIndex(([url, _]) => url === imageUrl);
+        imageUrls = [...imageUrls.slice(0, firstIndex), ...imageUrls.slice(firstIndex + 1)];
         updateAllSubscribers();
       }, SHOW_IMAGE_COOLDOWN)
     ]);
-
     updateAllSubscribers();
   }
 
@@ -272,4 +316,5 @@ export const blackSilenceStore = createBlackSilenceStore();
 export const maxwellStore = createMaxwellStore();
 export const mistakeStore = createMistakeStore();
 export const showImageStore = createShowImageStore();
+export const playAudioStore = createPlayAudioStore();
 export const goodnightKissStore = createGoodnightKissStore();

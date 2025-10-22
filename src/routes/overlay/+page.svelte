@@ -12,7 +12,8 @@
     PUBLIC_KIKI_API
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
-  import { BLACK_SILENCE_DURATION, Commands } from './commands';
+  import { BLACK_SILENCE_DURATION } from './constants';
+  import { Commands } from './commands';
   import {
     pollStore,
     flashbangStore,
@@ -20,6 +21,7 @@
     maxwellStore,
     mistakeStore,
     showImageStore,
+    playAudioStore,
     goodnightKissStore,
     createCheckInStore
   } from './stores.svelte';
@@ -89,6 +91,15 @@
         (Math.random() - 0.5) * 2
       ]);
     }
+  }
+
+  $: {
+    const audioUrl = $playAudioStore;
+    const audio = new Audio(audioUrl);
+    audio.play();
+    audio.addEventListener('ended', () => {
+      onAudioPlaybackOver();
+    });
   }
 
   function normalizeVector(vector: [number, number]): [number, number] {
@@ -308,6 +319,10 @@
 
   function onMistakeDone() {
     mistakeCount = mistakeStore.count;
+  }
+
+  function onAudioPlaybackOver() {
+    playAudioStore.dequeue();
   }
 </script>
 

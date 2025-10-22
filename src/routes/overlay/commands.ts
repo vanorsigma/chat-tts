@@ -10,37 +10,19 @@ import {
   goodnightKissStore,
   maxwellStore,
   mistakeStore,
+  playAudioStore,
   showImageStore
 } from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
-import { ShowImageObserver } from './showImage';
 import { GLOBAL_HEART_STOCK_MARKET, HeartrateStockMarketError } from './heartstockmarket.svelte';
 import type { ChatMessage } from '@twurple/chat';
 import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
 import { checkinUser } from './checkinInterface';
+import { ApprovableObserver } from './approvable';
 
-export const BLACK_SILENCE_USER = 'nikitakik228';
-export const BLACK_SILENCE_DURATION = 10 * 1000;
-export const BLACK_SILENCE_COST = 500;
-
-export const FLASHBANG_COST = 500;
-
-export const MAXWELL_COST = 100;
-export const MAXWELL_USER = '5kuli';
-
-export const MISTAKE_COST = 5000;
-export const MISTAKE_USER = 'mr_auto';
-
-export const SHOW_IMAGE_COST = 10_000;
-export const SHOW_IMAGE_USER = 'mayoigo_qwq';
-
-export const SELF_THOUGHT_COST = 5000;
-
-export const GOOD_NIGHT_KISS_COST = 5000;
-export const GOOD_NIGHT_KISS_USER = 'pastel8844';
-
-export const CHECK_IN_POINTS = 999.99;
+import * as Constants from './constants';
+import { playAudio } from '$lib/speech';
 
 const COOLDOWN = 10 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
@@ -69,12 +51,19 @@ async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessa
   const username = user.userName;
 
   (async () => {
-    if (username === MAXWELL_USER) {
+    if (username === Constants.MAXWELL_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -MAXWELL_COST)))
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.MAXWELL_COST
+        ))
+      )
         return;
-      dispatcher.sendMessageAsUser(message.channelId!, `-${MAXWELL_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.MAXWELL_COST}`);
     }
 
     maxwellStore.increment();
@@ -109,37 +98,37 @@ function getCostHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
 
   switch (subcommand) {
     case 'blacksilence':
-      dispatcher.sendMessageAsUser(message.channelId!, `${BLACK_SILENCE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.BLACK_SILENCE_COST}`);
       break;
 
     case 'flashbang':
-      dispatcher.sendMessageAsUser(message.channelId!, `${FLASHBANG_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.FLASHBANG_COST}`);
       break;
 
     case 'maxwell':
-      dispatcher.sendMessageAsUser(message.channelId!, `${MAXWELL_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.MAXWELL_COST}`);
       break;
 
     case 'mistake':
-      dispatcher.sendMessageAsUser(message.channelId!, `${MISTAKE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.MISTAKE_COST}`);
       break;
 
     case 'showimage':
-      dispatcher.sendMessageAsUser(message.channelId!, `${SHOW_IMAGE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.SHOW_IMAGE_COST}`);
       break;
 
     case 'selfThought':
-      dispatcher.sendMessageAsUser(message.channelId!, `${SELF_THOUGHT_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.SELF_THOUGHT_COST}`);
       break;
 
     case 'goodnightkiss':
-      dispatcher.sendMessageAsUser(message.channelId!, `${GOOD_NIGHT_KISS_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `${Constants.GOOD_NIGHT_KISS_COST}`);
       break;
 
     default:
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `~ %blacksilence: ${BLACK_SILENCE_COST}; %flashbang: ${FLASHBANG_COST}; %maxwell: ${MAXWELL_COST}; %mistake: ${MISTAKE_COST}; %showimage: ${SHOW_IMAGE_COST}; %selfthought: ${SELF_THOUGHT_COST}`
+        `~ %blacksilence: ${Constants.BLACK_SILENCE_COST}; %flashbang: ${Constants.FLASHBANG_COST}; %maxwell: ${Constants.MAXWELL_COST}; %mistake: ${Constants.MISTAKE_COST}; %showimage: ${Constants.SHOW_IMAGE_COST}; %selfthought: ${Constants.SELF_THOUGHT_COST}`
       );
       break;
   }
@@ -190,11 +179,11 @@ function checkInHandler(
 
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `meow ${user.userName} vedalWave , here's +${CHECK_IN_POINTS}`
+    `meow ${user.userName} vedalWave , here's +${Constants.CHECK_IN_POINTS}`
   );
   PEOPLE_WHO_CHECKED_IN.push(user.userName);
 
-  checkCostAddIfEnough(dispatcher, message.channelId!, username, CHECK_IN_POINTS);
+  checkCostAddIfEnough(dispatcher, message.channelId!, username, Constants.CHECK_IN_POINTS);
   if (sender) checkinUser(username, sender);
 }
 
@@ -204,9 +193,19 @@ async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMes
     const username = user.userName;
     if (!username) return;
 
-    if (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -FLASHBANG_COST)) {
+    if (
+      await checkCostAddIfEnough(
+        dispatcher,
+        message.channelId!,
+        username,
+        -Constants.FLASHBANG_COST
+      )
+    ) {
       flashbangStore.increment();
-      dispatcher.sendMessageAsUser(message.channelId!, `Throwing a flashbang, -${FLASHBANG_COST}`);
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `Throwing a flashbang, -${Constants.FLASHBANG_COST}`
+      );
     }
   } else {
     dispatcher.sendMessageAsUser(message.channelId!, 'NO xdHAH');
@@ -220,14 +219,19 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessag
   const username = user.userName;
 
   (async () => {
-    if (username === BLACK_SILENCE_USER) {
+    if (username === Constants.BLACK_SILENCE_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
       if (
-        !(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -BLACK_SILENCE_COST))
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.BLACK_SILENCE_COST
+        ))
       )
         return;
-      dispatcher.sendMessageAsUser(message.channelId!, `-${BLACK_SILENCE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.BLACK_SILENCE_COST}`);
     }
 
     blackSilenceStore.increment();
@@ -246,7 +250,7 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessag
         type: 'tts',
         command: {
           type: 'disable',
-          duration: BLACK_SILENCE_DURATION / 1000
+          duration: Constants.BLACK_SILENCE_DURATION / 1000
         }
       } as DisableTTS)
     );
@@ -260,12 +264,19 @@ function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = user.userName;
 
   (async () => {
-    if (username === MISTAKE_USER) {
+    if (username === Constants.MISTAKE_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok, but i hate u btw');
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -MISTAKE_COST)))
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.MISTAKE_COST
+        ))
+      )
         return;
-      dispatcher.sendMessageAsUser(message.channelId!, `-${MISTAKE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.MISTAKE_COST}`);
     }
 
     mistakeStore.increment();
@@ -286,13 +297,20 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
   const imageUrl = args[1];
 
   (async () => {
-    if (username === SHOW_IMAGE_USER) {
+    if (username === Constants.SHOW_IMAGE_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
       showImageStore.addUrl(imageUrl);
     } else {
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -SHOW_IMAGE_COST)))
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.SHOW_IMAGE_COST
+        ))
+      )
         return;
-      dispatcher.sendMessageAsUser(message.channelId!, `-${SHOW_IMAGE_COST}`);
+      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.SHOW_IMAGE_COST}`);
 
       if (message.userInfo.isMod || message.userInfo.isBroadcaster) {
         showImageStore.addUrl(imageUrl);
@@ -302,10 +320,62 @@ function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
           '@pastel8844 , @deplytha , @mayoigo_QwQ pls check and approve'
         );
 
-        const showImageObserver = new ShowImageObserver(dispatcher, [SHOW_IMAGE_USER], () =>
-          showImageStore.addUrl(imageUrl)
+        const approverObserver = new ApprovableObserver(
+          dispatcher,
+          [Constants.SHOW_IMAGE_USER],
+          () => showImageStore.addUrl(imageUrl),
+          () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
         );
-        dispatcher.addObserver(showImageObserver);
+        dispatcher.addObserver(approverObserver);
+      }
+    }
+  })();
+}
+
+function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  if (!message.userInfo.userName) return;
+
+  const username = message.userInfo.userName;
+  const args = message.text.replace('  ', ' ').split(' ');
+
+  if (args.length < 1) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
+    return;
+  }
+
+  const audioUrl = args[1];
+
+  (async () => {
+    if (username === Constants.SHOW_IMAGE_USER) {
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok');
+      playAudioStore.addUrl(audioUrl);
+    } else {
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.PLAY_AUDIO_COST
+        ))
+      )
+        return;
+      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.PLAY_AUDIO_COST}`);
+
+      if (message.userInfo.isMod || message.userInfo.isBroadcaster) {
+        playAudioStore.addUrl(audioUrl);
+      } else {
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          '@pastel8844 , @deplytha , @SpookiestSpooks pls check and approve'
+        );
+
+        const approverObserver = new ApprovableObserver(
+          dispatcher,
+          [Constants.PLAY_AUDIO_USER],
+          () => playAudioStore.addUrl(audioUrl),
+          () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+        );
+        dispatcher.addObserver(approverObserver);
       }
     }
   })();
@@ -426,7 +496,14 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
 
   const text = message.text.split(' ').slice(1).join(' ');
 
-  if (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -SELF_THOUGHT_COST)) {
+  if (
+    await checkCostAddIfEnough(
+      dispatcher,
+      message.channelId!,
+      username,
+      -Constants.SELF_THOUGHT_COST
+    )
+  ) {
     const msg = encodeURIComponent(text);
     const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/processMessage?message=${msg}`);
     if (response.status !== 200) {
@@ -436,9 +513,12 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
       );
 
       const points = (await getPointsForUser(username)) ?? 0;
-      await setPointsForUser(username, points + SELF_THOUGHT_COST);
+      await setPointsForUser(username, points + Constants.SELF_THOUGHT_COST);
     } else {
-      await dispatcher.sendMessageAsUser(message.channelId!, `@${username} -${SELF_THOUGHT_COST}`);
+      await dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `@${username} -${Constants.SELF_THOUGHT_COST}`
+      );
     }
   }
 }
@@ -466,7 +546,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
 
   let targetUser = message.userInfo.userName;
   // only the VIP owner can change the target user
-  if (message.userInfo.userName === GOOD_NIGHT_KISS_USER && args[0]) targetUser = args[0];
+  if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER && args[0]) targetUser = args[0];
   else if (args[0]) {
     await dispatcher.sendMessageAsUser(
       message.channelId!,
@@ -476,21 +556,26 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   }
 
   if (
-    message.userInfo.userName === GOOD_NIGHT_KISS_USER ||
-    (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -SELF_THOUGHT_COST))
+    message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER ||
+    (await checkCostAddIfEnough(
+      dispatcher,
+      message.channelId!,
+      username,
+      -Constants.SELF_THOUGHT_COST
+    ))
   ) {
     goodnightKissStore.setProperties({
       username: targetUser ?? 'no username?',
       color: message.userInfo.color ?? 'lightgrey',
-      fast_version: message.userInfo.userName === 'spookiestspooks' || Math.random() < 0.1
+      fast_version: Math.random() < 0.1
     });
 
-    if (message.userInfo.userName === GOOD_NIGHT_KISS_USER) {
+    if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER) {
       await dispatcher.sendMessageAsUser(message.channelId!, `...`);
     } else {
       await dispatcher.sendMessageAsUser(
         message.channelId!,
-        `why did u claim this -${GOOD_NIGHT_KISS_COST}`
+        `why did u claim this -${Constants.GOOD_NIGHT_KISS_COST}`
       );
     }
   } else {
@@ -575,6 +660,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%showimage':
         showImageHandler(dispatcher, message);
+        break;
+      case '%playaudio':
+        playAudioHandler(dispatcher, message);
         break;
       case '%invest':
         investHandler(dispatcher, message, 'invest');
