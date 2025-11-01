@@ -95,14 +95,14 @@
     }
   }
 
-  $: {
-    const audioUrl = $playAudioStore;
-    const audio = new Audio(audioUrl);
+  $: playAudioStore.subscribe((url) => {
+    const audio = new Audio(url);
+    audio.volume = 0.5;
     audio.play();
     audio.addEventListener('ended', () => {
       onAudioPlaybackOver();
     });
-  }
+  });
 
   function normalizeVector(vector: [number, number]): [number, number] {
     const sumSquared = Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
