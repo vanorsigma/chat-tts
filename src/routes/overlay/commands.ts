@@ -555,7 +555,7 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
     )
   ) {
     const msg = encodeURIComponent(text);
-    const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/processMessage?message=${msg}`);
+    const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/generate-audio/?prompt=${msg}`);
     if (response.status !== 200) {
       await dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -680,6 +680,7 @@ export class Commands implements OverlayObserver {
       case '%poll':
         this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, message));
         break;
+      case '%chicken':
       case '%checkin':
         checkInHandler(dispatcher, message, this.busWs);
         break;
@@ -711,6 +712,7 @@ export class Commands implements OverlayObserver {
       case '%showimage':
         showImageHandler(dispatcher, message);
         break;
+      case '%playsound':
       case '%playaudio':
         playAudioHandler(dispatcher, message);
         break;
