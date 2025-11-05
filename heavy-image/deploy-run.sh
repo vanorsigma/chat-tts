@@ -5,7 +5,8 @@
 
 source /.venv/bin/activate
 ollama serve &
-sleep 30 && ollama create kiki -f /opt/Modelfile
+sleep 30 && ollama pull gemma3:12b-it-qat
+ollama create kiki -f /opt/Modelfile
 
 cd /opt/chatterbox-deploy
 python3 server.py

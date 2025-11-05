@@ -15,9 +15,9 @@ import {
 } from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
-import { GLOBAL_HEART_STOCK_MARKET, HeartrateStockMarketError } from './heartstockmarket.svelte';
+import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
 import type { ChatMessage } from '@twurple/chat';
-import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
+import { PUBLIC_SELF_THOUGHT_URL, PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { checkinUser } from './checkinInterface';
 import { ApprovableObserver } from './approvable';
 
@@ -555,7 +555,7 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
     )
   ) {
     const msg = encodeURIComponent(text);
-    const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/generate-audio/?prompt=${msg}`);
+    const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/processMessage?message=${msg}`);
     if (response.status !== 200) {
       await dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -662,10 +662,12 @@ export class Commands implements OverlayObserver {
     };
   }
 
-  callOnlyIfPastCooldown(callback: () => void) {
+  callOnlyIfPastCooldown(dispatcher: OverlayDispatchers, callback: () => void) {
     if (new Date().getTime() >= this.nextValid) {
       callback();
       this.nextValid = new Date().getTime() + COOLDOWN;
+    } else {
+      dispatcher.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'Command under cooldown!');
     }
   }
 
@@ -678,14 +680,14 @@ export class Commands implements OverlayObserver {
     const commandIndicator = message.text.split(' ')[0];
     switch (commandIndicator) {
       case '%poll':
-        this.callOnlyIfPastCooldown(() => pollCommandHandler(dispatcher, message));
+        this.callOnlyIfPastCooldown(dispatcher, () => pollCommandHandler(dispatcher, message));
         break;
       case '%chicken':
       case '%checkin':
         checkInHandler(dispatcher, message, this.busWs);
         break;
       case '%flashbang':
-        this.callOnlyIfPastCooldown(() => flashbangHandler(dispatcher, message));
+        this.callOnlyIfPastCooldown(dispatcher, () => flashbangHandler(dispatcher, message));
         break;
       case '%blacksilence':
         if (this.busWs) blackSilenceHandler(dispatcher, message, this.busWs);
@@ -729,7 +731,7 @@ export class Commands implements OverlayObserver {
         closeMarketHandler(dispatcher, message);
         break;
       case '%selfthought':
-        this.callOnlyIfPastCooldown(() => selfThoughtHandler(dispatcher, message));
+        this.callOnlyIfPastCooldown(dispatcher, () => selfThoughtHandler(dispatcher, message));
         break;
       case '%goodnightkiss':
         goodnightkissHandler(dispatcher, message);

@@ -9,7 +9,8 @@
     PUBLIC_TWITCH_APP_ID,
     PUBLIC_TWITCH_APP_SECRET,
     PUBLIC_TWITCH_BOT_ID,
-    PUBLIC_KIKI_API
+    PUBLIC_KIKI_API,
+    PUBLIC_TARGET_CHANNEL_ID
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import { BLACK_SILENCE_DURATION } from './constants';
@@ -53,6 +54,9 @@
   let mistakeCount = 0;
 
   let heartrateGraphParent: HTMLDivElement;
+  let dispatchers: OverlayDispatchers | null = null;
+
+  let currentlyPlayingAudios: HTMLAudioElement[] = [];
 
   const checkInStore = createCheckInStore(new WebSocket(PUBLIC_RECEIVER_URL));
 
@@ -94,15 +98,6 @@
       ]);
     }
   }
-
-  $: playAudioStore.subscribe((url) => {
-    const audio = new Audio(url);
-    audio.volume = 0.5;
-    audio.play();
-    audio.addEventListener('ended', () => {
-      onAudioPlaybackOver();
-    });
-  });
 
   function normalizeVector(vector: [number, number]): [number, number] {
     const sumSquared = Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
@@ -265,12 +260,31 @@
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
     chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client, PUBLIC_KIKI_API);
-    let dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
+    dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);
     client.connect();
     captchaLoop(dispatchers);
+
+    playAudioStore.subscribe(async (url) => {
+      try {
+        const audio = new Audio(url);
+        audio.volume = 0.5;
+        currentlyPlayingAudios.push(audio);
+        await audio.play();
+        audio.addEventListener('ended', () => {
+          onAudioPlaybackOver(audio);
+        });
+      } catch {
+        // HACK: Ugly hardcoded channel constant
+        await dispatchers?.sendMessageAsUser(
+          PUBLIC_TARGET_CHANNEL_ID,
+          'failed to play for some reason'
+        );
+        playAudioStore.dequeue();
+      }
+    });
 
     stockMarket.subscribe((heartrates) => {
       const graph = buildSvgGraphFor(heartrates);
@@ -306,7 +320,10 @@
   function onBlackSilenceStart() {
     chatBulletBackend?.deleteAllBullets();
     chatBulletBackend?.setEnabled(false);
+    currentlyPlayingAudios.forEach((aud) => aud.pause());
+    currentlyPlayingAudios = [];
     blackSilenceBorder = true;
+    playAudioStore.purge();
     showImageStore.purge();
     playAudioStore.purge();
 
@@ -324,8 +341,9 @@
     mistakeCount = mistakeStore.count;
   }
 
-  function onAudioPlaybackOver() {
+  function onAudioPlaybackOver(audio: HTMLAudioElement) {
     playAudioStore.dequeue();
+    currentlyPlayingAudios = currentlyPlayingAudios.filter((aud) => aud !== audio);
   }
 </script>
 
