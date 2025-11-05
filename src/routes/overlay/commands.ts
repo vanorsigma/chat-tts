@@ -581,8 +581,9 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
 
   const args = message.text.split(' ').slice(1);
   if (args[0] === 'clear' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
-    goodnightKissStore.reset();
+    const userid = goodnightKissStore.reset();
     dispatcher.sendMessageAsUser(message.channelId!, 'Cleared');
+    dispatcher.timeoutUser(message.channelId!, userid, 'Good night! EvilTuckk', 28800);
     return;
   }
 
@@ -595,15 +596,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   }
 
   let targetUser = message.userInfo.userName;
-  // only the VIP owner can change the target user
-  if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER && args[0]) targetUser = args[0];
-  else if (args[0]) {
-    await dispatcher.sendMessageAsUser(
-      message.channelId!,
-      'Only the owner of the VIP command can target another person for the good night kiss'
-    );
-    return;
-  }
+  let targetUserId = message.userInfo.userId;
 
   if (
     message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER ||
@@ -616,6 +609,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   ) {
     goodnightKissStore.setProperties({
       username: targetUser ?? 'no username?',
+      userid: targetUserId,
       color: message.userInfo.color ?? 'lightgrey',
       fast_version: Math.random() < 0.1
     });
