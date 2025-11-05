@@ -1,5 +1,3 @@
-import { AnimatedSprite, Assets, Sprite, Texture } from 'pixi.js';
-
 type Emote = {
   id: string;
   name: string;
@@ -86,41 +84,6 @@ async function getAllEmotesListCached(emoteSetId: string): Promise<Emote[]> {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export async function is7TVEmote(emoteSetId: string, word: string): Promise<Emote | null> {
   return (await getAllEmotesListCached(emoteSetId)).filter((e) => e.name === word).at(0) ?? null;
-}
-
-export async function fetchAnimatedSprite(url: string): Promise<Sprite | null> {
-  const response = await fetch(url);
-  const imageBlob = await (await response.blob()).arrayBuffer();
-
-  const decoder = new ImageDecoder({
-    data: imageBlob,
-    type: response.headers.get('content-type') ?? 'image/webp'
-  });
-  await decoder.completed;
-  await sleep(1);
-
-  const textures = [];
-  for (let i = 0; i < decoder.tracks[0].frameCount; i++) {
-    const frame = await decoder.decode({ frameIndex: i });
-    const texture = Texture.from(frame.image);
-    textures.push(texture);
-  }
-
-  if (textures.length === 0) {
-    const texture = await Assets.load(url);
-    return new Sprite(texture);
-  }
-
-  const animatedSprite = new AnimatedSprite(textures);
-  animatedSprite.animationSpeed = 0.4;
-  animatedSprite.loop = true;
-  animatedSprite.play();
-
-  return animatedSprite;
 }

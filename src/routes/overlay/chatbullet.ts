@@ -4,7 +4,8 @@
  * 4th re-write LULE
  */
 
-import { fetchAnimatedSprite, is7TVEmote } from '$lib/seventv';
+import { fetchAnimatedSprite } from './utils';
+import { is7TVEmote } from '$lib/seventv';
 import { Application, Container, TextStyle, Ticker, Text } from 'pixi.js';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import { KikiAPI } from './kikiapi';
@@ -133,24 +134,19 @@ export interface ChatBulletProperties {
 const PADDING = 5;
 
 export class ChatBulletContainer {
-  private root: HTMLDivElement;
   private app: Application;
   private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
 
-  constructor(root: HTMLDivElement, twitch: ChatClient, kikiUrl: string) {
-    this.root = root;
-    this.app = new Application();
+  constructor(twitch: ChatClient, kikiUrl: string, app: Application) {
+    this.app = app;
     this.kiki = new KikiAPI(kikiUrl);
 
     this.initLater(twitch);
   }
 
   async initLater(twitch: ChatClient) {
-    await this.app.init({ background: 'transparent', resizeTo: this.root, backgroundAlpha: 0 });
-    this.app.ticker.maxFPS = 30;
-    this.root.appendChild(this.app.canvas);
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.app.ticker.add((time) => this.drawFrameLoop(time));
   }

@@ -13,7 +13,7 @@
     PUBLIC_TARGET_CHANNEL_ID
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
-  import { BLACK_SILENCE_DURATION } from './constants';
+  import { BLACK_SILENCE_DURATION, MAXWELL_COOLDOWN } from './constants';
   import { Commands } from './commands';
   import {
     pollStore,
@@ -31,8 +31,10 @@
   import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
   import * as d3 from 'd3';
   import type { ChatClient } from '@twurple/chat';
+  import { makeApplication } from './utils';
+  import { MaxwellContainer } from './maxwell';
 
-  export let chatBulletContainer: HTMLDivElement;
+  let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
   let stockMarket = GLOBAL_HEART_STOCK_MARKET;
 
@@ -47,9 +49,6 @@
   let captchaText: string | null = null;
   let captchaTop = 0;
   let captchaLeft = 0;
-
-  let catDVDOverlay: HTMLDivElement;
-  let catDVDCount = 0;
 
   let mistakeCount = 0;
 
@@ -82,93 +81,6 @@
     imgTarget.style.top = `${(randoms[1] / 255.0) * (fullHeightNo - targetWidth)}px`;
     imgTarget.style.width = `${targetWidth}px`;
     imgTarget.style.height = `${targetHeight}px`;
-  }
-
-  $: {
-    if (catDVDCount < $maxwellStore) {
-      const ele = new Image();
-      ele.src = '/catBreadSpin.gif';
-      ele.style.position = 'relative';
-      ele.style.width = '200px';
-      catDVDOverlay.append(ele);
-
-      catDVDAnimationFrame(ele, performance.now(), 0, 0, [
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2
-      ]);
-    }
-  }
-
-  function normalizeVector(vector: [number, number]): [number, number] {
-    const sumSquared = Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
-    return [vector[0] / sumSquared, vector[1] / sumSquared];
-  }
-
-  function catDVDHitEdge(top: number, left: number, maxHeight: number, maxWidth: number): boolean {
-    return top <= 0 || left <= 0 || top >= maxHeight || left >= maxWidth;
-  }
-
-  function catDVDModifyVector(
-    left: number,
-    top: number,
-    maxHeight: number,
-    maxWidth: number,
-    vector: [number, number]
-  ) {
-    let newX = vector[1];
-    let newY = vector[0];
-
-    if (left <= 0) {
-      newX = Math.abs(vector[1]);
-    } else if (left >= maxWidth) {
-      newX = Math.abs(vector[1]) * -1;
-    }
-
-    if (top <= 0) {
-      newY = Math.abs(vector[0]);
-    } else if (top >= maxHeight) {
-      newY = Math.abs(vector[0]) * -1;
-    }
-
-    return normalizeVector([newY, newX]);
-  }
-
-  function catDVDAnimationFrame(
-    element: HTMLImageElement,
-    startTimestamp: number,
-    top: number,
-    left: number,
-    vector: [number, number],
-    lastAnimate = performance.now()
-  ) {
-    const width = element.width;
-    const height = element.height;
-
-    const edgeWidth = 1920 - width;
-    const edgeHeight = 1080 - height;
-
-    const currentTime = performance.now();
-    const delta = currentTime - lastAnimate;
-    lastAnimate = currentTime;
-
-    if (catDVDHitEdge(top, left, edgeHeight, edgeWidth)) {
-      vector = catDVDModifyVector(left, top, edgeHeight, edgeWidth, vector);
-    }
-
-    top += vector[0] * delta;
-    left += vector[1] * delta;
-
-    element.style.top = `${top}px`;
-    element.style.left = `${left}px`;
-
-    requestAnimationFrame(() => {
-      if (currentTime - startTimestamp < 30 * 1000) {
-        catDVDAnimationFrame(element, startTimestamp, top, left, vector, currentTime);
-      } else {
-        catDVDOverlay.removeChild(element);
-        catDVDCount += maxwellStore.count;
-      }
-    });
   }
 
   function buildSvgGraphFor(numbers: number[]): SVGSVGElement | null {
@@ -257,9 +169,11 @@
   onMount(async () => {
     client = createNewTwitchClientV2('vanorsigma');
     stockMarket.setHeartrateObject(heartrate);
+    let gameApplication = await makeApplication(chatBulletContainer);
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
-    chatBulletBackend = new ChatBulletContainer(chatBulletContainer, client, PUBLIC_KIKI_API);
+    let maxwellContainer = new MaxwellContainer(gameApplication);
+    chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
     dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
@@ -267,15 +181,20 @@
     client.connect();
     captchaLoop(dispatchers);
 
+    maxwellStore.subscribe(async (_maxwellCount: number) => {
+      await maxwellContainer.spawnMaxwell(MAXWELL_COOLDOWN);
+    });
+
     playAudioStore.subscribe(async (url) => {
+      if (url) return null;
       try {
         const audio = new Audio(url);
-        audio.volume = 0.5;
+        audio.volume = 0.2;
         currentlyPlayingAudios.push(audio);
-        await audio.play();
         audio.addEventListener('ended', () => {
           onAudioPlaybackOver(audio);
         });
+        await audio.play();
       } catch {
         // HACK: Ugly hardcoded channel constant
         await dispatchers?.sendMessageAsUser(
@@ -348,7 +267,6 @@
 </script>
 
 <div class="overlay">
-  <div class="catDVDOverlay" bind:this={catDVDOverlay}></div>
   <div
     bind:this={captchaElement}
     class="captcha"
@@ -490,12 +408,6 @@
     color: white;
     background-color: black;
     width: 50%;
-  }
-
-  .catDVDOverlay {
-    position: relative;
-    width: 100%;
-    height: 100%;
   }
 
   .captcha {
