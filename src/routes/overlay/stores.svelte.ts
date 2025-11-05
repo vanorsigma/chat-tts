@@ -106,12 +106,14 @@ export function createCheckInStore(receiver: WebSocket) {
 function createGoodnightKissStore() {
   interface KissProperties {
     username: string;
+    userid: string;
     color: string;
     fast_version: boolean;
   }
 
   let properties: KissProperties = {
     username: '',
+    userid: '',
     color: 'black',
     fast_version: false
   };
@@ -130,13 +132,16 @@ function createGoodnightKissStore() {
     return properties.username.length !== 0;
   }
 
-  function reset() {
+  function reset(): string {
+    /// Returns the userid before reset
+    const retVal = properties.userid;
     properties = {
       username: '',
       color: properties.color,
       fast_version: false
     };
     updateAllSubscribers();
+    return retVal;
   }
 
   function subscribe(subscription: (value: KissProperties) => void): () => void {

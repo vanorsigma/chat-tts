@@ -1,5 +1,6 @@
 import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets } from 'pixi.js';
 import { fetchAnimatedSprite, properRandom } from './utils';
+import { MAXWELL_LIMITS } from './constants';
 
 const CAT_BREAD_SPIN_GIF = '/catBreadSpin.gif';
 
@@ -43,7 +44,17 @@ export class MaxwellContainer {
     }
   }
 
+  removeAllMaxwells() {
+    this.maxwells.forEach((maxwell) => {
+      clearTimeout(maxwell.timeout);
+      maxwell.container.removeFromParent();
+    });
+    this.maxwells = [];
+  }
+
   async spawnMaxwell(interval: number) {
+    if (this.maxwells.length >= MAXWELL_LIMITS) return;
+
     const { width, height } = this.app.screen;
 
     const container = new Container();

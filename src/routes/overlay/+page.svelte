@@ -166,13 +166,15 @@
     return svg.node();
   }
 
+  let maxwellContainerInstance: MaxwellContainer | undefined = undefined;
+
   onMount(async () => {
     client = createNewTwitchClientV2('vanorsigma');
     stockMarket.setHeartrateObject(heartrate);
     let gameApplication = await makeApplication(chatBulletContainer);
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
-    let maxwellContainer = new MaxwellContainer(gameApplication);
+    maxwellContainerInstance = new MaxwellContainer(gameApplication);
     chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
     dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
@@ -182,11 +184,11 @@
     captchaLoop(dispatchers);
 
     maxwellStore.subscribe(async (_maxwellCount: number) => {
-      await maxwellContainer.spawnMaxwell(MAXWELL_COOLDOWN);
+      await maxwellContainerInstance?.spawnMaxwell(MAXWELL_COOLDOWN);
     });
 
     playAudioStore.subscribe(async (url) => {
-      if (url) return null;
+      if (!url) return null;
       try {
         const audio = new Audio(url);
         audio.volume = 0.2;
@@ -245,6 +247,7 @@
     playAudioStore.purge();
     showImageStore.purge();
     playAudioStore.purge();
+    maxwellContainerInstance?.removeAllMaxwells();
 
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);

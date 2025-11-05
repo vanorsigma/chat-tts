@@ -49,9 +49,20 @@ export class OverlayDispatchers {
   }
 
   async sendMessageAsUser(channelId: string, message: string) {
-    if (import.meta.env.DEV)
-      return;
+    if (import.meta.env.DEV) return;
 
     await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
+  }
+
+  async timeoutUser(channelId: string, targetId: string, reason: string, duration_seconds: number) {
+    // if (import.meta.env.DEV) return;
+
+    this.api.asUser(this.botId, async ctx => {
+      ctx.moderation.banUser(channelId, {
+        user: targetId,
+        reason,
+        duration: duration_seconds
+      });
+    });
   }
 }
