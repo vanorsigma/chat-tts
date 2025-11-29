@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpython3-dev \
     libssl-dev \
     libffi-dev \
+    portaudio19-dev \
     python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
