@@ -5,7 +5,7 @@
 
 source /.venv/bin/activate
 ollama serve &
-sleep 30 && ollama pull gemma3:12b-it-qat
+sleep 30 && ollama pull gemma3:12b-it-qat && ollama pull qwen3:8b
 ollama create kiki -f /opt/Modelfile
 
 cd /opt/chatterbox-deploy

@@ -24,7 +24,8 @@
     showImageStore,
     playAudioStore,
     goodnightKissStore,
-    createCheckInStore
+    createCheckInStore,
+    createMakiStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -33,6 +34,7 @@
   import type { ChatClient } from '@twurple/chat';
   import { makeApplication } from './utils';
   import { MaxwellContainer } from './maxwell';
+  import Console from './console.svelte';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -55,19 +57,24 @@
   let heartrateGraphParent: HTMLDivElement;
   let dispatchers: OverlayDispatchers | null = null;
 
+  let makiCommandLogs: string[] = [];
+  let lastOutput = '';
+
   let currentlyPlayingAudios: HTMLAudioElement[] = [];
 
-  const checkInStore = createCheckInStore(new WebSocket(PUBLIC_RECEIVER_URL));
+  const ws = new WebSocket(PUBLIC_RECEIVER_URL);
+  const checkInStore = createCheckInStore(ws);
+  const makiStore = createMakiStore(ws);
 
   function onShowImageLoad(event: Event) {
-    // once the image loads, reposition and rescale it immediately
+    // once the iMage loads, reposition and rescale it immediately
     const target = event.target;
     if (!(target as HTMLImageElement).naturalWidth || !(target as HTMLImageElement).naturalHeight)
       return;
 
     const imgTarget = target as HTMLImageElement;
     const style = getComputedStyle(chatBulletContainer);
-    const { width, height } = style;
+
     const fullWidthNo = Number(width.replace('px', ''));
     const fullHeightNo = Number(height.replace('px', ''));
 
@@ -183,6 +190,11 @@
     client.connect();
     captchaLoop(dispatchers);
 
+    makiStore.subscribe((logs, lastoutput, _) => {
+      makiCommandLogs = logs;
+      lastOutput = lastoutput;
+    });
+
     maxwellStore.subscribe(async (_maxwellCount: number) => {
       await maxwellContainerInstance?.spawnMaxwell(MAXWELL_COOLDOWN);
     });
@@ -270,6 +282,7 @@
 </script>
 
 <div class="overlay">
+  <Console bind:terminalOutput={makiCommandLogs} bind:terminalLine={lastOutput}></Console>
   <div
     bind:this={captchaElement}
     class="captcha"

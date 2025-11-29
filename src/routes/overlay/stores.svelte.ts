@@ -2,6 +2,48 @@ import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
 import { SHOW_IMAGE_COOLDOWN } from './constants';
 
+export function createMakiStore(ws: WebSocket) {
+  let commandLogs: Array<string> = [];
+  let lastOutput: string = '';
+  let subscribers: Array<(logs: string[], lastoutput: string, thinking: boolean) => void> = [];
+  let thinking: boolean = false;
+
+  ws.addEventListener('message', (message_event) => {
+    const data = JSON.parse(message_event.data);
+    switch (data['type']) {
+      case "makioutputrequest":
+        const output = data["output"];
+        commandLogs.push(output);
+        if (data["output_type"] === "output") {
+          lastOutput = output;
+        }
+        break;
+      case "makioutputthinkingrequest":
+        break;
+    }
+
+    subscribers.forEach(subscriber => subscriber(commandLogs, lastOutput, thinking));
+  });
+
+  function subscribe(subscription: (logs: string[], lastoutput: string, thinking: boolean) => void): () => void {
+    subscribers.push(subscription);
+    subscription(commandLogs, lastOutput, thinking);
+    return () => {
+      subscribers = subscribers.filter((sub) => sub !== subscription);
+    };
+  }
+
+  return {
+    get commandLogs() {
+      return commandLogs;
+    },
+    get lastOutput() {
+      return lastOutput
+    },
+    subscribe,
+  }
+}
+
 function createPlayAudioStore() {
   let audioUrls: Array<string> = [];
   let subscribers: Array<(value: string | undefined) => void> = [];
