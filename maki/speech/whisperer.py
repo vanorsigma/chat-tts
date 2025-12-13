@@ -13,7 +13,7 @@ class Whisperer:
         self.ollama_model = OpenAIChatModel(
             # model_name='gemma3:12b-it-qat',
             # model_name='qwen3:8b',
-            model_name='qwen/qwen3-14b',
+            model_name=config['openrouter']['whisper_correction_model'],
             provider=OpenRouterProvider(api_key=config['openrouter']['openrouter_api_key'])
         )
 

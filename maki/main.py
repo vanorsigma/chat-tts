@@ -49,6 +49,8 @@ ollama_model = OpenAIChatModel(
     provider=OpenRouterProvider(api_key=config['openrouter']['openrouter_api_key']),
 )
 
+user_prompt_addon = "\nRemember, do not repeat tool calls"
+
 def clear_history() -> str:
     """Clears message history
 
@@ -187,7 +189,7 @@ async def _main():
             console.log('Ready to prompt')
             prompt = await whisperer.correcting_whisperer_get_utterance()
             console.log('Heard', prompt)
-            fut1 = asyncio.create_task(_step(prompt, history))
+            fut1 = asyncio.create_task(_step(prompt + user_prompt_addon, history))
             fut2 = asyncio.create_task(wakeword.run_then_return())
             await communication.inform_loading()
             done, pending = await asyncio.wait([fut1, fut2], return_when=asyncio.FIRST_COMPLETED)
@@ -222,7 +224,7 @@ async def _interactive_main():
                 continue
 
             waked = False
-            fut1 = asyncio.create_task(_step(prompt, history))
+            fut1 = asyncio.create_task(_step(prompt + user_prompt_addon, history))
             fut2 = asyncio.create_task(wakeword.run_then_return())
             await communication.inform_loading()
             done, pending = await asyncio.wait([fut1, fut2], return_when=asyncio.FIRST_COMPLETED)
