@@ -16,7 +16,7 @@ if (!CLIENT_ID) throw new Error('Need to set PUBLIC_TWITCH_APP_ID in .venv');
 if (!CLIENT_SECRET) throw new Error('Need to set PUBLIC_TWITCH_APP_SECRET in .env');
 
 export function getAuthUrl(client_id: string, redirect_uri: string): string {
-  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=moderator:read:chatters+user:bot+user:read:chat`;
+  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=moderator:read:chatters+user:bot+user:read:chat+moderator:manage:banned_users+user:write:chat+user:read:chat`;
 }
 
 export function getFollowUpUrl(
@@ -54,9 +54,9 @@ export async function callback(
     readonly refresh_token: string;
   } = await result.json();
 
-  // response.writeHead(200, {
-  //   'Set-Cookie': [`access_token=${data.access_token}`, `refresh_token=${data.refresh_token};`]
-  // });
+  response.writeHead(200, {
+    'Set-Cookie': [`access_token=${data.access_token}`, `refresh_token=${data.refresh_token};`]
+  });
   response.write('Authorised, u can now close this tab');
   response.end();
 

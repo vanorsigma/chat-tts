@@ -1,0 +1,22 @@
+[
+    {
+        "name": "%blacksilence",
+        "description": "Removes all the nonsense (e.g. images, audios, maxwells) on the screen."
+    },
+    {
+        "name": "%maxwell",
+        "description": "Spawns Maxwell, a bouncing cat"
+    },
+    {
+        "name": "%distract",
+        "description": "Distracts the streamer."
+    },
+    {
+        "name": "%rotate",
+        "description": "Rotates the screen of the streamer."
+    },
+    {
+        "name": "%goodnightkiss clear",
+        "description": "Clears a good night kiss."
+    }
+]

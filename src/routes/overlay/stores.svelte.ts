@@ -3,45 +3,96 @@ import type { Poll } from './poll.svelte';
 import { SHOW_IMAGE_COOLDOWN } from './constants';
 
 export function createMakiStore(ws: WebSocket) {
-  let commandLogs: Array<string> = [];
-  let lastOutput: string = '';
-  let subscribers: Array<(logs: string[], lastoutput: string, thinking: boolean) => void> = [];
+  let currentMakiMessage: string = '';
+  let currentCountdown: number = 0;
+  let makiMessageQueue: Array<{ message: string; duration: number }> = [];
+  let subscribers: Array<
+    (currentMakiMessage: string, duration: number, activated: boolean, thinking: boolean) => void
+  > = [];
   let thinking: boolean = false;
+  let activated: boolean = false;
+  let timer: NodeJS.Timeout | null = null;
 
   ws.addEventListener('message', (message_event) => {
+    console.log('received', message_event);
     const data = JSON.parse(message_event.data);
     switch (data['type']) {
-      case "makioutputrequest":
-        const output = data["output"];
-        commandLogs.push(output);
-        if (data["output_type"] === "output") {
-          lastOutput = output;
+      case 'makioutputmessage':
+        const message = data['message'];
+        const duration = Number(data['dismiss_after']);
+        makiMessageQueue.push({ message, duration });
+
+        if (!timer) tick();
+        break;
+      case 'makiactivated':
+        if (data['state']) {
+
+          // when activated, clear the message queue too
+          activated = true;
+          thinking = false;
+          makiMessageQueue = [];
+          currentCountdown = 0;
+          currentMakiMessage = '';
+          if (timer) clearInterval(timer);
+          timer = null;
+        } else {
+          activated = false;
+          thinking = false;
         }
         break;
-      case "makioutputthinkingrequest":
+      case 'makiloading':
+        thinking = true;
         break;
     }
 
-    subscribers.forEach(subscriber => subscriber(commandLogs, lastOutput, thinking));
+    informSubscribers();
   });
 
-  function subscribe(subscription: (logs: string[], lastoutput: string, thinking: boolean) => void): () => void {
+  function informSubscribers() {
+    for (const subscriber of subscribers)
+      subscriber(currentMakiMessage, currentCountdown, activated, thinking);
+  }
+
+  function tick() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    currentCountdown -= 1;
+    if (currentCountdown <= 0) {
+      if (makiMessageQueue.length === 0) {
+        currentMakiMessage = '';
+        informSubscribers();
+        return;
+      }
+
+      const messageItem = makiMessageQueue[0];
+      makiMessageQueue = makiMessageQueue.slice(1);
+
+      currentMakiMessage = messageItem.message;
+      currentCountdown = messageItem.duration;
+    }
+    informSubscribers();
+    timer = setTimeout(tick, 1000);
+  }
+
+  function subscribe(
+    subscription: (currentMakiMessage: string, duration: number, activated: boolean, thinking: boolean) => void
+  ): () => void {
     subscribers.push(subscription);
-    subscription(commandLogs, lastOutput, thinking);
+    subscription(currentMakiMessage, currentCountdown, activated, thinking);
     return () => {
       subscribers = subscribers.filter((sub) => sub !== subscription);
     };
   }
 
   return {
-    get commandLogs() {
-      return commandLogs;
+    get currentMessage() {
+      return currentMakiMessage;
     },
-    get lastOutput() {
-      return lastOutput
+    get currentDuration() {
+      return currentCountdown;
     },
-    subscribe,
-  }
+    subscribe
+  };
 }
 
 function createPlayAudioStore() {
