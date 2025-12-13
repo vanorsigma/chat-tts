@@ -57,8 +57,10 @@
   let heartrateGraphParent: HTMLDivElement;
   let dispatchers: OverlayDispatchers | null = null;
 
-  let makiCommandLogs: string[] = [];
-  let lastOutput = '';
+  let currentMakiMessage: string = '';
+  let currentMakiDuration: number = 0;
+  let makiActivated: boolean = false;
+  let makiThinking: boolean = false;
 
   let currentlyPlayingAudios: HTMLAudioElement[] = [];
 
@@ -190,9 +192,11 @@
     client.connect();
     captchaLoop(dispatchers);
 
-    makiStore.subscribe((logs, lastoutput, _) => {
-      makiCommandLogs = logs;
-      lastOutput = lastoutput;
+    makiStore.subscribe((message, duration, activated, thinking) => {
+      currentMakiMessage = message;
+      currentMakiDuration = duration;
+      makiActivated = activated;
+      makiThinking = thinking;
     });
 
     maxwellStore.subscribe(async (_maxwellCount: number) => {
@@ -282,7 +286,27 @@
 </script>
 
 <div class="overlay">
-  <Console bind:terminalOutput={makiCommandLogs} bind:terminalLine={lastOutput}></Console>
+  {#if makiActivated}
+    <div class="makiShared">
+      <img src="/maki.png" alt="cute bratty cat" />
+    </div>
+  {/if}
+
+  {#if makiThinking}
+    <div class="makiShared">
+      <img src="/loading.webp" alt="loading" />
+    </div>
+  {/if}
+
+  {#if currentMakiDuration > 0}
+    <div class="makiShared">
+      <div class="makiOutput">
+        <div class="makiCountdown">{currentMakiDuration}</div>
+        <p>{currentMakiMessage}</p>
+      </div>
+    </div>
+  {/if}
+  <!-- <Console bind:terminalOutput={makiCommandLogs} bind:terminalLine={lastOutput}></Console> -->
   <div
     bind:this={captchaElement}
     class="captcha"
@@ -396,6 +420,44 @@
 </div>
 
 <style>
+  .makiShared {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .makiShared .makiOutput .makiCountdown {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    position: absolute;
+    font-size: 2em;
+    right: 1em;
+    border: 2px solid green;
+    border-radius: 10px;
+  }
+
+  .makiShared .makiOutput {
+    position: relative;
+    background-color: lightgray;
+    border: 2px solid #007bff;
+    border-radius: 12px;
+    padding: 20px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    overflow-y: hidden;
+    width: 600px;
+    height: 300px;
+  }
+
+  .makiShared p {
+    margin: 0px;
+    font-size: 2em;
+    font-weight: bold;
+  }
+
   .showImage {
     position: absolute;
   }
