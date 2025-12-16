@@ -77,6 +77,8 @@
     const imgTarget = target as HTMLImageElement;
     const style = getComputedStyle(chatBulletContainer);
 
+    const {width, height} = style;
+
     const fullWidthNo = Number(width.replace('px', ''));
     const fullHeightNo = Number(height.replace('px', ''));
 
