@@ -56,7 +56,7 @@ async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessa
   const username = user.userName;
 
   (async () => {
-    if (username === Constants.MAXWELL_USER) {
+    if (Constants.MAXWELL_USER.includes(username)) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
       if (
@@ -224,7 +224,7 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessag
   const username = user.userName;
 
   (async () => {
-    if (username === Constants.BLACK_SILENCE_USER) {
+    if (Constants.BLACK_SILENCE_USER.includes(username)) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
     } else {
       if (
@@ -269,7 +269,7 @@ function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = user.userName;
 
   (async () => {
-    if (username === Constants.MISTAKE_USER) {
+    if (Constants.MISTAKE_USER.includes(username)) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok, but i hate u btw');
     } else {
       if (
@@ -325,7 +325,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
   };
 
   (async () => {
-    if (username === Constants.SHOW_IMAGE_USER) {
+    if (Constants.SHOW_IMAGE_USER.includes(username)) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
       addUrl();
     } else {
@@ -350,7 +350,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
 
         const approverObserver = new ApprovableObserver(
           dispatcher,
-          [Constants.SHOW_IMAGE_USER],
+          Constants.SHOW_IMAGE_USER,
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
         );
@@ -396,7 +396,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   };
 
   (async () => {
-    if (username === Constants.SHOW_IMAGE_USER) {
+    if (Constants.SHOW_IMAGE_USER.includes(username)) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok');
       addUrl();
     } else {
@@ -421,7 +421,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
 
         const approverObserver = new ApprovableObserver(
           dispatcher,
-          [Constants.PLAY_AUDIO_USER],
+          Constants.PLAY_AUDIO_USER,
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
         );
@@ -599,7 +599,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   let targetUserId = message.userInfo.userId;
 
   if (
-    message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER ||
+    Constants.GOOD_NIGHT_KISS_USER.includes(message.userInfo.userName) ||
     (await checkCostAddIfEnough(
       dispatcher,
       message.channelId!,
@@ -614,7 +614,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
       fast_version: Math.random() < 0.1
     });
 
-    if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER) {
+    if (Constants.GOOD_NIGHT_KISS_USER.includes(message.userInfo.userName)) {
       await dispatcher.sendMessageAsUser(message.channelId!, `...`);
     } else {
       await dispatcher.sendMessageAsUser(
