@@ -1,5 +1,5 @@
-import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets } from 'pixi.js';
-import { fetchAnimatedSprite, properRandom } from './utils';
+import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets, Texture } from 'pixi.js';
+import { fetchAnimatedTextures, makeAnimatedSprite, properRandom } from './utils';
 import { MAXWELL_LIMITS } from './constants';
 
 const CAT_BREAD_SPIN_GIF = '/catBreadSpin.gif';
@@ -14,6 +14,7 @@ export class MaxwellContainer {
   private app: Application;
   private enabled: boolean = true;
   private maxwells: MaxwellObjectProperties[] = [];
+  private textures: Texture[] = [];
 
   constructor(app: Application) {
     this.app = app;
@@ -24,6 +25,7 @@ export class MaxwellContainer {
 
   async initLater() {
     this.app.ticker.add((time) => this.drawFrameLoop(time));
+    this.textures = await fetchAnimatedTextures(CAT_BREAD_SPIN_GIF);
   }
 
   drawFrameLoop(time: Ticker): void {
@@ -48,6 +50,7 @@ export class MaxwellContainer {
     this.maxwells.forEach((maxwell) => {
       clearTimeout(maxwell.timeout);
       maxwell.container.removeFromParent();
+      maxwell.container.destroy();
     });
     this.maxwells = [];
   }
@@ -58,7 +61,7 @@ export class MaxwellContainer {
     const { width, height } = this.app.screen;
 
     const container = new Container();
-    const sprite = await fetchAnimatedSprite(CAT_BREAD_SPIN_GIF);
+    const sprite = makeAnimatedSprite(this.textures);
     if (!sprite) {
       console.error('cannot load cat bread spin sprite');
       return;
@@ -76,6 +79,7 @@ export class MaxwellContainer {
       velocity: [coinflip_x ? 10.0 : -10.0, coinflip_y ? 10.0 : -10.0],
       timeout: setTimeout(() => {
         container.removeFromParent();
+        container.destroy();
         this.maxwells = this.maxwells.filter((mw) => mw !== maxwell);
       }, interval)
     };

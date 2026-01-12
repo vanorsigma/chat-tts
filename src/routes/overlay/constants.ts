@@ -9,7 +9,7 @@ export const FLASHBANG_COST = 500;
 export const MAXWELL_COST = 100;
 export const MAXWELL_USER = '5kuli';
 export const MAXWELL_COOLDOWN = 30 * 1000;
-export const MAXWELL_LIMITS = 20;
+export const MAXWELL_LIMITS = 100;
 
 export const MISTAKE_COST = 5000;
 export const MISTAKE_USER = 'mr_auto';
