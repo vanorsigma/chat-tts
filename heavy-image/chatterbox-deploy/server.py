@@ -1,6 +1,6 @@
 import torch
-import torchaudio
 import io
+import soundfile
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -29,29 +29,27 @@ app = FastAPI(
     version="1.0.0",
 )
 
-class TTSRequest(BaseModel):
+class SelfThoughtRequest(BaseModel):
     prompt: str
-    language_id: str = "ja"
-    cfg_weight: float = 0.2
-    exaggeration: float = 1.0
+
 
 @app.post("/generate-audio/")
-async def generate_audio(request: TTSRequest):
+async def generate_audio(request: SelfThoughtRequest):
     try:
         print(f"Processing request for prompt: '{request.prompt}'")
 
         wav = model.generate(
             text=request.prompt,
             audio_prompt_path=AUDIO_PROMPT_PATH,
-            cfg_weight=request.cfg_weight,
-            exaggeration=request.exaggeration,
-            language_id=request.language_id,
+            cfg_weight=0.2,
+            exaggeration=1.0,
+            language_id='ja',
         )
 
         sample_rate = 24000
 
         buffer = io.BytesIO()
-        torchaudio.save(buffer, wav.cpu(), sample_rate, format="wav")
+        soundfile.write(buffer, wav[0].cpu().numpy(), sample_rate, format='wav')
         buffer.seek(0)
 
         return StreamingResponse(buffer, media_type="audio/wav")

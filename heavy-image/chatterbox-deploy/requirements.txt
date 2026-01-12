@@ -1,2 +1,2 @@
 numpy
-chatterbox-tts
+git+https://github.com/vanorsigma/chatterbox.git
