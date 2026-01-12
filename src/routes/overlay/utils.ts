@@ -1,3 +1,4 @@
+import { text } from 'd3';
 import { Application } from 'pixi.js';
 import { AnimatedSprite, Assets, Sprite, Texture } from 'pixi.js';
 
@@ -22,7 +23,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchAnimatedSprite(url: string): Promise<Sprite | null> {
+export async function fetchAnimatedTextures(url: string): Promise<Texture[]> {
   const response = await fetch(url);
   const imageBlob = await (await response.blob()).arrayBuffer();
 
@@ -42,11 +43,21 @@ export async function fetchAnimatedSprite(url: string): Promise<Sprite | null> {
 
   if (textures.length === 0) {
     const texture = await Assets.load(url);
-    return new Sprite(texture);
+    return [texture];
+  }
+
+  return textures;
+}
+
+export function makeAnimatedSprite(textures: Texture[]): Sprite | null {
+  if (textures.length === 0) return null;
+
+  if (textures.length === 1) {
+    return new Sprite(textures[0]);
   }
 
   const animatedSprite = new AnimatedSprite(textures);
-  animatedSprite.animationSpeed = 0.4;
+  animatedSprite.animationSpeed = Math.random();
   animatedSprite.loop = true;
   animatedSprite.play();
 

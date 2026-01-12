@@ -4,11 +4,12 @@
  * 4th re-write LULE
  */
 
-import { fetchAnimatedSprite } from './utils';
+import { makeAnimatedSprite, fetchAnimatedTextures } from './utils';
 import { is7TVEmote } from '$lib/seventv';
-import { Application, Container, TextStyle, Ticker, Text } from 'pixi.js';
+import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import { KikiAPI } from './kikiapi';
+import { LRUCache } from '$lib/LRUcache';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';
@@ -132,12 +133,14 @@ export interface ChatBulletProperties {
 }
 
 const PADDING = 5;
+const CACHE_SIZE = 30;
 
 export class ChatBulletContainer {
   private app: Application;
   private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
+  private cache = new LRUCache<Texture[]>(CACHE_SIZE);
 
   constructor(twitch: ChatClient, kikiUrl: string, app: Application) {
     this.app = app;
@@ -256,7 +259,15 @@ export class ChatBulletContainer {
 
     for (const part of parts) {
       if (isImageBulletPart(part)) {
-        const partGif = await fetchAnimatedSprite(`https:${part.imgsrc.replace('https:', '')}`);
+        const url = `https:${part.imgsrc.replace('https:', '')}`;
+        let partGifTextures = this.cache.get(url);
+        if (!partGifTextures) {
+          partGifTextures = await fetchAnimatedTextures(url);
+          this.cache.put(url, partGifTextures);
+        }
+
+        if (!partGifTextures) return;
+        const partGif = makeAnimatedSprite(partGifTextures);
         if (!partGif) return;
 
         partGif.scale.set(0.3);
