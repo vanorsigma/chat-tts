@@ -4,6 +4,7 @@ import typer
 import asyncio
 import json
 import os
+import time
 import sys
 from config import load_config
 from tools.communication import Communication
@@ -173,6 +174,11 @@ async def _step(prompt: str, history: list[ModelMessage]) -> None:
 async def _main():
     global history
 
+    REFRESH_LIST_DURATION = 5 * 60
+
+    start_time = time.time()
+    chatters = await twitch.get_chatter_list()
+
     whisperer = Whisperer(config)
     wakeword = Wakeword()
     waked = False
@@ -187,7 +193,11 @@ async def _main():
             await communication.inform_activated(True)
             waked = False
             console.log('Ready to prompt')
-            prompt = await whisperer.correcting_whisperer_get_utterance()
+            if time.time() - start_time > REFRESH_LIST_DURATION:
+                console.log('Reobtaining chatter list')
+                chatters = await twitch.get_chatter_list()
+                start_time = time.time()
+            prompt = await whisperer.correcting_whisperer_get_utterance(chatters)
             console.log('Heard', prompt)
             fut1 = asyncio.create_task(_step(prompt + user_prompt_addon, history))
             fut2 = asyncio.create_task(wakeword.run_then_return())
