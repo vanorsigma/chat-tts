@@ -17,8 +17,7 @@ class Whisperer:
             provider=OpenRouterProvider(api_key=config['openrouter']['openrouter_api_key'])
         )
 
-        self.prompt_str = "Transcription:{transcription}\nSubjects:{subjects}\nCorrected:{correction}"
-        self.subject_prompt_str = "Transcription:{transcription}\nSubjects:{subjects}"
+        self.prompt_str = "Transcription:{transcription}\nChatters:{chatters}\nCorrected:{correction}"
 
         # a bunch of known words that **will** not be correctly recognized, but hopefully
         # the corrector will figure it out
@@ -32,32 +31,35 @@ class Whisperer:
             self.ollama_model,
             output_type=str,
             system_prompt=(
-                "Your goal is to correct sentences transcribed by an Automatic Speech Recognition Model. "
+                "Your goal is to correct utterances transcribed by an Automatic Speech Recognition Model. "
+                "Make the utterance make sense to another language model. "
                 "If there are words that obviously don't make sense in the context, remove them.\n"
+                "There might be words that when combined together addresses a chatter in the list provided by the user. "
+                "If so, correct those words to those chatters. \n"
                 "Do not output anything else but the correction. "
                 "Here are some rough correction rules to help you: [" + ','.join(known_corrections) + "]"
                 "\n" +
                 self.prompt_str.format(
                     transcription='mah key, can you write me a hell-',
-                    subjects=["Maki"],
+                    chatters=['vanorsigma'],
                     correction='Maki, can you write me a hello world script'
                 )
             ),
         )
 
-        self.subject_agent = Agent(
-            self.ollama_model,
-            output_type=str,
-            system_prompt=(
-                "Your goal is to extract the subject of the sentence trascribed by an Automatic Speech Recognition Model. "
-                "Output an array in this format [subject_1, subject_2]. If there are none, output []. Output quickly."
-                "\n" +
-                self.subject_prompt_str.format(
-                    transcription='Myo Gore, the artist, is a really good artist.',
-                    subjects='[\"Myo Gore\"]'
-                )
-            ),
-        )
+        # self.subject_agent = Agent(
+        #     self.ollama_model,
+        #     output_type=str,
+        #     system_prompt=(
+        #         "Your goal is to extract the subject of the sentence trascribed by an Automatic Speech Recognition Model. "
+        #         "Output an array in this format [subject_1, subject_2]. If there are none, output []. Output quickly."
+        #         "\n" +
+        #         self.subject_prompt_str.format(
+        #             transcription='Myo Gore, the artist, is a really good artist.',
+        #             subjects='[\"Myo Gore\"]'
+        #         )
+        #     ),
+        # )
 
         self.whisper_client = OpenAI(
             base_url="http://localhost:5000/v1",
@@ -66,7 +68,7 @@ class Whisperer:
 
         self.r = sr.Recognizer()
 
-    async def correcting_whisperer_get_utterance(self) -> str:
+    async def correcting_whisperer_get_utterance(self, chatter_list: list[str]) -> str:
         with sr.Microphone() as source:
             print("[RECOGNIZER] Ready for input!")
             audio = self.r.listen(source)
@@ -81,17 +83,9 @@ class Whisperer:
         ).text
         print('[RECOGNIZER] Recognized:', recognized)
 
-        subject_results = await self.subject_agent.run(self.subject_prompt_str.format(
-            transcription=recognized,
-            subjects=''
-        ))
-
-        detected_subjects = subject_results.output.strip().split('\n')[0]
-        print('[RECOGNIZER] Subjects:', detected_subjects)
-
         result = await self.corrector_agent.run(self.prompt_str.format(
                 transcription=recognized,
-                subjects=detected_subjects,
+                chatters=chatter_list,
                 correction=''
             ))
 

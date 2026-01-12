@@ -141,12 +141,59 @@ class TwitchTool:
 
         print(f'[TOOL] Sent command {command} successfully')
 
+    async def change_title(self, title: str) -> None:
+        """Twitch Tool: Changes the stream title
+
+        Args:
+            title: A title to change to. 1 to 60 charactes only
+        """
+        if not (1 < len(title) < 60):
+            raise ModelRetry("title is too long / short, keep it between 1 to 60 characters")
+
+        await self._lazy_init()
+        assert self.twitch is not None
+
+        try:
+            await self.twitch.send_chat_message(
+                self.broadcaster_id,
+                self.moderator_id,
+                f'!settitle {title}'
+            )
+        except:
+            print(f'[TOOL] Could not set the title to "{title}"')
+            return
+
+        print(f'[TOOL] Set the title to "{title}"')
+
+    async def pretend_to_be_vanor(self, thoughts: str) -> None:
+        """General Tool: Pretend to speak as vanor
+
+        Args:
+            thoughts: A thought to say as vanor
+        """
+        await self._lazy_init()
+        assert self.twitch is not None
+
+        try:
+            await self.twitch.send_chat_message(
+                self.broadcaster_id,
+                self.moderator_id,
+                f'%selfthought {thoughts}'
+            )
+        except:
+            print(f'[TOOL] Could not send self thought')
+            return
+
+        print(f'[TOOL] Sent self-thought to {thoughts}')
+
     def get_twitch_tools(self) -> list[Tool]:
         return [
             Tool(self.get_chatter_list, takes_ctx=False),
             Tool(self.timeout, takes_ctx=False),
             Tool(self.get_chatter_commands, takes_ctx=False),
             Tool(self.perform_chatter_command, takes_ctx=False),
+            Tool(self.change_title, takes_ctx=False),
+            Tool(self.pretend_to_be_vanor, takes_ctx=False),
         ]
 
 if __name__ == '__main__':
