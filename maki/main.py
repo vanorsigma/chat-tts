@@ -7,6 +7,7 @@ import os
 import time
 import sys
 from config import load_config
+from actions import TerminatingAction
 from tools.communication import Communication
 from tools.search import SearchTool
 from wakeword.wakeword import Wakeword
@@ -52,6 +53,14 @@ ollama_model = OpenAIChatModel(
 
 user_prompt_addon = "\nRemember, do not repeat tool calls"
 
+def no_action() -> TerminatingAction:
+    """Terminates the current action.
+
+    Returns:
+        TerminatingAction: The terminating action
+    """
+    return TerminatingAction()
+
 def clear_history() -> str:
     """Clears message history
 
@@ -81,17 +90,19 @@ agent = Agent(
         # evaluator.get_tools() + \
         search.get_tools() + \
         communication.get_tools() + \
-        [clear_history, exits_yourself],
-    output_type=str,
+        [clear_history, exits_yourself, no_action],
+    output_type=TerminatingAction,
     system_prompt=(
         "You are a bratty cat tool calling agent called Maki, assisting a streamer known by vanor (or vanorsigma). Abide by the following rules:\n"
         "- Use tools to achieve your answer.\n"
+        "- Think very carefully to make sure you make the right calls.\n"
         "- Do not output any text. Only do tool calls.\n"
         "- If a tool call fails, give up.\n"
         "- Do not clear history or exit unless explictly told to do so.\n"
         "- Return concise outputs as much as you can.\n"
         "- Remember to be bratty.\n"
         "- Call unique tools, do not repeat a tool call, even if they have different arguments.\n"
+        "- To finish, choose the most appropriate tool that returns a TerminatingAction object.\n"
     ),
     end_strategy='exhaustive',
 )
@@ -219,6 +230,7 @@ async def _interactive_main():
     global history
 
     wakeword = Wakeword()
+    whisperer = Whisperer(config)
     waked = False
 
     while True:
@@ -232,6 +244,11 @@ async def _interactive_main():
             prompt = Prompt.ask('Maki Text Prompt')
             if len(prompt.strip()) == 0:
                 continue
+
+            # NOTE: comment this out, I'm only testing this at the moment
+            chatters = await twitch.get_chatter_list()
+            prompt = await whisperer.correct_from_text(chatters, prompt)
+            print('Corrected prompt', prompt)
 
             waked = False
             fut1 = asyncio.create_task(_step(prompt + user_prompt_addon, history))

@@ -186,6 +186,29 @@ class TwitchTool:
 
         print(f'[TOOL] Sent self-thought to {thoughts}')
 
+    async def make_poll(self, question: str, options: list[str], duration: int):
+        """General Tool: Make a poll for users to interact with
+
+        Args:
+            question: The question of the poll
+            options: The options in the poll. Cannot have semi-colons in them
+            duration: Duration of the poll in seconds
+        """
+        await self._lazy_init()
+        assert self.twitch is not None
+
+        try:
+            await self.twitch.send_chat_message(
+                self.broadcaster_id,
+                self.moderator_id,
+                f"%poll {question};{duration};{';'.join([option.replace(';', ' ') for option in options])}"
+            )
+        except:
+            print(f'[TOOL] Could not start poll')
+            return
+
+        print(f'[TOOL] Started poll')
+
     def get_twitch_tools(self) -> list[Tool]:
         return [
             Tool(self.get_chatter_list, takes_ctx=False),
@@ -194,6 +217,7 @@ class TwitchTool:
             Tool(self.perform_chatter_command, takes_ctx=False),
             Tool(self.change_title, takes_ctx=False),
             Tool(self.pretend_to_be_vanor, takes_ctx=False),
+            Tool(self.make_poll, takes_ctx=False)
         ]
 
 if __name__ == '__main__':
