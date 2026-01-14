@@ -8,6 +8,8 @@ from typing import Literal
 from pydantic import BaseModel
 from pydantic_ai import RunContext, Tool
 
+from actions import TerminatingAction
+
 class MakiLoading(BaseModel):
     type: Literal["makiloading"] = "makiloading"
 
@@ -51,13 +53,15 @@ class Communication:
         """
         if not await self._lazy_init():
             return
-        assert self.websocket
 
         try:
+            assert self.websocket
             await self.websocket.send(message)
         except websockets.exceptions.ConnectionClosed:
             print(f'[COMMUNICATION] Websocket closed, resetting for resiliency')
             self.websocket = None
+        except AssertionError:
+            print(f'[COMMNICATION] No websocket, would have sent {message}')
 
     async def inform_loading(self) -> None:
         """
@@ -73,7 +77,7 @@ class Communication:
         print('[COMMUNICATION] Informing activated')
         await self._ws_send(MakiActivated(state=state).model_dump_json())
 
-    async def inform_output(self, message: str, dismiss_after: int) -> bool:
+    async def inform_output(self, message: str, dismiss_after: int) -> TerminatingAction:
         """Sends a message to the user. This is your only way to communicate with the user.
 
         Args:
@@ -81,12 +85,12 @@ class Communication:
             dismiss_after: A period of time to dismiss the message. Can be anywhere from 10 to 60 seconds.
 
         Returns:
-            bool: True if successful. If successful, do not send the same message again.
+            TerminatingAction: This is a terminal function call
         """
         print(f'[COMMUNICATOR] Intending to send {message} to dismiss after {dismiss_after}')
         await self._ws_send(MakiOutputMessage(
             message=message, dismiss_after=max(0, min(60, dismiss_after))).model_dump_json())
-        return True
+        return TerminatingAction()
 
     def get_tools(self) -> list[Tool]:
         return [

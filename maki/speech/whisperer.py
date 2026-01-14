@@ -1,12 +1,9 @@
-import asyncio
 from pydantic_ai.providers.openrouter import OpenRouterProvider
-import whisper
 import speech_recognition as sr
 import io
 from openai import OpenAI
-from pydantic_ai import Agent, ModelMessage, ModelResponse, TextPart
+from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.ollama import OllamaProvider
 
 class Whisperer:
     def __init__(self, config: dict[str, dict[str, str]]) -> None:
@@ -19,14 +16,6 @@ class Whisperer:
 
         self.prompt_str = "Transcription:{transcription}\nChatters:{chatters}\nCorrected:{correction}"
 
-        # a bunch of known words that **will** not be correctly recognized, but hopefully
-        # the corrector will figure it out
-        known_corrections = [
-            "If subject of a sentence sounds similar to Spookiest Spooks, correct it to SpookiestSpooks instead",
-            "If subject of a sentence sounds similar to My Ego and/or the context is related to an aritst, correct it to mayoigo instead",
-            "If subject of a sentence sounds similar to bgar/bika, correct it to sqbika instead"
-        ]
-
         self.corrector_agent = Agent(
             self.ollama_model,
             output_type=str,
@@ -35,9 +24,8 @@ class Whisperer:
                 "Make the utterance make sense to another language model. "
                 "If there are words that obviously don't make sense in the context, remove them.\n"
                 "There might be words that when combined together addresses a chatter in the list provided by the user. "
-                "If so, correct those words to those chatters. \n"
+                "If so, correct those words to those chatters. Do not add words. Only replace. It is okay not to replace if you are unsure. Think carefully. \n"
                 "Do not output anything else but the correction. "
-                "Here are some rough correction rules to help you: [" + ','.join(known_corrections) + "]"
                 "\n" +
                 self.prompt_str.format(
                     transcription='mah key, can you write me a hell-',
@@ -82,7 +70,9 @@ class Whisperer:
             file=wav_data
         ).text
         print('[RECOGNIZER] Recognized:', recognized)
+        return await self.correct_from_text(chatter_list, recognized)
 
+    async def correct_from_text(self, chatter_list: list[str], recognized: str) -> str:
         result = await self.corrector_agent.run(self.prompt_str.format(
                 transcription=recognized,
                 chatters=chatter_list,
