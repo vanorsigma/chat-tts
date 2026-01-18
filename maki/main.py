@@ -104,7 +104,9 @@ agent = Agent(
         "- Call unique tools, do not repeat a tool call, even if they have different arguments.\n"
         "- To finish, choose the most appropriate tool that returns a TerminatingAction object.\n"
     ),
-    end_strategy='exhaustive',
+    end_strategy='early',
+    retries=3,
+    # end_strategy='exhaustive',
 )
 
 async def inspect_tools_stream(messages: list[ModelMessage], info: AgentInfo):
@@ -235,10 +237,10 @@ async def _interactive_main():
 
     while True:
         try:
-            await communication.inform_activated(False)
-            console.log('Awaiting wakeword')
-            if not waked: # this comes from later in the loop body, where the wakeword is uttered during a step
-                await wakeword.run_then_return()
+            # await communication.inform_activated(False)
+            # console.log('Awaiting wakeword')
+            # if not waked: # this comes from later in the loop body, where the wakeword is uttered during a step
+            #     await wakeword.run_then_return()
 
             await communication.inform_activated(True)
             prompt = Prompt.ask('Maki Text Prompt')

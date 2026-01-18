@@ -142,7 +142,10 @@ class TwitchTool:
         print(f'[TOOL] Sent command {command} successfully')
 
     async def change_title(self, title: str) -> None:
-        """Twitch Tool: Changes the stream title
+        """Twitch Tool: Changes the stream title. Some common titles, maintain the deprecating style, but do not use directly:
+        - lobotomizing my corp
+        - worst dev stream in existence
+        - cooking mapo tofu with no skills
 
         Args:
             title: A title to change to. 1 to 60 charactes only
