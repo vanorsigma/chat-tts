@@ -21,11 +21,12 @@ class Whisperer:
             output_type=str,
             system_prompt=(
                 "Your goal is to correct utterances transcribed by an Automatic Speech Recognition Model. "
-                "Make the utterance make sense to another language model. "
-                "If there are words that obviously don't make sense in the context, remove them.\n"
-                "There might be words that when combined together addresses a chatter in the list provided by the user. "
-                "If so, correct those words to those chatters. Do not add words. Only replace. It is okay not to replace if you are unsure. Think carefully. \n"
-                "Do not output anything else but the correction. "
+                "The context is usually for Twitch chat. "
+                "Make the utterance make sense. "
+                "If there are words that obviously don't make sense in the context, remove them. "
+                "There might be words that when combined together references a chatter in the list provided by the user. "
+                "Append a list of possible chatters in a list at the end of the sentence; it is ok to append an empty list instead [] "
+                "Do not output anything else but the correction and the list. "
                 "\n" +
                 self.prompt_str.format(
                     transcription='mah key, can you write me a hell-',
