@@ -4,7 +4,7 @@
  * 4th re-write LULE
  */
 
-import { makeAnimatedSprite, fetchAnimatedTextures } from './utils';
+import { makeAnimatedSprite, fetchAnimatedTextures } from '$lib/utils';
 import { is7TVEmote } from '$lib/seventv';
 import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatClient, ChatMessage } from '@twurple/chat';

@@ -1,6 +1,13 @@
-import { type RequestHandler } from '@sveltejs/kit';
-import { glob, readFile, writeFile } from 'fs/promises';
+import { json, type RequestHandler } from '@sveltejs/kit';
+import { glob, readdir, readFile, writeFile } from 'fs/promises';
 import { extension, lookup } from 'mime-types';
+import path from 'path';
+
+interface AttachmentBufferWithMetadata {
+  buffer: Buffer;
+  contentType: string;
+  contentLength: number;
+}
 
 const whitespaceRegex = /\s/;
 
@@ -11,30 +18,55 @@ async function findMatchingFile(tag: string): Promise<string | null> {
   return null;
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-  const searchParam = new URLSearchParams(request.url.split('?')[1]);
-  const tag = decodeURIComponent(searchParam.get('tag')?.trim() ?? '');
-  if (!tag && whitespaceRegex.test(tag)) {
-    return new Response('Tag invalid', {
-      status: 400
-    });
-  }
-
+async function getParticularAttachment(tag: string): Promise<AttachmentBufferWithMetadata | null> {
   const fileName = await findMatchingFile(tag);
   if (!fileName) {
-    return new Response('not found', {
-      status: 404
-    });
+    return null;
   }
 
   const fileData = Buffer.from(await readFile(fileName));
   let contentType = lookup(fileName);
   if (!contentType) contentType = 'text/plain';
 
-  return new Response(fileData, {
+  return {
+    buffer: fileData,
+    contentType,
+    contentLength: fileData.length
+  };
+}
+
+async function getAllPossibleTags(): Promise<string[] | null> {
+  return (await readdir('attachments/', { withFileTypes: true }))
+    .filter((f) => f.isFile())
+    .map((f) => path.parse(f.name).name);
+}
+
+export const GET: RequestHandler = async ({ request }) => {
+  const searchParam = new URLSearchParams(request.url.split('?')[1]);
+  const tag = decodeURIComponent(searchParam.get('tag')?.trim() ?? '');
+
+  if (!tag) {
+    const possibleTags = await getAllPossibleTags();
+    return json(possibleTags);
+  }
+
+  if (whitespaceRegex.test(tag)) {
+    return new Response('Tag invalid', {
+      status: 400
+    });
+  }
+
+  const attachment = await getParticularAttachment(tag);
+  if (!attachment) {
+    return new Response('not found', {
+      status: 404
+    });
+  }
+
+  return new Response(attachment.buffer as BodyInit, {
     headers: {
-      'content-type': contentType,
-      'content-length': fileData.length.toString()
+      'content-type': attachment.contentType,
+      'content-length': attachment.contentLength.toString()
     }
   });
 };

@@ -1,5 +1,6 @@
 import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets, Texture } from 'pixi.js';
-import { fetchAnimatedTextures, makeAnimatedSprite, properRandom } from './utils';
+import { fetchAnimatedTextures, makeAnimatedSprite } from '$lib/utils';
+import { properRandom } from './utils';
 import { MAXWELL_LIMITS } from './constants';
 
 const CAT_BREAD_SPIN_GIF = '/catBreadSpin.gif';
