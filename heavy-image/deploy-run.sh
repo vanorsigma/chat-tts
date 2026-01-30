@@ -11,6 +11,7 @@ ollama serve &
 # instead rely on APIs
 # sleep 30 && ollama pull gemma3:12b-it-qat && ollama pull qwen3:8b
 
+sleep 30
 ollama create kiki -f /opt/Modelfile
 export LD_LIBRARY_PATH="/.venv/lib/python3.11/site-packages/nvidia/cudnn/lib/:$LD_LIBRARY_PATH"
 cd /opt/whisper-fastapi
