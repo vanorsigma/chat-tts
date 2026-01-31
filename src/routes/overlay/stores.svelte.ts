@@ -2,6 +2,42 @@ import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
 import { SHOW_IMAGE_COOLDOWN } from './constants';
 
+export function createKarmaStore() {
+  let karma: number = 0;
+  let subscribers: Array<(karma: number) => void> = [];
+
+  function subscribe(subscription: (karma: number) => void): () => void {
+    subscribers.push(subscription);
+    subscription(karma);
+    return () => {
+      subscribers = subscribers.filter((sub) => sub !== subscription);
+    };
+  }
+
+  function setKarma(newKarma: number) {
+    karma = newKarma;
+    informSubscribers();
+  }
+
+  function updateKarma(diffKarma: number) {
+    karma += diffKarma;
+    informSubscribers();
+  }
+
+  function informSubscribers() {
+    for (const subscriber of subscribers) subscriber(karma);
+  }
+
+  return {
+    get karma() {
+      return karma;
+    },
+    subscribe,
+    setKarma,
+    updateKarma
+  };
+}
+
 export function createMakiStore(ws: WebSocket) {
   let currentMakiMessage: string = '';
   let currentCountdown: number = 0;
@@ -26,7 +62,6 @@ export function createMakiStore(ws: WebSocket) {
         break;
       case 'makiactivated':
         if (data['state']) {
-
           // when activated, clear the message queue too
           activated = true;
           thinking = false;
@@ -75,7 +110,12 @@ export function createMakiStore(ws: WebSocket) {
   }
 
   function subscribe(
-    subscription: (currentMakiMessage: string, duration: number, activated: boolean, thinking: boolean) => void
+    subscription: (
+      currentMakiMessage: string,
+      duration: number,
+      activated: boolean,
+      thinking: boolean
+    ) => void
   ): () => void {
     subscribers.push(subscription);
     subscription(currentMakiMessage, currentCountdown, activated, thinking);
@@ -416,3 +456,4 @@ export const mistakeStore = createMistakeStore();
 export const showImageStore = createShowImageStore();
 export const playAudioStore = createPlayAudioStore();
 export const goodnightKissStore = createGoodnightKissStore();
+export const karmaStore = createKarmaStore();

@@ -8,6 +8,7 @@ import {
   blackSilenceStore,
   flashbangStore,
   goodnightKissStore,
+  karmaStore,
   maxwellStore,
   mistakeStore,
   playAudioStore,
@@ -207,6 +208,7 @@ async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMes
       )
     ) {
       flashbangStore.increment();
+      karmaStore.updateKarma(Constants.FLASHBANG_KARMA);
       dispatcher.sendMessageAsUser(
         message.channelId!,
         `Throwing a flashbang, -${Constants.FLASHBANG_COST}`
@@ -240,6 +242,7 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessag
     }
 
     blackSilenceStore.increment();
+    karmaStore.updateKarma(Constants.BLACK_SILENCE_KARMA);
 
     ws.send(
       JSON.stringify({
@@ -285,6 +288,7 @@ function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
     }
 
     mistakeStore.increment();
+    karmaStore.updateKarma(Constants.MISTAKE_KARMA);
   })();
 }
 
@@ -355,6 +359,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
         );
         dispatcher.addObserver(approverObserver);
+        karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA);
       }
     }
   })();
@@ -426,6 +431,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
         );
         dispatcher.addObserver(approverObserver);
+        karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA);
       }
     }
   })();
@@ -564,6 +570,7 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
 
       const points = (await getPointsForUser(username)) ?? 0;
       await setPointsForUser(username, points + Constants.SELF_THOUGHT_COST);
+      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA);
     } else {
       await dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -613,6 +620,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
       color: message.userInfo.color ?? 'lightgrey',
       fast_version: Math.random() < 0.1
     });
+    karmaStore.updateKarma(Constants.GOOD_NIGHT_KISS_KARMA);
 
     if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER) {
       await dispatcher.sendMessageAsUser(message.channelId!, `...`);
