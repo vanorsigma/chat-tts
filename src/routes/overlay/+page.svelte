@@ -25,7 +25,8 @@
     playAudioStore,
     goodnightKissStore,
     createCheckInStore,
-    createMakiStore
+    createMakiStore,
+    karmaStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -34,7 +35,7 @@
   import type { ChatClient } from '@twurple/chat';
   import { makeApplication } from './utils';
   import { MaxwellContainer } from './maxwell';
-  import Console from './console.svelte';
+  import { KarmaContainer } from './karma';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -44,6 +45,7 @@
   let blackSilenceCount: number = 0;
   let client: ChatClient | null = null;
   let chatBulletBackend: ChatBulletContainer | undefined = undefined;
+  let karmaBackend: KarmaContainer | undefined = undefined;
 
   let blackSilenceBorder = false;
 
@@ -77,7 +79,7 @@
     const imgTarget = target as HTMLImageElement;
     const style = getComputedStyle(chatBulletContainer);
 
-    const {width, height} = style;
+    const { width, height } = style;
 
     const fullWidthNo = Number(width.replace('px', ''));
     const fullHeightNo = Number(height.replace('px', ''));
@@ -187,6 +189,7 @@
 
     maxwellContainerInstance = new MaxwellContainer(gameApplication);
     chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
+    karmaBackend = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
     dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
@@ -308,7 +311,6 @@
       </div>
     </div>
   {/if}
-  <!-- <Console bind:terminalOutput={makiCommandLogs} bind:terminalLine={lastOutput}></Console> -->
   <div
     bind:this={captchaElement}
     class="captcha"
