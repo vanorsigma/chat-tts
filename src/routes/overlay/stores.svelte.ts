@@ -4,9 +4,9 @@ import { SHOW_IMAGE_COOLDOWN } from './constants';
 
 export function createKarmaStore() {
   let karma: number = 0;
-  let subscribers: Array<(karma: number) => void> = [];
+  let subscribers: Array<(karma: number, message?: string) => void> = [];
 
-  function subscribe(subscription: (karma: number) => void): () => void {
+  function subscribe(subscription: (karma: number, message?: string) => void): () => void {
     subscribers.push(subscription);
     subscription(karma);
     return () => {
@@ -14,18 +14,18 @@ export function createKarmaStore() {
     };
   }
 
-  function setKarma(newKarma: number) {
+  function setKarma(newKarma: number, message?: string) {
     karma = newKarma;
-    informSubscribers();
+    informSubscribers(message);
   }
 
-  function updateKarma(diffKarma: number) {
+  function updateKarma(diffKarma: number, message?: string) {
     karma += diffKarma;
-    informSubscribers();
+    informSubscribers(message);
   }
 
-  function informSubscribers() {
-    for (const subscriber of subscribers) subscriber(karma);
+  function informSubscribers(message?: string) {
+    for (const subscriber of subscribers) subscriber(karma, message);
   }
 
   return {

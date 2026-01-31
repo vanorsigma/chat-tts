@@ -50,7 +50,12 @@ export class KarmaContainer {
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
     this.app = app;
     this.updateGlobalKarma = updateGlobalKarma;
-    karmaStore.subscribe((karma) => this.currentKarma = karma);
+    karmaStore.subscribe((karma, message) => {
+      this.currentKarma = karma;
+      if (message) {
+        this.updateScale(karma, message);
+      }
+    });
     this.initLater(twitch);
   }
 
