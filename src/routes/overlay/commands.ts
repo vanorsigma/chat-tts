@@ -635,6 +635,68 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   }
 }
 
+async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!message.userInfo.userName) return;
+  const username = user.userName;
+  if (!username) return;
+
+  if (karmaStore.karma < Constants.SET_TITLE_KARMA_REQUIREMENT) {
+    await dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'chat does not have enough karma for this.'
+    );
+    return;
+  }
+
+  const title = message.text.split(' ').slice(1).join(' ');
+
+  (async () => {
+    if (username === Constants.SET_TITLE_USER) {
+      dispatcher.rawSendMessageAsUser(message.channelId!, `!settitle ${title}`);
+    } else {
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -Constants.SET_TITLE_COST
+        ))
+      )
+        return;
+
+      const approverObserver = new ApprovableObserver(
+        dispatcher,
+        [Constants.SET_TITLE_USER],
+        () => {
+          dispatcher.rawSendMessageAsUser(message.channelId!, `!settitle ${title}`);
+          karmaStore.setKarma(
+            Constants.SET_TITLE_KARMA_MODIFIER * karmaStore.karma,
+            'Set Title karma'
+          );
+        },
+        () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+      );
+      dispatcher.addObserver(approverObserver);
+    }
+  })();
+}
+
+async function giveKarmaHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!message.userInfo.userName) return;
+  const username = user.userName;
+  if (!username) return;
+
+  if (!user.isBroadcaster) return;
+  const args = message.text.split(' ').slice(1);
+  const asNumber = Number.parseFloat(args[0]);
+  if (Number.isNaN(asNumber)) return;
+
+  karmaStore.updateKarma(asNumber, 'admin abuse');
+  dispatcher.sendMessageAsUser(message.channelId!, 'ok');
+}
+
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   nextValid: number = new Date().getTime();
@@ -737,6 +799,12 @@ export class Commands implements OverlayObserver {
         break;
       case '%goodnightkiss':
         goodnightkissHandler(dispatcher, message);
+        break;
+      case '%settitle':
+        settitleHandler(dispatcher, message);
+        break;
+      case '%givekarma':
+        giveKarmaHandler(dispatcher, message);
         break;
     }
     return;

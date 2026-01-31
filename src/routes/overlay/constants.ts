@@ -33,6 +33,12 @@ export const GOOD_NIGHT_KISS_COST = 5000;
 export const GOOD_NIGHT_KISS_USER = 'pastel8844';
 export const GOOD_NIGHT_KISS_KARMA = -300;
 
+// NOTE: set title has special karma requirements
+export const SET_TITLE_COST = 1000;
+export const SET_TITLE_KARMA_REQUIREMENT = 500;
+export const SET_TITLE_KARMA_MODIFIER = -0.3;
+export const SET_TITLE_USER = 'sekatsu1';
+
 export const CHECK_IN_POINTS = 999.99;
 
 /// Karma mapping
@@ -45,5 +51,5 @@ export const KARMA_MAP = new Map([
   ['%goodnightkiss', GOOD_NIGHT_KISS_KARMA],
   ['%flashbang', FLASHBANG_KARMA],
   ['%rotate', -100],
-  ['%distract', -200]
+  ['%distract', -200],
 ]);

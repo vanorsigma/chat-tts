@@ -48,8 +48,23 @@ export class OverlayDispatchers {
     }
   }
 
+  /**
+   * Very dangerous, sends a message without the ~
+   */
+  async rawSendMessageAsUser(channelId: string, message: string) {
+    if (import.meta.env.DEV) {
+      console.log('Would have sent raw', message);
+      return;
+    }
+
+    await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `${message}`);
+  }
+
   async sendMessageAsUser(channelId: string, message: string) {
-    if (import.meta.env.DEV) return;
+    if (import.meta.env.DEV) {
+      console.log('Would have sent', message);
+      return;
+    }
 
     await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
   }
