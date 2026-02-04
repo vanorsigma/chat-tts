@@ -2,6 +2,12 @@
  * Kiki API
  */
 
+export interface KikiResponse {
+  kamoji: string;
+  emoji: string;
+  rating: number;
+}
+
 export class KikiAPI {
   private apiurl: string;
 
@@ -9,7 +15,7 @@ export class KikiAPI {
     this.apiurl = apiurl;
   }
 
-  async fetchKikiResponse(message: string): Promise<string | null> {
+  async fetchKikiResponse(message: string): Promise<KikiResponse | null> {
     const response = await fetch(`${this.apiurl}/?` + new URLSearchParams({
       'message': message
     }).toString());
@@ -19,6 +25,6 @@ export class KikiAPI {
       return null;
     }
 
-    return await response.text();
+    return await response.json();
   }
 }

@@ -9,8 +9,9 @@ import {
   type Application,
   type PointData
 } from 'pixi.js';
+import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
-import { KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
+import { DING_THRESHOLD, KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
 import { karmaStore } from './stores.svelte';
 
 const ANGLE_MIN = -Math.PI / 16;
@@ -43,6 +44,10 @@ export class KarmaContainer {
   private updateGlobalKarma: (karma: number) => void;
   private collection: ScaleSpriteCollection | null = null;
   private showTimeout: NodeJS.Timeout | null = null;
+  private clip: Sound | null = null;
+
+  private origLeftBowl = { x: -20, y: 0 };
+  private origRightBowl = { x: 21, y: 0 };
 
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
     this.app = app;
@@ -75,6 +80,7 @@ export class KarmaContainer {
   async initLater(twitch: ChatClient) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.collection = await this.loadScaleSprites();
+    this.clip = Sound.from('/judgement.m4a');
   }
 
   async onMessage(message: ChatMessage) {
@@ -135,6 +141,14 @@ export class KarmaContainer {
     this.app.stage.addChild(totalKarmaText);
     this.app.stage.addChild(newKarmaText);
     // this.app.stage.addChild(messageText);
+    if (Math.abs(diffKarma) >= DING_THRESHOLD && this.clip) {
+      const clampedDiff = Math.min(Math.max(diffKarma, MIN_KARMA), MAX_KARMA);
+      const svalue = scurve(((Math.abs(clampedDiff) - MIN_KARMA) / (MAX_KARMA - MIN_KARMA)) * 2);
+      const value = svalue * 0.1;
+      this.clip.filters = [new filters.DistortionFilter(value)];
+      this.clip.volume = 0.15 * value;
+      this.clip.play();
+    }
 
     this.showTimeout = setTimeout(() => {
       this.undrawCollection(this.collection!, true, () => this.resetScale());
@@ -155,8 +169,8 @@ export class KarmaContainer {
   }
 
   private moveScaleBowlByAngle(sprite: Sprite, angle: number, side: 'LEFT' | 'RIGHT'): PointData {
-    const origX = sprite.x;
-    const origY = sprite.y;
+    const origX = side === 'LEFT' ? this.origLeftBowl.x : this.origRightBowl.x;
+    const origY = side === 'LEFT' ? this.origLeftBowl.y : this.origRightBowl.y;
 
     // NOTE: magic adjustment numbers to make it look right
     const adjustment = (angle / (ANGLE_MAX - ANGLE_MIN)) * 6;
@@ -226,7 +240,7 @@ export class KarmaContainer {
     // TODO: use animation, but for now we just teleport
     if (animated) {
       const tl = gsap.timeline({ defaults: { ease: 'elastic.out(2)' } });
-      tl.to(collection.handle, { rotation: target.handleRotation, delay: 1 })
+      tl.to(collection.handle, { rotation: target.handleRotation, delay: 2.273 })
         .to(
           collection.leftBowl,
           { x: target.leftBowlPosition.x, y: target.leftBowlPosition.y },

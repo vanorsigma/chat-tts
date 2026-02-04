@@ -8,8 +8,9 @@ import { makeAnimatedSprite, fetchAnimatedTextures } from '$lib/utils';
 import { is7TVEmote } from '$lib/seventv';
 import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
-import { KikiAPI } from './kikiapi';
+import { KikiAPI, type KikiResponse } from './kikiapi';
 import { LRUCache } from '$lib/LRUcache';
+import { karmaStore } from './stores.svelte';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';
@@ -208,7 +209,7 @@ export class ChatBulletContainer {
   async spawnBullet(
     displayName: string | null,
     parts: BulletPart[],
-    kiki_response: Promise<string | null> | null,
+    kiki_response: Promise<KikiResponse | null> | null,
     color: string = '#D3D3D3'
   ) {
     const { width, height } = this.app.screen;
@@ -251,7 +252,12 @@ export class ChatBulletContainer {
       (async () => {
         const res = await kiki_response;
         if (res) {
-          kikiText.text = res;
+          kikiText.text = `${res.kamoji} ${res.emoji}`;
+          if (res.rating > 0.1 || res.rating < -0.1)
+            karmaStore.updateKarma(res.rating, 'Kiki');
+          kikiText.style.update();
+        } else {
+          kikiText.text = 'Kiki was unable to respond :(';
           kikiText.style.update();
         }
       })(); // delay by one cycle
