@@ -23,7 +23,7 @@ export function createKarmaStore() {
   }
 
   function updateKarma(diffKarma: number, message?: string) {
-    setKarma(karma - diffKarma, message);
+    setKarma(karma + diffKarma, message);
   }
 
   function informSubscribers(oldKarma: number, message?: string) {
