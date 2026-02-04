@@ -703,6 +703,18 @@ async function giveKarmaHandler(dispatcher: OverlayDispatchers, message: ChatMes
   dispatcher.sendMessageAsUser(message.channelId!, 'ok');
 }
 
+async function restartHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!message.userInfo.userName) return;
+  const username = user.userName;
+  if (!username) return;
+
+  if (!user.isBroadcaster) return;
+
+  await closeMarketHandler(dispatcher, message);
+  window.location.reload();
+}
+
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   nextValid: number = new Date().getTime();
@@ -811,6 +823,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%givekarma':
         giveKarmaHandler(dispatcher, message);
+        break;
+      case '%restart':
+        restartHandler(dispatcher, message);
         break;
     }
     return;

@@ -50,7 +50,7 @@ export class KarmaContainer {
     karmaStore.subscribe((karma, oldKarma, message) => {
       this.currentKarma = karma;
       if (message) {
-        this.updateScale(oldKarma - karma, message);
+        this.updateScale(karma - oldKarma, message);
       }
     });
     this.initLater(twitch);
@@ -97,7 +97,7 @@ export class KarmaContainer {
       clearTimeout(this.showTimeout);
     }
 
-    const adjustmentNumber = this.calculateAdjustmentNumbers(diffKarma, this.collection);
+    const adjustmentNumber = this.calculateAdjustmentNumbers(this.currentKarma, this.collection);
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
     const totalKarmaText = new Text();

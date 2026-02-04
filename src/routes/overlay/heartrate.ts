@@ -20,12 +20,30 @@ export class Heartrate {
    * Please pass a fully authenticated URL to this class. This includes the access token and response mode if possible
    */
   constructor(url: string) {
-    this.ws = new WebSocket(url);
     this.subscribers = [];
+    this.ws = this.connect(url);
+  }
 
-    this.ws.onopen = () => console.log('Heart Rate socket opened');
-    this.ws.onclose = () => console.log('Heart Rate socket closed');
-    this.ws.onmessage = (ev) => this.onMessage(ev.data);
+  connect(url: string): WebSocket {
+    const ws = new WebSocket(url);
+    ws.onopen = () => console.log('Heart Rate socket opened');
+    ws.onclose = () => {
+      console.log('Heart Rate socket closed');
+      this.tryReconnect(url);
+    };
+    ws.onmessage = (ev) => this.onMessage(ev.data);
+    ws.onerror = (e) => {
+      console.error(e);
+      this.tryReconnect(url);
+    };
+    return ws;
+  }
+
+  tryReconnect(url: string) {
+    setTimeout(() => {
+      this.ws.close();
+      this.ws = this.connect(url);
+    }, 5000);
   }
 
   public subscribe(fn: (value: number) => void): () => void {
