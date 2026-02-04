@@ -1,9 +1,5 @@
-
 use rouille::{Response, Server};
-use tokio::{
-    runtime::Runtime,
-    task::JoinHandle,
-};
+use tokio::{runtime::Runtime, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
 pub struct CatWebServer {
