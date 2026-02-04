@@ -4,7 +4,7 @@ use openai::{
     Credentials, OpenAiError,
     chat::{ChatCompletion, ChatCompletionMessage, ChatCompletionMessageRole},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -41,6 +41,14 @@ pub struct AiResponse {
     kamoji: String,
     emoji: String,
     memories: Memories,
+    rating: f32,
+}
+
+#[derive(Serialize, Debug)]
+struct KikiResponse {
+    kamoji: String,
+    emoji: String,
+    rating: f32,
 }
 
 impl Ai {
@@ -123,6 +131,11 @@ impl Ai {
         *memories = response_object.memories;
         log::debug!("Memories updated to: {:#?}", memories.0);
 
-        Ok(response_object.kamoji + " " + &response_object.emoji)
+        Ok(serde_json::to_string(&KikiResponse {
+            kamoji: response_object.kamoji,
+            emoji: response_object.emoji,
+            rating: response_object.rating,
+        })
+        .map_err(AiError::SerialisationError)?)
     }
 }
