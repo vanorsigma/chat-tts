@@ -349,7 +349,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
       } else {
         dispatcher.sendMessageAsUser(
           message.channelId!,
-          '@pastel8844 , @deplytha , @mayoigo_QwQ pls check and approve'
+          '@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ pls check and approve'
         );
 
         const approverObserver = new ApprovableObserver(
@@ -421,7 +421,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
       } else {
         dispatcher.sendMessageAsUser(
           message.channelId!,
-          '@pastel8844 , @deplytha , @SpookiestSpooks pls check and approve'
+          '@pastel8844 , @deplytha , @asmodeus_desu , @SpookiestSpooks pls check and approve'
         );
 
         const approverObserver = new ApprovableObserver(
