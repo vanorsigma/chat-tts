@@ -1,31 +1,33 @@
 import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
-import { SHOW_IMAGE_COOLDOWN } from './constants';
+import { MAX_KARMA, MIN_KARMA, SHOW_IMAGE_COOLDOWN } from './constants';
 
 export function createKarmaStore() {
   let karma: number = 0;
-  let subscribers: Array<(karma: number, message?: string) => void> = [];
+  let subscribers: Array<(karma: number, oldKarma: number, message?: string) => void> = [];
 
-  function subscribe(subscription: (karma: number, message?: string) => void): () => void {
+  function subscribe(
+    subscription: (karma: number, oldKarma: number, message?: string) => void
+  ): () => void {
     subscribers.push(subscription);
-    subscription(karma);
+    subscription(karma, karma);
     return () => {
       subscribers = subscribers.filter((sub) => sub !== subscription);
     };
   }
 
   function setKarma(newKarma: number, message?: string) {
-    karma = newKarma;
-    informSubscribers(message);
+    const oldKarma = karma;
+    karma = Math.min(MAX_KARMA, Math.max(MIN_KARMA, newKarma));
+    informSubscribers(oldKarma, message);
   }
 
   function updateKarma(diffKarma: number, message?: string) {
-    karma += diffKarma;
-    informSubscribers(message);
+    setKarma(karma - diffKarma, message);
   }
 
-  function informSubscribers(message?: string) {
-    for (const subscriber of subscribers) subscriber(karma, message);
+  function informSubscribers(oldKarma: number, message?: string) {
+    for (const subscriber of subscribers) subscriber(karma, oldKarma, message);
   }
 
   return {
