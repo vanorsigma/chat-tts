@@ -208,7 +208,7 @@ async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMes
       )
     ) {
       flashbangStore.increment();
-      karmaStore.updateKarma(Constants.FLASHBANG_KARMA);
+      karmaStore.updateKarma(Constants.FLASHBANG_KARMA, 'Flashbang');
       dispatcher.sendMessageAsUser(
         message.channelId!,
         `Throwing a flashbang, -${Constants.FLASHBANG_COST}`
@@ -242,7 +242,7 @@ function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessag
     }
 
     blackSilenceStore.increment();
-    karmaStore.updateKarma(Constants.BLACK_SILENCE_KARMA);
+    karmaStore.updateKarma(Constants.BLACK_SILENCE_KARMA, 'Black Silence');
 
     ws.send(
       JSON.stringify({
@@ -288,7 +288,7 @@ function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
     }
 
     mistakeStore.increment();
-    karmaStore.updateKarma(Constants.MISTAKE_KARMA);
+    karmaStore.updateKarma(Constants.MISTAKE_KARMA, 'Mistake Redeem');
   })();
 }
 
@@ -359,7 +359,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
         );
         dispatcher.addObserver(approverObserver);
-        karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA);
+        karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA, 'Show Image');
       }
     }
   })();
@@ -431,7 +431,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
         );
         dispatcher.addObserver(approverObserver);
-        karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA);
+        karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA, 'Play Audio');
       }
     }
   })();
@@ -570,7 +570,7 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
 
       const points = (await getPointsForUser(username)) ?? 0;
       await setPointsForUser(username, points + Constants.SELF_THOUGHT_COST);
-      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA);
+      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA, 'Self Thought');
     } else {
       await dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -620,7 +620,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
       color: message.userInfo.color ?? 'lightgrey',
       fast_version: Math.random() < 0.1
     });
-    karmaStore.updateKarma(Constants.GOOD_NIGHT_KISS_KARMA);
+    karmaStore.updateKarma(Constants.GOOD_NIGHT_KISS_KARMA, 'Good Night Kiss');
 
     if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER) {
       await dispatcher.sendMessageAsUser(message.channelId!, `...`);
@@ -650,6 +650,7 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
   }
 
   const title = message.text.split(' ').slice(1).join(' ');
+  if (title.trim().length === 0) return;
 
   (async () => {
     if (username === Constants.SET_TITLE_USER) {
@@ -664,6 +665,11 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
         ))
       )
         return;
+
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        '@pastel8844 , @deplytha , @sekatsu1 pls check and approve'
+      );
 
       const approverObserver = new ApprovableObserver(
         dispatcher,
@@ -688,7 +694,7 @@ async function giveKarmaHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const username = user.userName;
   if (!username) return;
 
-  if (!user.isBroadcaster) return;
+  if (!user.isBroadcaster && !user.isMod) return;
   const args = message.text.split(' ').slice(1);
   const asNumber = Number.parseFloat(args[0]);
   if (Number.isNaN(asNumber)) return;

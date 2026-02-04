@@ -10,14 +10,11 @@ import {
   type PointData
 } from 'pixi.js';
 import gsap from 'gsap';
-import { KARMA_MAP } from './constants';
+import { KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
 import { karmaStore } from './stores.svelte';
 
 const ANGLE_MIN = -Math.PI / 16;
 const ANGLE_MAX = Math.PI / 16;
-
-const MIN_KARMA = -2000;
-const MAX_KARMA = 2000;
 
 interface ScaleSpriteCollection {
   body: Sprite;
@@ -50,10 +47,10 @@ export class KarmaContainer {
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
     this.app = app;
     this.updateGlobalKarma = updateGlobalKarma;
-    karmaStore.subscribe((karma, message) => {
+    karmaStore.subscribe((karma, oldKarma, message) => {
       this.currentKarma = karma;
       if (message) {
-        this.updateScale(karma, message);
+        this.updateScale(oldKarma - karma, message);
       }
     });
     this.initLater(twitch);
@@ -94,13 +91,13 @@ export class KarmaContainer {
     }
   }
 
-  private async updateScale(karmaValue: number, message: string) {
+  private async updateScale(diffKarma: number, message: string) {
     if (this.collection == null) return;
     if (this.showTimeout) {
       clearTimeout(this.showTimeout);
     }
 
-    const adjustmentNumber = this.calculateAdjustmentNumbers(this.currentKarma, this.collection);
+    const adjustmentNumber = this.calculateAdjustmentNumbers(diffKarma, this.collection);
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
     const totalKarmaText = new Text();
@@ -115,9 +112,9 @@ export class KarmaContainer {
       this.collection.container.x + this.collection.container.width / 4 - totalKarmaText.width / 2;
     totalKarmaText.y = this.collection.container.y + this.collection.container.height;
 
-    const isNewKarmaPositive = karmaValue > 0 ? true : false;
+    const isNewKarmaPositive = diffKarma > 0 ? true : false;
     const newKarmaText = new Text();
-    newKarmaText.text = `${isNewKarmaPositive ? '+' : ''} ${karmaValue.toFixed(2)}`;
+    newKarmaText.text = `${isNewKarmaPositive ? '+' : ''} ${diffKarma.toFixed(2)}`;
     newKarmaText.style = new TextStyle({
       fontSize: 54,
       stroke: 'black',
