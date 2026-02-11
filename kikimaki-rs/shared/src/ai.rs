@@ -29,6 +29,8 @@ pub enum AiError {
 }
 
 const MODEL_NAME: &str = "kiki";
+const RATING_MIN: f32 = -500.0;
+const RATING_MAX: f32 = 50.0;
 
 pub struct Ai {
     credentials: Credentials,
@@ -134,7 +136,7 @@ impl Ai {
         Ok(serde_json::to_string(&KikiResponse {
             kamoji: response_object.kamoji,
             emoji: response_object.emoji,
-            rating: response_object.rating,
+            rating: response_object.rating.max(RATING_MIN).min(RATING_MAX),
         })
         .map_err(AiError::SerialisationError)?)
     }

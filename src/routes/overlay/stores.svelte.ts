@@ -1,9 +1,11 @@
 import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
-import { MAX_KARMA, MIN_KARMA, SHOW_IMAGE_COOLDOWN } from './constants';
+import { KARMA_DECAY_RATE, MAX_KARMA, MIN_KARMA, SHOW_IMAGE_COOLDOWN } from './constants';
+import { TimedCache } from '$lib/TimedCache';
 
 export function createKarmaStore() {
   let karma: number = 0;
+  let timedCache: TimedCache<string, number> = new TimedCache(60 * 1000); // overspamming the same karma will decay the karma
   let subscribers: Array<(karma: number, oldKarma: number, message?: string) => void> = [];
 
   function subscribe(
@@ -22,7 +24,15 @@ export function createKarmaStore() {
     informSubscribers(oldKarma, message);
   }
 
-  function updateKarma(diffKarma: number, message?: string) {
+  // Note that this function is subject to timedCache if message exists
+  function updateKarma(diffKarma: number, message?: string, withDecay: boolean = true) {
+    if (withDecay && message) {
+      const decayFactor = timedCache.get(message) ?? 0.0;
+      const decayValue = decayFactor * Math.abs(diffKarma);
+      diffKarma -= decayValue;
+      timedCache.put(message, decayFactor + KARMA_DECAY_RATE);
+    }
+
     setKarma(karma + diffKarma, message);
   }
 

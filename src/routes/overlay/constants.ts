@@ -45,6 +45,7 @@ export const CHECK_IN_POINTS = 999.99;
 export const MIN_KARMA = -5000;
 export const MAX_KARMA = 5000;
 export const DING_THRESHOLD = 250.0;
+export const KARMA_DECAY_RATE = 0.01;
 
 export const KARMA_MAP = new Map([
   ['%rotate', -100],
