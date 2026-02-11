@@ -14,7 +14,7 @@ impl CatWebServer {
         callback: F,
         cancellation: CancellationToken,
     ) -> Self {
-        let runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().expect("can create a runtime");
 
         let server = Server::new("localhost:9123", move |request| {
             let message = match request.get_param("message") {
