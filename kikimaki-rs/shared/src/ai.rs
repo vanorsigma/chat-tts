@@ -96,14 +96,17 @@ impl Ai {
             .message
             .clone()
             .content
-            .unwrap();
+            .expect("should have content");
 
-        let messages = completion_messages
+        let (_thinking, messages) = completion_messages
             .trim()
-            .split("</think>")
-            .collect::<Vec<_>>();
+            .rsplit_once("<think>")
+            .map(|(_, msg)| msg)
+            .expect("should have thinking")
+            .split_once("</think>")
+            .expect("responses should have a thinking and message");
 
-        Ok(messages.last().unwrap().to_string())
+        Ok(messages.to_string())
     }
 
     pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
@@ -133,11 +136,11 @@ impl Ai {
         *memories = response_object.memories;
         log::debug!("Memories updated to: {:#?}", memories.0);
 
-        Ok(serde_json::to_string(&KikiResponse {
+        serde_json::to_string(&KikiResponse {
             kamoji: response_object.kamoji,
             emoji: response_object.emoji,
-            rating: response_object.rating.max(RATING_MIN).min(RATING_MAX),
+            rating: response_object.rating.clamp(RATING_MIN, RATING_MAX),
         })
-        .map_err(AiError::SerialisationError)?)
+        .map_err(AiError::SerialisationError)
     }
 }

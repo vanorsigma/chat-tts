@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{
@@ -28,16 +30,18 @@ pub enum MemoryBackendError {
 }
 
 pub struct MemoryBackend {
-    filename: String,
+    filename: Arc<String>,
 }
 
 impl MemoryBackend {
     pub fn new(filename: String) -> Self {
-        MemoryBackend { filename }
+        MemoryBackend {
+            filename: Arc::new(filename),
+        }
     }
 
     pub async fn save_memories(&self, memories: Memories) -> Result<(), MemoryBackendError> {
-        let mut file = File::create(self.filename.clone())
+        let mut file = File::create(self.filename.as_ref())
             .await
             .map_err(MemoryBackendError::SaveMemoriesIOError)?;
 
@@ -53,7 +57,7 @@ impl MemoryBackend {
     }
 
     pub async fn load_memories(&self) -> Result<Memories, MemoryBackendError> {
-        let mut file = File::open(self.filename.clone())
+        let mut file = File::open(self.filename.as_ref())
             .await
             .map_err(MemoryBackendError::LoadMemoryIOError)?;
 
