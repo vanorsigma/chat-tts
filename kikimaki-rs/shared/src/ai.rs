@@ -94,8 +94,8 @@ impl Ai {
             .first()
             .ok_or(AiError::NoMessage)?
             .message
-            .clone()
             .content
+            .as_ref()
             .expect("should have content");
 
         let (_thinking, message) = completion_messages
@@ -113,15 +113,13 @@ impl Ai {
         let mut memories = self.memories.lock().await;
         let result = self
             .send_raw(
-                self.prompt
-                    .replace(
-                        "{{memories}}",
-                        &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
-                    )
-                    .clone(),
+                self.prompt.replace(
+                    "{{memories}}",
+                    &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
+                ),
                 vec![ChatCompletionMessage {
                     role: ChatCompletionMessageRole::User,
-                    content: Some(message.clone().into()),
+                    content: Some(message.into()),
                     ..Default::default()
                 }],
                 0.8,
