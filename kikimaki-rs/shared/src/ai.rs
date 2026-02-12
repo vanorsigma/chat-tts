@@ -98,7 +98,7 @@ impl Ai {
             .content
             .expect("should have content");
 
-        let (_thinking, messages) = completion_messages
+        let (_thinking, message) = completion_messages
             .trim()
             .rsplit_once("<think>")
             .map(|(_, msg)| msg)
@@ -106,7 +106,7 @@ impl Ai {
             .split_once("</think>")
             .expect("responses should have a thinking and message");
 
-        Ok(messages.to_string())
+        Ok(message.to_string())
     }
 
     pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
