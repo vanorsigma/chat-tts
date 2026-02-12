@@ -37,7 +37,7 @@ impl MemoryBackend {
     }
 
     pub async fn save_memories(&self, memories: Memories) -> Result<(), MemoryBackendError> {
-        let mut file = File::create(self.filename.clone())
+        let mut file = File::create(&self.filename)
             .await
             .map_err(MemoryBackendError::SaveMemoriesIOError)?;
 
@@ -53,7 +53,7 @@ impl MemoryBackend {
     }
 
     pub async fn load_memories(&self) -> Result<Memories, MemoryBackendError> {
-        let mut file = File::open(self.filename.clone())
+        let mut file = File::open(&self.filename)
             .await
             .map_err(MemoryBackendError::LoadMemoryIOError)?;
 
