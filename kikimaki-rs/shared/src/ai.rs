@@ -98,13 +98,11 @@ impl Ai {
             .as_ref()
             .expect("should have content");
 
-        let (_thinking, message) = completion_messages
+        let message = completion_messages
             .trim()
-            .rsplit_once("<think>")
+            .rsplit_once("</think>")
             .map(|(_, msg)| msg)
-            .expect("should have thinking")
-            .split_once("</think>")
-            .expect("responses should have a thinking and message");
+            .expect("responses should have a message");
 
         Ok(message.to_string())
     }
