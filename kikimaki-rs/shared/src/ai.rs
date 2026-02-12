@@ -81,7 +81,7 @@ impl Ai {
         }];
         messages.append(&mut history.into());
 
-        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages.clone())
+        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages)
             .credentials(self.credentials.clone())
             .temperature(temperature)
             .top_p(top_p)
@@ -109,7 +109,7 @@ impl Ai {
         Ok(message.to_string())
     }
 
-    pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
+    pub async fn send(&self, message: impl Into<String>) -> Result<String, AiError> {
         let mut memories = self.memories.lock().await;
         let result = self
             .send_raw(
