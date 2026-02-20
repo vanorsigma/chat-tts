@@ -23,7 +23,7 @@ export const SHOW_IMAGE_COOLDOWN = 60 * 1000;
 export const SHOW_IMAGE_KARMA = -200;
 
 export const PLAY_AUDIO_COST = 10_000;
-export const PLAY_AUDIO_USER = 'spookiestspooks';
+export const PLAY_AUDIO_USER = 'SpookiestSpooks';
 export const PLAY_AUDIO_KARMA = -100;
 
 export const SELF_THOUGHT_COST = 5000;
