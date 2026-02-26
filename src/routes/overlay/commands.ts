@@ -24,7 +24,6 @@ import { ApprovableObserver } from './approvable';
 
 import * as Constants from './constants';
 import {
-  extractTag,
   getAttachmentUrlForTag,
   isTagExist,
   registerTag
@@ -298,21 +297,19 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const username = message.userInfo.userName;
   const args = message.text.replace('  ', ' ').split(' ');
 
-  if (args.length < 1) {
+  if (args.length < 2) {
     dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
   let imageUrl = args[1];
   let optionalTagName = args.at(2);
-  let isTag = false;
+  let isTag = !imageUrl.startsWith('http');
 
-  if (extractTag(imageUrl)) {
-    const tag = extractTag(imageUrl)!;
-    if (await isTagExist(tag)) {
-      imageUrl = getAttachmentUrlForTag(tag);
+  if (isTag) {
+    if (await isTagExist(imageUrl)) {
+      imageUrl = getAttachmentUrlForTag(imageUrl);
       optionalTagName = undefined;
-      isTag = true;
     } else {
       dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
       return;
@@ -324,7 +321,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
     try {
       if (optionalTagName) await registerTag(optionalTagName, imageUrl);
     } catch (e) {
-      dispatcher.sendMessageAsUser(message.channelId!, 'cannot add tag image: {e}');
+      dispatcher.sendMessageAsUser(message.channelId!, `cannot add tag image: ${e}`);
     }
   };
 
@@ -371,26 +368,25 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const username = message.userInfo.userName;
   const args = message.text.replace('  ', ' ').split(' ');
 
-  if (args.length < 1) {
+  if (args.length < 2) {
     dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
   let audioUrl = args[1];
   let optionalTagName = args.at(2);
-  let isTag = false;
+  let isTag = !audioUrl.startsWith('http');
 
-  if (extractTag(audioUrl)) {
-    const tag = extractTag(audioUrl)!;
-    if (await isTagExist(tag)) {
-      audioUrl = getAttachmentUrlForTag(tag);
+  if (isTag) {
+    if (await isTagExist(audioUrl)) {
+      audioUrl = getAttachmentUrlForTag(audioUrl);
       optionalTagName = undefined;
-      isTag = true;
     } else {
       dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
       return;
     }
   }
+
   const addUrl = async () => {
     try {
       playAudioStore.addUrl(audioUrl);
