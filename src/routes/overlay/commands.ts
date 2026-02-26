@@ -832,9 +832,11 @@ export class Commands implements OverlayObserver {
       case '%mistake':
         mistakeHandler(dispatcher, message);
         break;
+      case '%si':
       case '%showimage':
         showImageHandler(dispatcher, message);
         break;
+      case "%pa":
       case '%playsound':
       case '%playaudio':
         playAudioHandler(dispatcher, message);
