@@ -37,17 +37,26 @@ async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
   broadcaster_id: string,
   username: string,
-  difference: number
+  difference: number,
+  use_stock_market: boolean = true
 ): Promise<boolean> {
   const points = (await getPointsForUser(username)) ?? 0;
 
   if (points + difference >= 0) {
     await setPointsForUser(username, points + difference);
     return true;
-  } else {
-    dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this`);
-    return false;
   }
+
+  if (use_stock_market) {
+    try {
+      GLOBAL_HEART_STOCK_MARKET.uninvest(username, -difference);
+      return true;
+    } catch (e: unknown) { }
+  }
+
+
+  dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this PoorVanor`);
+  return false;
 }
 
 async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -489,13 +498,13 @@ async function investHandler(
 
   switch (operation) {
     case 'invest':
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, false))) return;
       try {
         GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
       } catch (e: unknown) {
         dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
         console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       }
       dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -508,10 +517,10 @@ async function investHandler(
       } catch (e: unknown) {
         dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
         console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       }
 
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       dispatcher.sendMessageAsUser(
         message.channelId!,
         `${username} successfully uninvested ${amount}`
