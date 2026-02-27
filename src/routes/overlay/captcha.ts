@@ -6,7 +6,7 @@ import { karmaStore } from './stores.svelte';
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CAPTCHA_POINTS = 500;
 const CAPTCHA_KARMA = 100;
-const CAPTCHA_DURATION = 10 * 1000;
+const CAPTCHA_DURATION = 15 * 1000;
 
 function choose<T>(choices: Array<T>): T {
   const index = Math.floor(Math.random() * choices.length);
@@ -18,7 +18,7 @@ export class CaptchaObserver implements OverlayObserver {
   private dispatcher: OverlayDispatchers;
   private onSolve: () => void;
   private alreadyClaimed: Set<string> = new Set();
-  private timeout: number | null = null;
+  private solved: boolean = false;
 
   constructor(dispatcher: OverlayDispatchers, onSolve: () => void) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -26,6 +26,12 @@ export class CaptchaObserver implements OverlayObserver {
     this.dispatcher = dispatcher;
     this.dispatcher.addObserver(this);
     this.onSolve = onSolve;
+    setTimeout(() => {
+      this.dispatcher.removeObserver(this);
+      if (!this.solved) {
+        this.onSolve()
+      }
+    }, CAPTCHA_DURATION);
   }
 
   get value(): string {
@@ -48,11 +54,9 @@ export class CaptchaObserver implements OverlayObserver {
       );
       karmaStore.updateKarma(CAPTCHA_KARMA, 'Captcha');
 
-      if (!this.timeout) {
-        this.timeout = setTimeout(() => {
-          this.dispatcher.removeObserver(this);
-          this.onSolve();
-        }, CAPTCHA_DURATION) as unknown as number;
+      if (!this.solved) {
+        this.solved = true;
+        this.onSolve();
       }
     }
   }

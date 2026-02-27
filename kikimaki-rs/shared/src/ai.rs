@@ -81,7 +81,7 @@ impl Ai {
         }];
         messages.append(&mut history.into());
 
-        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages.clone())
+        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages)
             .credentials(self.credentials.clone())
             .temperature(temperature)
             .top_p(top_p)
@@ -94,31 +94,30 @@ impl Ai {
             .first()
             .ok_or(AiError::NoMessage)?
             .message
-            .clone()
             .content
-            .unwrap();
+            .as_ref()
+            .expect("should have content");
 
-        let messages = completion_messages
+        let message = completion_messages
             .trim()
-            .split("</think>")
-            .collect::<Vec<_>>();
+            .rsplit_once("</think>")
+            .map(|(_, msg)| msg)
+            .expect("responses should have a message");
 
-        Ok(messages.last().unwrap().to_string())
+        Ok(message.to_string())
     }
 
-    pub async fn send(&self, message: impl Into<String> + Clone) -> Result<String, AiError> {
+    pub async fn send(&self, message: impl Into<String>) -> Result<String, AiError> {
         let mut memories = self.memories.lock().await;
         let result = self
             .send_raw(
-                self.prompt
-                    .replace(
-                        "{{memories}}",
-                        &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
-                    )
-                    .clone(),
+                self.prompt.replace(
+                    "{{memories}}",
+                    &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
+                ),
                 vec![ChatCompletionMessage {
                     role: ChatCompletionMessageRole::User,
-                    content: Some(message.clone().into()),
+                    content: Some(message.into()),
                     ..Default::default()
                 }],
                 0.8,
@@ -133,11 +132,11 @@ impl Ai {
         *memories = response_object.memories;
         log::debug!("Memories updated to: {:#?}", memories.0);
 
-        Ok(serde_json::to_string(&KikiResponse {
+        serde_json::to_string(&KikiResponse {
             kamoji: response_object.kamoji,
             emoji: response_object.emoji,
-            rating: response_object.rating.max(RATING_MIN).min(RATING_MAX),
+            rating: response_object.rating.clamp(RATING_MIN, RATING_MAX),
         })
-        .map_err(AiError::SerialisationError)?)
+        .map_err(AiError::SerialisationError)
     }
 }

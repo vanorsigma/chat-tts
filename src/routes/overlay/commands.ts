@@ -24,7 +24,6 @@ import { ApprovableObserver } from './approvable';
 
 import * as Constants from './constants';
 import {
-  extractTag,
   getAttachmentUrlForTag,
   isTagExist,
   registerTag
@@ -39,17 +38,26 @@ async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
   broadcaster_id: string,
   username: string,
-  difference: number
+  difference: number,
+  use_stock_market: boolean = true
 ): Promise<boolean> {
   const points = (await getPointsForUser(username)) ?? 0;
 
   if (points + difference >= 0) {
     await setPointsForUser(username, points + difference);
     return true;
-  } else {
-    dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this`);
-    return false;
   }
+
+  if (use_stock_market) {
+    try {
+      GLOBAL_HEART_STOCK_MARKET.uninvest(username, -difference);
+      return true;
+    } catch (e: unknown) { }
+  }
+
+
+  dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this PoorVanor`);
+  return false;
 }
 
 async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -300,21 +308,19 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const username = message.userInfo.userName;
   const args = message.text.replace('  ', ' ').split(' ');
 
-  if (args.length < 1) {
+  if (args.length < 2) {
     dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
   let imageUrl = args[1];
   let optionalTagName = args.at(2);
-  let isTag = false;
+  let isTag = !imageUrl.startsWith('http');
 
-  if (extractTag(imageUrl)) {
-    const tag = extractTag(imageUrl)!;
-    if (await isTagExist(tag)) {
-      imageUrl = getAttachmentUrlForTag(tag);
+  if (isTag) {
+    if (await isTagExist(imageUrl)) {
+      imageUrl = getAttachmentUrlForTag(imageUrl);
       optionalTagName = undefined;
-      isTag = true;
     } else {
       dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
       return;
@@ -326,7 +332,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
     try {
       if (optionalTagName) await registerTag(optionalTagName, imageUrl);
     } catch (e) {
-      dispatcher.sendMessageAsUser(message.channelId!, 'cannot add tag image: {e}');
+      dispatcher.sendMessageAsUser(message.channelId!, `cannot add tag image: ${e}`);
     }
   };
 
@@ -349,16 +355,15 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
       if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
         addUrl();
       } else {
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          '@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ pls check and approve'
-        );
-
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.SHOW_IMAGE_USER],
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
+        );
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          `@pastel8844 @deplytha @asmodeus_desu @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
         );
         dispatcher.addObserver(approverObserver);
         karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA, 'Show Image');
@@ -373,26 +378,25 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const username = message.userInfo.userName;
   const args = message.text.replace('  ', ' ').split(' ');
 
-  if (args.length < 1) {
+  if (args.length < 2) {
     dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
     return;
   }
 
   let audioUrl = args[1];
   let optionalTagName = args.at(2);
-  let isTag = false;
+  let isTag = !audioUrl.startsWith('http');
 
-  if (extractTag(audioUrl)) {
-    const tag = extractTag(audioUrl)!;
-    if (await isTagExist(tag)) {
-      audioUrl = getAttachmentUrlForTag(tag);
+  if (isTag) {
+    if (await isTagExist(audioUrl)) {
+      audioUrl = getAttachmentUrlForTag(audioUrl);
       optionalTagName = undefined;
-      isTag = true;
     } else {
       dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist');
       return;
     }
   }
+
   const addUrl = async () => {
     try {
       playAudioStore.addUrl(audioUrl);
@@ -421,16 +425,15 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
       if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
         addUrl();
       } else {
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          '@pastel8844 , @deplytha , @asmodeus_desu , @SpookiestSpooks pls check and approve'
-        );
-
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.PLAY_AUDIO_USER],
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+        );
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          `@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
         );
         dispatcher.addObserver(approverObserver);
         karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA, 'Play Audio');
@@ -491,13 +494,13 @@ async function investHandler(
 
   switch (operation) {
     case 'invest':
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, false))) return;
       try {
         GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
       } catch (e: unknown) {
         dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
         console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       }
       dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -510,10 +513,10 @@ async function investHandler(
       } catch (e: unknown) {
         dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
         console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       }
 
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount))) return;
+      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
       dispatcher.sendMessageAsUser(
         message.channelId!,
         `${username} successfully uninvested ${amount}`
@@ -668,11 +671,6 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
       )
         return;
 
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        '@pastel8844 , @deplytha , @sekatsu1 pls check and approve'
-      );
-
       const approverObserver = new ApprovableObserver(
         dispatcher,
         [Constants.SET_TITLE_USER],
@@ -684,6 +682,10 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
           );
         },
         () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+      );
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
       );
       dispatcher.addObserver(approverObserver);
     }

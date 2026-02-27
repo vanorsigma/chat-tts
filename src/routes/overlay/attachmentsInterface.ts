@@ -1,14 +1,5 @@
 import { PUBLIC_ATTACHMENTS_URL } from '$env/static/public';
 
-const tagRe = /^{(.*)}$/g;
-
-export function extractTag(argument: string): string | null {
-  const matches = Array.from(argument.matchAll(tagRe));
-  if (matches.length < 1) return null;
-  const match = matches[0][1];
-  return String(match);
-}
-
 export function getAttachmentUrlForTag(tagname: string): string {
   return `${PUBLIC_ATTACHMENTS_URL}?tag=${tagname}`;
 }
