@@ -356,16 +356,15 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
       if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
         addUrl();
       } else {
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          '@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ pls check and approve'
-        );
-
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.SHOW_IMAGE_USER],
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'lbozo try better next time')
+        );
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          `@pastel8844 @deplytha @asmodeus_desu @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
         );
         dispatcher.addObserver(approverObserver);
         karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA, 'Show Image');
@@ -428,16 +427,15 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
       if (message.userInfo.isMod || message.userInfo.isBroadcaster || isTag) {
         addUrl();
       } else {
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          '@pastel8844 , @deplytha , @asmodeus_desu , @SpookiestSpooks pls check and approve'
-        );
-
         const approverObserver = new ApprovableObserver(
           dispatcher,
           [Constants.PLAY_AUDIO_USER],
           () => addUrl(),
           () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+        );
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          `@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
         );
         dispatcher.addObserver(approverObserver);
         karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA, 'Play Audio');
@@ -675,11 +673,6 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
       )
         return;
 
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        '@pastel8844 , @deplytha , @sekatsu1 pls check and approve'
-      );
-
       const approverObserver = new ApprovableObserver(
         dispatcher,
         [Constants.SET_TITLE_USER],
@@ -691,6 +684,10 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
           );
         },
         () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate')
+      );
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `@pastel8844 , @deplytha , @asmodeus_desu , @mayoigo_QwQ PLEASE check and approve (ID ${approverObserver.id})`
       );
       dispatcher.addObserver(approverObserver);
     }
