@@ -316,6 +316,10 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
   let imageUrl = args[1];
   let optionalTagName = args.at(2);
   let isTag = !imageUrl.startsWith('http');
+  // backwards compatibility with {tag} syntax
+  if (isTag && imageUrl.startsWith("{") && imageUrl.endsWith("}")) {
+    imageUrl = imageUrl.slice(1, -1);
+  }
 
   if (isTag) {
     if (await isTagExist(imageUrl)) {
