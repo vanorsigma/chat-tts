@@ -390,6 +390,10 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   let audioUrl = args[1];
   let optionalTagName = args.at(2);
   let isTag = !audioUrl.startsWith('http');
+  // backwards compatibility with {tag} syntax
+  if (isTag && audioUrl.startsWith("{") && audioUrl.endsWith("}")) {
+    audioUrl = audioUrl.slice(1, -1);
+  }
 
   if (isTag) {
     if (await isTagExist(audioUrl)) {
