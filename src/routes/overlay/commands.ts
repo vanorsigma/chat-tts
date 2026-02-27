@@ -31,7 +31,9 @@ import {
 } from './attachmentsInterface';
 
 const COOLDOWN = 10 * 1000;
+const TOGGLE_COOLDOWN = 2 * 60 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
+const TOGGLE_EXPIRY: Map<string, NodeJS.Timeout> = new Map();
 
 async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
@@ -715,6 +717,33 @@ async function restartHandler(dispatcher: OverlayDispatchers, message: ChatMessa
   window.location.reload();
 }
 
+async function togglesHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  blendShape: 'Hearts' | 'Stars' | 'Undress'
+) {
+  const karmaValue = karmaStore.karma;
+  const requiredKarma = Constants.TOGGLES_KARMA.get(blendShape);
+  console.log(karmaValue, requiredKarma);
+  if (!requiredKarma) return;
+  if (karmaValue < requiredKarma) {
+    dispatcher.sendMessageAsUser(message.channelId!, '~ forsenLaughingAtYou not enough karma');
+    return;
+  }
+
+  let timeoutVal = TOGGLE_EXPIRY.get(blendShape);
+  if (!timeoutVal) clearTimeout(timeoutVal);
+
+  timeoutVal = setTimeout(() => {
+    dispatcher.modelUpdater.setBlendShape(blendShape, 0.0);
+    TOGGLE_EXPIRY.delete(blendShape);
+  }, TOGGLE_COOLDOWN);
+
+  TOGGLE_EXPIRY.set(blendShape, timeoutVal);
+  dispatcher.modelUpdater.setBlendShape(blendShape, 1.0);
+  karmaStore.setKarma(karmaValue - requiredKarma, 'Toggles');
+}
+
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   nextValid: number = new Date().getTime();
@@ -826,6 +855,19 @@ export class Commands implements OverlayObserver {
         break;
       case '%restart':
         restartHandler(dispatcher, message);
+        break;
+      case '%undress':
+        this.callOnlyIfPastCooldown(dispatcher, () =>
+          togglesHandler(dispatcher, message, 'Undress')
+        );
+        break;
+      case '%stars':
+        this.callOnlyIfPastCooldown(dispatcher, () => togglesHandler(dispatcher, message, 'Stars'));
+        break;
+      case '%hearts':
+        this.callOnlyIfPastCooldown(dispatcher, () =>
+          togglesHandler(dispatcher, message, 'Hearts')
+        );
         break;
     }
     return;

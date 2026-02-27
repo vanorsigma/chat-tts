@@ -4,6 +4,7 @@
 
 import type { ApiClient } from '@twurple/api';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
+import type { ModelUpdater } from './modelupdater';
 
 export interface OverlayObserver {
   onMessage(message: ChatMessage): void;
@@ -14,12 +15,14 @@ export class OverlayDispatchers {
   private twitch: ChatClient;
   private api: ApiClient;
   private botId: string;
+  public readonly modelUpdater: ModelUpdater;
 
-  constructor(twitch: ChatClient, api: ApiClient, botId: string) {
+  constructor(twitch: ChatClient, api: ApiClient, modelUpdater: ModelUpdater, botId: string) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.twitch = twitch;
     this.api = api;
     this.botId = botId;
+    this.modelUpdater = modelUpdater;
   }
 
   addObserver(observer: OverlayObserver) {
@@ -72,7 +75,7 @@ export class OverlayDispatchers {
   async timeoutUser(channelId: string, targetId: string, reason: string, duration_seconds: number) {
     // if (import.meta.env.DEV) return;
 
-    this.api.asUser(this.botId, async ctx => {
+    this.api.asUser(this.botId, async (ctx) => {
       ctx.moderation.banUser(channelId, {
         user: targetId,
         reason,

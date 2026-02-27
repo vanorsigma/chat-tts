@@ -47,6 +47,16 @@ export const MAX_KARMA = 5000;
 export const DING_THRESHOLD = 250.0;
 export const KARMA_DECAY_RATE = 0.01;
 
+// Model Updates
+export const BLUSH_HR_THRESHOLD = 80;
+export const DESPAIR_HR_THRESHOLD = 50;
+
+export const TOGGLES_KARMA = new Map([
+  ['Hearts', 5.0],
+  ['Stars', 5.0],
+  ['Undress', 10.0],
+]);
+
 export const KARMA_MAP = new Map([
   ['%rotate', -100],
   ['%distract', -200]

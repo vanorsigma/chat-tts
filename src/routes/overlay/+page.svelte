@@ -13,7 +13,12 @@
     PUBLIC_TARGET_CHANNEL_ID
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
-  import { BLACK_SILENCE_DURATION, MAXWELL_COOLDOWN } from './constants';
+  import {
+    BLACK_SILENCE_DURATION,
+    MAXWELL_COOLDOWN,
+    BLUSH_HR_THRESHOLD,
+    DESPAIR_HR_THRESHOLD
+  } from './constants';
   import { Commands } from './commands';
   import {
     pollStore,
@@ -36,6 +41,7 @@
   import { makeApplication } from './utils';
   import { MaxwellContainer } from './maxwell';
   import { KarmaContainer } from './karma';
+  import { ModelUpdater } from './modelupdater';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -182,15 +188,20 @@
   let maxwellContainerInstance: MaxwellContainer | undefined = undefined;
 
   onMount(async () => {
+    const modelUpdater = new ModelUpdater();
     client = createNewTwitchClientV2('vanorsigma');
     stockMarket.setHeartrateObject(heartrate);
+    heartrate.subscribe((hr: number) => {
+      modelUpdater.setBlendShape('Blush', hr < BLUSH_HR_THRESHOLD ? 0.0 : 1.0);
+      modelUpdater.setBlendShape('Despair', hr < DESPAIR_HR_THRESHOLD ? 1.0 : 0.0);
+    });
     let gameApplication = await makeApplication(chatBulletContainer);
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
     maxwellContainerInstance = new MaxwellContainer(gameApplication);
     chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
     karmaBackend = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
-    dispatchers = new OverlayDispatchers(client, apiClient, PUBLIC_TWITCH_BOT_ID);
+    dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);

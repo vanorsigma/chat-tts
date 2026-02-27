@@ -1,9 +1,11 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { getPointsForUser, setPointsForUser } from './pointsInterface';
 import type { ChatMessage } from '@twurple/chat';
+import { karmaStore } from './stores.svelte';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CAPTCHA_POINTS = 500;
+const CAPTCHA_KARMA = 100;
 const CAPTCHA_DURATION = 10 * 1000;
 
 function choose<T>(choices: Array<T>): T {
@@ -44,6 +46,7 @@ export class CaptchaObserver implements OverlayObserver {
         message.channelId!,
         `${username} claimed ${CAPTCHA_POINTS}!`
       );
+      karmaStore.updateKarma(CAPTCHA_KARMA, 'Captcha');
 
       if (!this.timeout) {
         this.timeout = setTimeout(() => {
