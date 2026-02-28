@@ -6,7 +6,7 @@ import { karmaStore } from './stores.svelte';
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CAPTCHA_POINTS = 500;
 const CAPTCHA_KARMA = 100;
-const CAPTCHA_DURATION = 15 * 1000;
+const CAPTCHA_DURATION = 30 * 1000;
 
 function choose<T>(choices: Array<T>): T {
   const index = Math.floor(Math.random() * choices.length);

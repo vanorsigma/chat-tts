@@ -50,6 +50,7 @@ export class KarmaContainer {
   private origRightBowl = { x: 21, y: 0 };
 
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
+    sound.disableAutoPause = true;
     this.app = app;
     this.updateGlobalKarma = updateGlobalKarma;
     karmaStore.subscribe((karma, oldKarma, message) => {

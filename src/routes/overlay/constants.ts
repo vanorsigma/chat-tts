@@ -54,7 +54,7 @@ export const DESPAIR_HR_THRESHOLD = 50;
 export const TOGGLES_KARMA = new Map([
   ['Hearts', 5.0],
   ['Stars', 5.0],
-  ['Undress', 10.0],
+  ['Undress', 50.0],
 ]);
 
 export const KARMA_MAP = new Map([
