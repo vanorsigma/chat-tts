@@ -39,7 +39,7 @@ export class CaptchaObserver implements OverlayObserver {
   }
 
   async onMessage(message: ChatMessage): Promise<void> {
-    if (message.text.trim() === this.answer) {
+    if (message.text.includes(this.answer)) {
       const username = message.userInfo.userName;
       if (!username) return;
 
