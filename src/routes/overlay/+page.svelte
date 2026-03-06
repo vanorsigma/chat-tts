@@ -231,7 +231,7 @@
         await audio.play();
       } catch {
         // HACK: Ugly hardcoded channel constant
-        await dispatchers?.sendMessageAsUser(
+        dispatchers?.sendMessageAsUser(
           PUBLIC_TARGET_CHANNEL_ID,
           'failed to play for some reason'
         );

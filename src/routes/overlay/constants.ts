@@ -1,5 +1,7 @@
 /// Constants
 
+export const MODERATOR_USERS = ['pastel8844', 'deplytha', 'asmodeus_desu'];
+
 export const BLACK_SILENCE_USER = 'nikitakik228';
 export const BLACK_SILENCE_DURATION = 10 * 1000;
 export const BLACK_SILENCE_COST = 500;
