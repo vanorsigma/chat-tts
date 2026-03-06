@@ -506,9 +506,10 @@ async function investHandler(
       try {
         GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
       } catch (e: unknown) {
-        dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
-        console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
+        dispatcher.sendMessageAsUser(message.channelId!, `@${username}, ${e}`);
+        //refund
+        (await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))!;
+        return
       }
       dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -519,15 +520,13 @@ async function investHandler(
       try {
         GLOBAL_HEART_STOCK_MARKET.uninvest(message.userInfo.userName, amount);
       } catch (e: unknown) {
-        dispatcher.sendMessageAsUser(message.channelId!, `${username}, ${e}`);
-        console.log(e);
-        if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
+        dispatcher.sendMessageAsUser(message.channelId!, `@${username}, ${e}`);
+        return;
       }
-
-      if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))) return;
+      (await checkCostAddIfEnough(dispatcher, message.channelId!, username, amount, false))!;
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `${username} successfully uninvested ${amount}`
+        `@${username} successfully uninvested ${amount}`
       );
   }
 }
