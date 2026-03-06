@@ -34,6 +34,7 @@ const TOGGLE_COOLDOWN = 2 * 60 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
 const TOGGLE_EXPIRY: Map<string, NodeJS.Timeout> = new Map();
 
+let _checkCostAddIfEnoughLock: Promise<boolean> = Promise.resolve(true);
 async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
   broadcaster_id: string,
@@ -41,23 +42,30 @@ async function checkCostAddIfEnough(
   difference: number,
   use_stock_market: boolean = true
 ): Promise<boolean> {
-  const points = (await getPointsForUser(username)) ?? 0;
+  const currentTask = _checkCostAddIfEnoughLock.then(async () => {
+    const points = (await getPointsForUser(username)) ?? 0;
 
-  if (points + difference >= 0) {
-    await setPointsForUser(username, points + difference);
-    return true;
-  }
-
-  if (use_stock_market) {
-    try {
-      GLOBAL_HEART_STOCK_MARKET.uninvest(username, -difference);
+    if (points + difference >= 0) {
+      await setPointsForUser(username, points + difference);
       return true;
-    } catch (e: unknown) { }
-  }
+    }
 
+    if (use_stock_market) {
+      try {
+        GLOBAL_HEART_STOCK_MARKET.uninvest(username, -difference);
+        return true;
+      } catch (e: unknown) { }
+    }
 
-  dispatcher.sendMessageAsUser(broadcaster_id, `${username}, you can't afford this PoorVanor`);
-  return false;
+    //TODO: this should probably be the caller's responsibiility
+    dispatcher.sendMessageAsUser(broadcaster_id, `@${username} you can't afford this PoorVanor`);
+    return false;
+  }).catch((err) => {
+    console.error(err);
+    return false
+  });
+  _checkCostAddIfEnoughLock = currentTask;
+  return await currentTask
 }
 
 async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
