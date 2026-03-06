@@ -87,22 +87,30 @@ async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessa
 }
 
 async function transferHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
-  const splits = message.text.split(' ');
-  const target = splits[1].toLowerCase();
-  const amount = Number(splits[2]);
+  const args = message.text.split(' ').slice(1);
+  if (args.length < 2) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${message.userInfo.userName} insufficient arguments`);
+    return;
+  }
+  const target = args[0].toLowerCase();
+  const amount = Number(args[1]);
 
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
+  if (target === username) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${message.userInfo.userName} cant transfer to yourself`);
+    return;
+  }
 
-  if (amount <= 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'Must transfer a positive amount');
+  if (Number.isNaN(amount) || amount <= 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${username} invalid amount`);
     return;
   }
 
   if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount))) return;
-  const points = (await getPointsForUser(target)) ?? 0;
-  await setPointsForUser(target, points + amount);
+  (await checkCostAddIfEnough(dispatcher, message.channelId!, target, amount))!
+
   dispatcher.sendMessageAsUser(
     message.channelId!,
     `${username} transferred ${amount} to ${target}`
@@ -156,11 +164,11 @@ async function givePointsHandler(dispatcher: OverlayDispatchers, message: ChatMe
 
   const splitted = message.text.split(' ');
   const target = splitted[1];
-  const cost = Number(splitted[2]);
+  const points = Number(splitted[2]);
+  if (Number.isNaN(points)) return;
 
-  const points = (await getPointsForUser(target)) ?? 0;
-  await setPointsForUser(target, points + cost);
-  dispatcher.sendMessageAsUser(message.channelId!, `given ${cost} to ${target}`);
+  (await checkCostAddIfEnough(dispatcher, message.channelId!, target, points))!;
+  dispatcher.sendMessageAsUser(message.channelId!, `@${message.userInfo.userName} given ${points} to ${target}`);
 }
 
 function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -171,7 +179,7 @@ function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) 
 
   // immediate async execution
   (async () => {
-    const points = await getPointsForUser(target);
+    const points = await getPointsForUser(target) ?? 0;
     dispatcher.sendMessageAsUser(message.channelId!, `${target} has ${points} meowDollars`);
   })();
 }
@@ -199,7 +207,7 @@ function checkInHandler(
   );
   PEOPLE_WHO_CHECKED_IN.push(user.userName);
 
-  checkCostAddIfEnough(dispatcher, message.channelId!, username, Constants.CHECK_IN_POINTS);
+  (await checkCostAddIfEnough(dispatcher, message.channelId!, username, Constants.CHECK_IN_POINTS))!;
   if (sender) checkinUser(username, sender);
 }
 
@@ -306,15 +314,15 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
-  const args = message.text.replace('  ', ' ').split(' ');
+  const args = message.text.replace('  ', ' ').split(' ').slice(1);
 
-  if (args.length < 2) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
+  if (args.length < 1) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${username} insufficient arguments`);
     return;
   }
 
-  let imageUrl = args[1];
-  let optionalTagName = args.at(2);
+  let imageUrl = args[0];
+  let optionalTagName = args.at(1);
   let isTag = !imageUrl.startsWith('http');
   // backwards compatibility with {tag} syntax
   if (isTag && imageUrl.startsWith("{") && imageUrl.endsWith("}")) {
@@ -380,15 +388,15 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
-  const args = message.text.replace('  ', ' ').split(' ');
+  const args = message.text.replace('  ', ' ').split(' ').slice(1);
 
-  if (args.length < 2) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
+  if (args.length < 1) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${username} insufficient arguments`);
     return;
   }
 
-  let audioUrl = args[1];
-  let optionalTagName = args.at(2);
+  let audioUrl = args[0];
+  let optionalTagName = args.at(1);
   let isTag = !audioUrl.startsWith('http');
   // backwards compatibility with {tag} syntax
   if (isTag && audioUrl.startsWith("{") && audioUrl.endsWith("}")) {
@@ -458,20 +466,19 @@ async function investHandler(
   if (!message.userInfo.userName) return;
 
   const username = message.userInfo.userName;
-  const args = message.text.replace('  ', ' ').split(' ');
+  const args = message.text.replace('  ', ' ').split(' ').slice(1);
   if (args.length < 1) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments');
+    dispatcher.sendMessageAsUser(message.channelId!, `@${username} insufficient arguments`);
     return;
   }
 
   let amount = 0;
 
-  if (args[1].trim() === 'all') {
+  if (args[0].trim() === 'all') {
     switch (operation) {
       case 'uninvest':
         const returns = GLOBAL_HEART_STOCK_MARKET.uninvestAll(username);
-        const userPoints = (await getPointsForUser(message.userInfo.userName)) ?? 0;
-        await setPointsForUser(message.userInfo.userName, userPoints + returns);
+        (await checkCostAddIfEnough(dispatcher, message.channelId!, username, returns))!;
         dispatcher.sendMessageAsUser(
           message.channelId!,
           `${username} successfully uninvested ${returns} (all)`
@@ -487,16 +494,11 @@ async function investHandler(
         break;
     }
   } else {
-    amount = Number(args[1]);
+    amount = Number(args[0]);
   }
 
-  if (!amount) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'i blame Mr_Auto & swizzlerq');
-    return;
-  }
-
-  if (amount <= 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'Cannot un-invest a negative / zero amount');
+  if (Number.isNaN(amount) || amount <= 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, `@${username} invalid amount`);
     return;
   }
 
@@ -549,10 +551,9 @@ async function closeMarketHandler(dispatcher: OverlayDispatchers, message: ChatM
   if (message.userInfo.isBroadcaster) {
     const returns = GLOBAL_HEART_STOCK_MARKET.close();
     for (const user_return of returns) {
-      const points = (await getPointsForUser(user_return.user)) ?? 0;
-      await setPointsForUser(user_return.user, points + user_return.currency);
+      (await checkCostAddIfEnough(dispatcher, message.channelId!, user_return.user, user_return.currency, false))!;
     }
-    await dispatcher.sendMessageAsUser(message.channelId!, 'Stock market closed!');
+    dispatcher.sendMessageAsUser(message.channelId!, `@${message.userInfo.userName} stock market closed!`);
   }
 }
 
@@ -575,16 +576,15 @@ async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatM
     const msg = encodeURIComponent(text);
     const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/processMessage?message=${msg}`);
     if (response.status !== 200) {
-      await dispatcher.sendMessageAsUser(
+      dispatcher.sendMessageAsUser(
         message.channelId!,
         'Unable to do the self-thought, refunding u'
       );
 
-      const points = (await getPointsForUser(username)) ?? 0;
-      await setPointsForUser(username, points + Constants.SELF_THOUGHT_COST);
-      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA, 'Self Thought');
+      (await checkCostAddIfEnough(dispatcher, message.channelId!, username, Constants.SELF_THOUGHT_COST))!;
     } else {
-      await dispatcher.sendMessageAsUser(
+      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA, 'Self Thought');
+      dispatcher.sendMessageAsUser(
         message.channelId!,
         `@${username} -${Constants.SELF_THOUGHT_COST}`
       );
@@ -607,7 +607,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   }
 
   if (goodnightKissStore.isPopulated()) {
-    await dispatcher.sendMessageAsUser(
+    dispatcher.sendMessageAsUser(
       message.channelId!,
       'An existing good night kiss already exists'
     );
@@ -623,7 +623,7 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
       dispatcher,
       message.channelId!,
       username,
-      -Constants.SELF_THOUGHT_COST
+      -Constants.GOOD_NIGHT_KISS_COST
     ))
   ) {
     goodnightKissStore.setProperties({
@@ -635,17 +635,16 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
     karmaStore.updateKarma(Constants.GOOD_NIGHT_KISS_KARMA, 'Good Night Kiss');
 
     if (message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER) {
-      await dispatcher.sendMessageAsUser(message.channelId!, `...`);
+      dispatcher.sendMessageAsUser(message.channelId!, `@${username} ok`);
     } else {
-      await dispatcher.sendMessageAsUser(
+      dispatcher.sendMessageAsUser(
         message.channelId!,
         `why did u claim this -${Constants.GOOD_NIGHT_KISS_COST}`
       );
     }
-  } else {
-    await dispatcher.sendMessageAsUser(message.channelId!, 'cannot afford this');
   }
 }
+
 
 async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const user = message.userInfo;
@@ -654,7 +653,7 @@ async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMess
   if (!username) return;
 
   if (karmaStore.karma < Constants.SET_TITLE_KARMA_REQUIREMENT) {
-    await dispatcher.sendMessageAsUser(
+    dispatcher.sendMessageAsUser(
       message.channelId!,
       'chat does not have enough karma for this.'
     );
@@ -733,7 +732,6 @@ async function togglesHandler(
 ) {
   const karmaValue = karmaStore.karma;
   const requiredKarma = Constants.TOGGLES_KARMA.get(blendShape);
-  console.log(karmaValue, requiredKarma);
   if (!requiredKarma) return;
   if (karmaValue < requiredKarma) {
     dispatcher.sendMessageAsUser(message.channelId!, '~ forsenLaughingAtYou not enough karma');
