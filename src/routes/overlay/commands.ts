@@ -741,11 +741,13 @@ async function togglesHandler(
   }
 
   let timeoutVal = TOGGLE_EXPIRY.get(blendShape);
-  if (!timeoutVal) clearTimeout(timeoutVal);
+  if (timeoutVal) {
+    clearTimeout(timeoutVal);
+    TOGGLE_EXPIRY.delete(blendShape);
+  }
 
   timeoutVal = setTimeout(() => {
     dispatcher.modelUpdater.setBlendShape(blendShape, 0.0);
-    TOGGLE_EXPIRY.delete(blendShape);
   }, TOGGLE_COOLDOWN);
 
   TOGGLE_EXPIRY.set(blendShape, timeoutVal);
