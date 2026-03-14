@@ -4,7 +4,13 @@ import typer
 import asyncio
 import json
 import os
-import speech_recognition as sr
+import io
+import soundfile as sf
+import sounddevice
+import numpy as np
+
+# import speech_recognition as sr
+import webrtcvad
 from config import load_config
 from actions import TerminatingAction
 from tools.communication import Communication
@@ -32,13 +38,20 @@ from tools.twitch import TwitchTool
 from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
 
+# constant
+SAMPLE_RATE = 16000
+FRAME_DURATION_MS = 30
+# (16000 Hz * 30 ms / 1000) * 2 bytes/sample = 960 bytes
+FRAME_SIZE_BYTES = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
+SILENCE_THRESHOLD_MS = 500
+
 app = typer.Typer()
 console = Console()
 history = []
 
 config = load_config()
 
-r = sr.Recognizer()
+# r = sr.Recognizer()
 
 # tools
 twitch = TwitchTool(config)
@@ -125,12 +138,71 @@ async def inspect_tools_stream(messages: list[ModelMessage], info: AgentInfo):
     return ModelResponse(parts=[TextPart("foobar")])
 
 
-async def get_mic_audio() -> bytes:
-    with sr.Microphone() as source:
-        print("[RECOGNIZER] Ready for input!")
-        audio = r.listen(source)
+def get_mic_audio() -> bytes:
+    final_state: dict[str, np.ndarray | None] = {"data": None}
 
-    return audio.get_wav_data()
+    speech_state = {
+        "raw_buffer": bytearray(),  # Hold until 30ms
+        "silence_frames": 0,
+        "triggered": False,
+        "speech_buffer": [],  # Accumulates audio while user is speaking
+    }
+
+    silence_limit = int(SILENCE_THRESHOLD_MS / FRAME_DURATION_MS)
+    vad = webrtcvad.Vad(0)
+
+    def callback(
+        indata: np.ndarray,
+        _frames: int,
+        _time: int,
+        status: sounddevice.CallbackFlags,
+    ):
+        if status:
+            console.log("Mic", status)
+
+        combined_buffer = indata.reshape((-1,))
+        speech_state["raw_buffer"].extend(combined_buffer.tobytes())
+
+        while len(speech_state["raw_buffer"]) > FRAME_SIZE_BYTES:
+            frame_bytes = speech_state["raw_buffer"][:FRAME_SIZE_BYTES]
+            del speech_state["raw_buffer"][:FRAME_SIZE_BYTES]
+
+            is_speech = vad.is_speech(frame_bytes, SAMPLE_RATE)
+            chunk = (
+                np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+            )
+
+            print(speech_state["triggered"], is_speech)
+            if speech_state["triggered"]:
+                speech_state["speech_buffer"].append(chunk)
+                if is_speech:
+                    speech_state["silence_frames"] = 0
+                else:
+                    speech_state["silence_frames"] += 1
+
+                if speech_state["silence_frames"] > silence_limit:
+                    final_state["data"] = np.concatenate(speech_state["speech_buffer"])
+                    speech_state["speech_buffer"] = []
+                    speech_state["silence_frames"] = 0
+                    speech_state["triggered"] = False
+            else:
+                if is_speech:
+                    speech_state["triggered"] = True
+                    speech_state["speech_buffer"].append(chunk)
+
+    with sounddevice.InputStream(
+        samplerate=config.get("mic", {}).get("sample_rate", 16_000),
+        channels=1,
+        dtype="int16",
+        callback=callback,
+    ):
+        while final_state["data"] is None:
+            sounddevice.sleep(100)
+
+    buffer = io.BytesIO()
+    sf.write(buffer, final_state["data"], SAMPLE_RATE, format="WAV", subtype="PCM_16")
+
+    return buffer.getvalue()
 
 
 async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
@@ -210,7 +282,7 @@ async def _main():
             await communication.inform_activated(True)
             waked = False
             console.log("Ready to prompt")
-            audio_bytes = await get_mic_audio()
+            audio_bytes = get_mic_audio()
 
             fut1 = asyncio.create_task(_step(audio_bytes, history))
             fut2 = asyncio.create_task(wakeword.run_then_return())

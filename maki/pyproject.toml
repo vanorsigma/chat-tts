@@ -14,10 +14,12 @@ dependencies = [
     "pydantic>=2.12.5",
     "pydantic-ai>=1.29.0",
     "rich>=14.2.0",
+    "sounddevice>=0.5.5",
     "soundfile>=0.13.1",
     "speechrecognition>=3.14.4",
     "twitchapi>=4.5.0",
     "typer>=0.20.0",
+    "webrtcvad>=2.0.10",
     "websockets>=15.0.1",
 ]
 
