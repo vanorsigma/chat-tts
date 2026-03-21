@@ -1,5 +1,6 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import type { ChatMessage } from '@twurple/chat';
+import * as Constants from './constants';
 
 const AUTHORIZATION_PERIOD = 300 * 1000;
 
@@ -12,9 +13,11 @@ export class ApprovableObserver implements OverlayObserver {
   private static currentObservers: ApprovableObserver[] = [];
   public readonly id: number = ApprovableObserver.idCounter++;
   private timeout: NodeJS.Timeout;
+  private message: ChatMessage;
 
   constructor(
     dispatcher: OverlayDispatchers,
+    message: ChatMessage,
     authorisedUsers: Array<string>,
     onAuthorised: () => void,
     onDeny: () => void,
@@ -23,12 +26,18 @@ export class ApprovableObserver implements OverlayObserver {
     this.onAuthorised = onAuthorised;
     this.onDeny = onDeny;
     this.authUsers = authorisedUsers;
+    this.message = message;
 
     ApprovableObserver.currentObservers.push(this);
     this.timeout = setTimeout(() => {
       this.cleanup();
       this.onDeny()
     }, AUTHORIZATION_PERIOD);
+
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `${Constants.MODERATOR_USERS.concat(authorisedUsers).map(name => `@${name}`).join(' ')} PLEASE check request by ${message.userInfo.userName} (ID ${this.id})`
+    );
   }
 
   private cleanup() {

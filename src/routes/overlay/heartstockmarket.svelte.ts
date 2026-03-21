@@ -128,7 +128,7 @@ export class HeartrateStockMarket {
       throw new HeartrateStockMarketError('Nothing in stock market grrr');
     }
 
-    if (currentCurrency <= currency) {
+    if (currentCurrency < currency) {
       console.error('Tried to uninvest more than how much the user owns');
       throw new HeartrateStockMarketError('You cannot withdraw more than how much u own');
     }
