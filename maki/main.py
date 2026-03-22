@@ -34,7 +34,7 @@ from rich.prompt import Prompt
 from rich.live import Live
 
 from tools.calculator import Calculator
-from tools.twitch import TwitchTool
+from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
 
@@ -51,10 +51,9 @@ history = []
 
 config = load_config()
 
-# r = sr.Recognizer()
-
 # tools
 twitch = TwitchTool(config)
+twitch_chat = TwitchChatClient(config["twitch"]["broadcaster_name"])
 calculator = Calculator(config)
 evaluator = Evaluator(config)
 search = SearchTool(config)
@@ -65,8 +64,6 @@ ollama_model = OpenAIChatModel(
     settings=ModelSettings(max_tokens=int(config["openrouter"]["max_tokens"])),
     provider=OpenRouterProvider(api_key=config["openrouter"]["openrouter_api_key"]),
 )
-
-user_prompt_addon = "\nRemember, do not repeat tool calls"
 
 
 def no_action() -> TerminatingAction:
@@ -108,23 +105,12 @@ agent = Agent(
     + random_tools  # evaluator.get_tools() + \
     + search.get_tools()
     + communication.get_tools()
+    + twitch_chat.get_twitch_tools()
     + [clear_history, exits_yourself, no_action],
     output_type=TerminatingAction,
-    system_prompt=(
-        "You are a bratty cat tool calling agent called Maki, assisting a streamer known by vanor (or vanorsigma). Abide by the following rules:\n"
-        "- Use tools to achieve your answer.\n"
-        "- Think very carefully to make sure you make the right calls.\n"
-        "- Do not output any text. Only do tool calls.\n"
-        "- If a tool call fails, give up.\n"
-        "- Do not clear history or exit unless explictly told to do so.\n"
-        "- Return concise outputs as much as you can.\n"
-        "- Remember to be bratty.\n"
-        "- Call unique tools, do not repeat a tool call, even if they have different arguments.\n"
-        "- To finish, choose the most appropriate tool that returns a TerminatingAction object.\n"
-    ),
+    system_prompt="**Role:** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice in a single turn, regardless of arguments.\n   - **Fail-Fast:** If any tool call returns an error or fails, stop immediately and give up on the task.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal \"thinking\" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object. \n- Immediately after this call, cease all processing/thinking.",
     end_strategy="early",
     retries=3,
-    # end_strategy='exhaustive',
 )
 
 
@@ -172,7 +158,6 @@ def get_mic_audio() -> bytes:
                 np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32) / 32768.0
             )
 
-            print(speech_state["triggered"], is_speech)
             if speech_state["triggered"]:
                 speech_state["speech_buffer"].append(chunk)
                 if is_speech:
@@ -207,14 +192,16 @@ def get_mic_audio() -> bytes:
 
 async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
     die_now_event = threading.Event()
+    prompt_context = await twitch.get_prompt_ctx()
 
     def __inner(history: list[ModelMessage]) -> None:
         with Live(refresh_per_second=4) as live:
             if isinstance(prompt, str):
-                result = agent.run_stream_sync(prompt, message_history=history)
+                result = agent.run_stream_sync(f"{prompt_context}\n{prompt}", message_history=history)
             else:
                 result = agent.run_stream_sync(
                     [
+                        prompt_context,
                         BinaryContent(prompt, media_type="audio/wav"),
                     ],
                     message_history=history,
@@ -270,6 +257,8 @@ async def _main():
     wakeword = Wakeword()
     waked = False
 
+    await twitch_chat.connect(asyncio.get_running_loop())
+
     while True:
         try:
             await communication.inform_activated(False)
@@ -307,6 +296,7 @@ async def _interactive_main():
     global history
 
     wakeword = Wakeword()
+    await twitch_chat.connect(asyncio.get_running_loop())
 
     while True:
         try:
@@ -315,7 +305,7 @@ async def _interactive_main():
             if len(prompt.strip()) == 0:
                 continue
 
-            fut1 = asyncio.create_task(_step(prompt + user_prompt_addon, history))
+            fut1 = asyncio.create_task(_step(prompt, history))
             fut2 = asyncio.create_task(wakeword.run_then_return())
             await communication.inform_loading()
             _, pending = await asyncio.wait(

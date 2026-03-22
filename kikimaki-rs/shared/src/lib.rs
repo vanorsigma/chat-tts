@@ -13,9 +13,6 @@ pub enum PipelineError {
 }
 
 pub struct Settings {
-    /// Prompt
-    pub prompt: String,
-
     /// Local AI host
     pub local_ai_host: String,
 
@@ -34,7 +31,6 @@ pub async fn make_pipeline(
     let ai = ai::Ai::new(
         settings.local_ai_host,
         settings.local_ai_port,
-        settings.prompt,
     )
     .await;
 

@@ -2,9 +2,11 @@
 Output tool
 """
 
+import asyncio
 import json
+import random
+import collections
 from typing import TypedDict
-from openai.types import Model
 from twitchAPI.twitch import Twitch
 from twitchAPI.type import AuthScope
 from pydantic_ai import ModelRetry, Tool
@@ -12,6 +14,68 @@ from pydantic_ai import ModelRetry, Tool
 class ChatterCommand(TypedDict):
     name: str
     description: str
+
+class TwitchChatClient:
+    """
+    Connects to Twitch IRC anonymously and stores the last 50 messages.
+    """
+    def __init__(self, channel: str):
+        self.channel = f"#{channel.lstrip('#')}"
+        self.nick = f"justinfan{random.randint(10000, 99999)}"
+        self.buffer = collections.deque(maxlen=50)
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: asyncio.StreamWriter | None = None
+
+    async def connect(self, loop: asyncio.AbstractEventLoop):
+        """Establishes connection and joins the channel."""
+        self.reader, self.writer = await asyncio.open_connection(
+            'irc.chat.twitch.tv', 6697, ssl=True
+        )
+
+        self.writer.write(f"NICK {self.nick}\r\n".encode())
+        self.writer.write(f"JOIN {self.channel}\r\n".encode())
+        await self.writer.drain()
+
+        loop.create_task(self._listen())
+
+    async def _listen(self):
+        if self.reader is None or self.writer is None:
+            print(f"[Twitch TOOL Aux] Unable to create to reader & writer")
+            return
+
+        try:
+            while not self.reader.at_eof():
+                line = await self.reader.readline()
+                raw_msg = line.decode('utf-8', errors='ignore').strip()
+
+                if not raw_msg: continue
+
+                if raw_msg.startswith("PING"):
+                    self.writer.write(f"PONG {raw_msg.split()[1]}\r\n".encode())
+                    await self.writer.drain()
+
+                elif "PRIVMSG" in raw_msg:
+                    parts = raw_msg.split(":", 2)
+                    if len(parts) >= 3:
+                        user = parts[1].split("!")[0]
+                        content = parts[2]
+                        self.buffer.append({"user": user, "message": content})
+        except (asyncio.CancelledError, ConnectionError):
+            pass
+
+    def get_chat_messages(self) -> list[str]:
+        """Twitch Tool: Gets the last 50 chat messages
+
+        Returns:
+            list[str]: Last 50 messages collected by the twitch tool
+        """
+        print(f"[Twitch TOOL Aux] Connection error")
+        return list(self.buffer)
+
+    def get_twitch_tools(self) -> list[Tool]:
+        return [
+            Tool(self.get_chat_messages, takes_ctx=False),
+        ]
 
 class TwitchTool:
     def __init__(self, config: dict[str, dict[str, str]]) -> None:
@@ -70,6 +134,21 @@ class TwitchTool:
         assert self.twitch is not None
         chatters = await self.twitch.get_chatters(self.broadcaster_id, self.moderator_id)
         return {chatter.user_name: chatter.user_id for chatter in chatters.data}
+
+    async def get_stream_title_and_game(self) -> tuple[str, str]:
+        await self._lazy_init()
+        assert self.twitch is not None
+        info = await self.twitch.get_channel_information(self.broadcaster_id)
+        return info[0].title, info[0].game_name
+
+    async def get_prompt_ctx(self) -> str:
+        """
+        Gets some context related to the stream for Maki to figure things out
+        """
+        chatter_list = random.choices(await self.get_chatter_list(), k=50)
+        title, game = await self.get_stream_title_and_game()
+
+        return f"Chatters online: {str(chatter_list)}\nCurrent title: {title}\nCurrent game: {game}"
 
     async def get_chatter_list(self) -> list[str]:
         """Twitch Tool: Gets the list of chatters

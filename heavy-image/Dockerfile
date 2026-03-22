@@ -16,12 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libffi-dev \
     portaudio19-dev \
-    python3-venv && \
+    python3-venv \
+    unzip && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-RUN wget https://raw.githubusercontent.com/heimoshuiyu/whisper-fastapi/refs/heads/master/requirements.txt
 RUN /root/.local/bin/uv python install 3.11 && \
     /root/.local/bin/uv venv .venv && \
     /root/.local/bin/uv venv .kokoro
@@ -31,10 +31,6 @@ RUN git clone https://github.com/vanorsigma/chatterbox.git && \
     . .venv/bin/activate && \
     /root/.local/bin/uv pip install pip && \
     pip install ./chatterbox
-
-# Whisper-fastapi
-RUN . .venv/bin/activate && \
-    pip install -r requirements.txt
 
 # PATCH: Allow 5070s to run this by using the right index-url
 RUN . .venv/bin/activate && \
@@ -51,12 +47,12 @@ FROM docker.io/ollama/ollama
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    git && \
+    git \
+    unzip && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN /root/.local/bin/uv python install 3.11
-RUN git clone https://github.com/heimoshuiyu/whisper-fastapi.git /opt/whisper-fastapi
 
 COPY --from=builder /.venv /.venv
 COPY --from=builder /.kokoro /.kokoro

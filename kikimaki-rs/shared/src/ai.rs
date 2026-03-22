@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use openai::{
-    Credentials, OpenAiError,
-    chat::{ChatCompletion, ChatCompletionMessage, ChatCompletionMessageRole},
+use rig::{
+    client::{CompletionClient, Nothing},
+    completion::{CompletionModel, CompletionRequestBuilder},
+    message::Message,
+    providers::ollama::{self},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -16,7 +19,7 @@ pub enum AiError {
     NoMessage,
 
     #[error("CompletionError: {0}")]
-    CompletionError(OpenAiError),
+    CompletionError(rig::completion::CompletionError),
 
     #[error("DeserialisationError: {0}")]
     DeserialisationError(serde_json::Error),
@@ -33,8 +36,7 @@ const RATING_MIN: f32 = -500.0;
 const RATING_MAX: f32 = 50.0;
 
 pub struct Ai {
-    credentials: Credentials,
-    prompt: String,
+    completion_model: ollama::CompletionModel,
     memories: Arc<Mutex<Memories>>,
 }
 
@@ -54,75 +56,56 @@ struct KikiResponse {
 }
 
 impl Ai {
-    pub async fn new(
-        host: impl Into<String> + std::fmt::Display,
-        port: u16,
-        prompt: impl Into<String>,
-    ) -> Self {
-        let credentials = Credentials::new("", format!("http://{host}:{port}/v1"));
+    pub async fn new(host: impl Into<String> + std::fmt::Display, port: u16) -> Self {
+        let client = ollama::Client::builder()
+            .base_url(format!("http://{host}:{port}"))
+            .api_key(Nothing)
+            .build()
+            .expect("can get ollama client");
+
+        let completion_model = client.completion_model(MODEL_NAME);
+
         Self {
-            credentials,
-            prompt: prompt.into(),
+            completion_model,
             memories: Arc::new(Mutex::new(Memories(vec![]))),
         }
     }
 
     async fn send_raw(
         &self,
-        prompt: impl Into<String>,
-        history: impl Into<Vec<ChatCompletionMessage>>,
-        temperature: f32,
-        top_p: f32,
+        history: impl Into<Vec<Message>>,
+        prompt: impl Into<Message>,
     ) -> Result<String, AiError> {
-        let mut messages = vec![ChatCompletionMessage {
-            role: ChatCompletionMessageRole::System,
-            content: Some(prompt.into().to_string()),
-            ..Default::default()
-        }];
-        messages.append(&mut history.into());
+        let request = CompletionRequestBuilder::new(self.completion_model.clone(), prompt)
+            .without_preamble()
+            .messages(history.into())
+            .additional_params(json!({
+                "think": false,
+            }))
+            .build();
 
-        let chat_completion = ChatCompletion::builder(MODEL_NAME, messages)
-            .credentials(self.credentials.clone())
-            .temperature(temperature)
-            .top_p(top_p)
-            .create()
+        let response = self
+            .completion_model
+            .completion(request)
             .await
             .map_err(AiError::CompletionError)?;
 
-        let completion_messages = chat_completion
-            .choices
-            .first()
-            .ok_or(AiError::NoMessage)?
-            .message
-            .content
-            .as_ref()
-            .expect("should have content");
-
-        let message = completion_messages
-            .trim()
-            .rsplit_once("</think>")
-            .map(|(_, msg)| msg)
-            .expect("responses should have a message");
-
-        Ok(message.to_string())
+        Ok(match response.choice.first() {
+            rig::message::AssistantContent::Text(text) => text.to_string(),
+            _ => return Err(AiError::NoMessage),
+        })
     }
 
     pub async fn send(&self, message: impl Into<String>) -> Result<String, AiError> {
         let mut memories = self.memories.lock().await;
+        let the_message = format!(
+            "{}\n{}",
+            serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
+            message.into()
+        );
+
         let result = self
-            .send_raw(
-                self.prompt.replace(
-                    "{{memories}}",
-                    &serde_json::to_string(&memories.0).map_err(AiError::SerialisationError)?,
-                ),
-                vec![ChatCompletionMessage {
-                    role: ChatCompletionMessageRole::User,
-                    content: Some(message.into()),
-                    ..Default::default()
-                }],
-                0.8,
-                0.95,
-            )
+            .send_raw(vec![], the_message)
             .await
             .inspect(|result| log::info!("Raw response: {result}"))?;
 
