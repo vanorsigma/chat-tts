@@ -101,7 +101,7 @@ class Communication:
                 message=message, dismiss_after=max(0, min(60, dismiss_after))
             ).model_dump_json()
         )
-        return TerminatingAction()
+        return TerminatingAction(answer_to_the_universe="42")
 
     def get_tools(self) -> list[Tool]:
         return [Tool(self.inform_output, takes_ctx=False)]

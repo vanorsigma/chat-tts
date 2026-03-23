@@ -1,3 +1,5 @@
+from typing import Any, Sequence
+import typing
 from pydantic_ai.messages import ToolCallPart
 import threading
 import typer
@@ -19,11 +21,21 @@ from wakeword.wakeword import Wakeword
 from pydantic import ValidationError
 from pydantic_ai import (
     Agent,
+    AgentRunResult,
     BinaryContent,
+    CallToolsNode,
     ModelMessage,
+    ModelRequest,
+    ModelRequestNode,
+    ModelRequestPart,
     ModelResponse,
     ModelSettings,
     TextPart,
+    ToolReturnPart,
+    UsageLimits,
+    UserContent,
+    UserPromptNode,
+    UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -32,7 +44,6 @@ from rich.panel import Panel
 from rich.console import Console
 from rich.live import Live
 
-from tools.calculator import Calculator
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
@@ -43,6 +54,7 @@ FRAME_DURATION_MS = 30
 # (16000 Hz * 30 ms / 1000) * 2 bytes/sample = 960 bytes
 FRAME_SIZE_BYTES = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
 SILENCE_THRESHOLD_MS = 500
+MAX_REQUESTS = 7
 
 app = typer.Typer()
 console = Console()
@@ -53,7 +65,6 @@ config = load_config()
 # tools
 twitch = TwitchTool(config)
 twitch_chat = TwitchChatClient(config["twitch"]["broadcaster_name"])
-calculator = Calculator(config)
 evaluator = Evaluator(config)
 search = SearchTool(config)
 communication = Communication(config)
@@ -63,15 +74,6 @@ ollama_model = OpenAIChatModel(
     settings=ModelSettings(max_tokens=int(config["openrouter"]["max_tokens"])),
     provider=OpenRouterProvider(api_key=config["openrouter"]["openrouter_api_key"]),
 )
-
-
-def no_action() -> TerminatingAction:
-    """Terminates the current action.
-
-    Returns:
-        TerminatingAction: The terminating action
-    """
-    return TerminatingAction()
 
 
 def clear_history() -> str:
@@ -99,19 +101,20 @@ async def exits_yourself() -> bool:
 agent = Agent(
     ollama_model,
     # deps_type=None,
-    tools=calculator.get_tools()
-    + twitch.get_twitch_tools()
+    tools=twitch.get_twitch_tools()
     + random_tools  # evaluator.get_tools()
     + search.get_tools()
     + communication.get_tools()
     + twitch_chat.get_twitch_tools()
     + [
         clear_history,
-        no_action,
     ],  # NOTE: exits_yourself() is a valid tool, but has been removed
     output_type=TerminatingAction,
-    system_prompt='** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice in a single turn, regardless of arguments.\n   - **Fail-Fast:** If any tool call returns an error or fails, stop immediately and give up on the task.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object.\n- You must call `inform_output` after you are done.\n- Immediately after this call, cease all processing/thinking.',
-    end_strategy="exhaustive",
+    model_settings=ModelSettings(
+        extra_body={"parallel_tool_calls": False}
+    ),  # Gemini blocks this, we force OpenRouter to handle it
+    system_prompt='**Role:** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice on the same user intent.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n  - **Single Call:** Only output one tool call per request.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object. \n- Immediately after this call, cease all processing/thinking.',
+    end_strategy="early",
     retries=3,
 )
 
@@ -192,67 +195,56 @@ def get_mic_audio() -> bytes:
     return buffer.getvalue()
 
 
+async def run_with_feedback(
+    user_prompt: str | Sequence[UserContent] | None = None, **kwargs
+) -> AgentRunResult[TerminatingAction] | None:
+    async with agent.iter(user_prompt, **kwargs) as run:
+        async for node in run:
+            if isinstance(node, CallToolsNode) and node.model_response.tool_calls:
+                console.log(
+                    "[CORE] Maki proposes tool call: ",
+                    node.model_response.tool_calls[0].tool_name,
+                )
+
+            await run.next(
+                typing.cast(Any, node)
+            )  # cast to suppress, this is the right type, trust
+        return run.result
+
+
 async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
-    die_now_event = threading.Event()
     prompt_context = await twitch.get_prompt_ctx()
 
-    def __inner(history: list[ModelMessage]) -> None:
-        with Live(refresh_per_second=4) as live:
-            if isinstance(prompt, str):
-                result = agent.run_stream_sync(
-                    f"{prompt_context}\n{prompt}", message_history=history
-                )
-            else:
-                result = agent.run_stream_sync(
-                    [
-                        prompt_context,
-                        BinaryContent(prompt, media_type="audio/wav"),
-                    ],
-                    message_history=history,
-                )
-            for message, last in result.stream_responses(debounce_by=0.01):
-                if die_now_event.is_set():
-                    return
+    if isinstance(prompt, str):
+        result = await run_with_feedback(
+            f"{prompt_context}\n{prompt}",
+            message_history=history,
+            usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
+        )
+    else:
+        result = await run_with_feedback(
+            [
+                prompt_context,
+                BinaryContent(prompt, media_type="audio/wav"),
+            ],
+            message_history=history,
+            usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
+        )
 
-                try:
-                    profile = result.validate_response_output(
-                        message,
-                        allow_partial=not last,
-                    )
-                except ValidationError:
-                    continue
-                live.update(Panel(f"Maki's thoughts: {profile}"))
+    assert result, "Should have resul in step"
+    clear_history_called = False
+    result_output = result.all_messages()
+    for model_response in result_output:
+        for part in model_response.parts:
+            if isinstance(part, ToolCallPart):
+                if part.tool_name == "clear_history":
+                    print("[TOOL AFTER] clear history post processing")
+                    clear_history_called = True
 
-        clear_history_called = False
-        result_output = result.all_messages()
-        for model_response in result_output:
-            for part in model_response.parts:
-                if die_now_event.is_set():
-                    return
+    if not clear_history_called:
+        history = result_output[-10:]
 
-                if isinstance(part, ToolCallPart):
-                    if part.tool_name == "clear_history":
-                        print("[TOOL AFTER] clear history post processing")
-                        clear_history_called = True
-
-        if not clear_history_called:
-            history = result_output[-10:]
-
-        console.log(result.usage())
-        return
-
-    thread = threading.Thread(target=__inner, args=(history,))
-    thread.start()
-    await asyncio.sleep(0.25)
-
-    try:
-        while thread.is_alive():
-            await asyncio.sleep(0.25)  # yield to executor
-        thread.join()
-    except asyncio.CancelledError:
-        console.log("[INFERENCE] Task cancelled, we'll force the thread to die")
-        die_now_event.set()
-        thread.join()
+    console.log(result.usage())
 
 
 async def _main():

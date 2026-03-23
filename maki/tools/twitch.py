@@ -73,7 +73,6 @@ class TwitchChatClient:
         Returns:
             list[str]: Last 50 messages collected by the twitch tool
         """
-        print(f"[Twitch TOOL Aux] Connection error")
         return list(self.buffer)
 
     def get_twitch_tools(self) -> list[Tool]:
@@ -177,6 +176,7 @@ class TwitchTool:
 
     async def timeout(self, username: str, reason: str) -> bool:
         """Twitch Tool: Timeouts a particular user. If you need to time out multiple people, call this multiple times.
+        Note that if this tool fails, it means you do not have permission to timeout that particular user.
 
         Args:
            username: The username to timeout
