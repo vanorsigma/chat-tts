@@ -10,7 +10,8 @@
     PUBLIC_TWITCH_APP_SECRET,
     PUBLIC_TWITCH_BOT_ID,
     PUBLIC_KIKI_API,
-    PUBLIC_TARGET_CHANNEL_ID
+    PUBLIC_TARGET_CHANNEL_ID,
+    PUBLIC_SE_URL,
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import {
@@ -302,6 +303,9 @@
 </script>
 
 <div class="overlay">
+  <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements">
+  </iframe>
+
   {#if makiActivated}
     <div class="makiShared">
       <img src="/maki.png" alt="cute bratty cat" />
@@ -435,6 +439,14 @@
 </div>
 
 <style>
+  .streamelements {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+  }
+
   .makiShared {
     width: 100%;
     height: 100%;
