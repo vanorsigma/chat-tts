@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use rig::{
     client::{CompletionClient, Nothing},
@@ -9,7 +9,7 @@ use rig::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::error::Elapsed};
 
 use crate::memory::Memories;
 
@@ -20,6 +20,9 @@ pub enum AiError {
 
     #[error("CompletionError: {0}")]
     CompletionError(rig::completion::CompletionError),
+
+    #[error("Timed out: {0}")]
+    TimeoutError(Elapsed),
 
     #[error("DeserialisationError: {0}")]
     DeserialisationError(serde_json::Error),
@@ -84,11 +87,12 @@ impl Ai {
             }))
             .build();
 
-        let response = self
+        let response = match tokio::time::timeout(Duration::from_secs(10), self
             .completion_model
-            .completion(request)
-            .await
-            .map_err(AiError::CompletionError)?;
+            .completion(request)).await {
+                Ok(r) => r.map_err(AiError::CompletionError),
+                Err(e) => Err(AiError::TimeoutError(e)),
+            }?;
 
         Ok(match response.choice.first() {
             rig::message::AssistantContent::Text(text) => text.to_string(),

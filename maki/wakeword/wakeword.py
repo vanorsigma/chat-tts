@@ -1,6 +1,7 @@
 """
 Wakeword API
 """
+
 import openwakeword
 import numpy as np
 import pyaudio
@@ -14,6 +15,7 @@ from typing import Callable, Coroutine, Any
 
 from pydantic_ai.agent.abstract import NoneType
 
+
 class Wakeword:
     """
     Wakeword shenanigans
@@ -22,10 +24,8 @@ class Wakeword:
         directory: Models directory
         threshold: The threshold to detect the wakeword
     """
-    def __init__(self,
-                 directory='./wakeword/models',
-                 threshold=0.5
-                 ):
+
+    def __init__(self, directory="./wakeword/models", threshold=0.5):
         self._directory = Path(directory)
         self.model_paths = self._get_all_onnx()
         # self._callbacks_lock = Lock()
@@ -62,7 +62,7 @@ class Wakeword:
     #                 tg.create_task(callback())
 
     def _get_all_onnx(self) -> list[Path]:
-        return [p for p in self._directory.iterdir() if p.suffix != 'onnx']
+        return [p for p in self._directory.iterdir() if p.suffix != "onnx"]
 
     # async def run(self):
     #     """
@@ -82,7 +82,13 @@ class Wakeword:
 
     def _thread_target(self):
         audio = pyaudio.PyAudio()
-        mic = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=1280)
+        mic = audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=16000,
+            input=True,
+            frames_per_buffer=1280,
+        )
 
         while True:
             if self.event.is_set():
@@ -107,10 +113,10 @@ class Wakeword:
 
         try:
             while thread.is_alive():
-                await asyncio.sleep(0.25) # yield to executor
+                await asyncio.sleep(0.25)  # yield to executor
             thread.join()
         except CancelledError:
-            print('[WAKEWORD] Got hit with a cancel')
+            print("[WAKEWORD] Got hit with a cancel")
             self.event.set()
             self.model.reset()
             thread.join()
@@ -128,4 +134,4 @@ class Wakeword:
         #     if summed_score > self._threshold:
         #         return
         #     await asyncio.sleep(0.25)
-            # yield to executor
+        # yield to executor

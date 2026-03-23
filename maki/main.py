@@ -30,7 +30,6 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from rich.panel import Panel
 from rich.console import Console
-from rich.prompt import Prompt
 from rich.live import Live
 
 from tools.calculator import Calculator
@@ -102,13 +101,16 @@ agent = Agent(
     # deps_type=None,
     tools=calculator.get_tools()
     + twitch.get_twitch_tools()
-    + random_tools  # evaluator.get_tools() + \
+    + random_tools  # evaluator.get_tools()
     + search.get_tools()
     + communication.get_tools()
     + twitch_chat.get_twitch_tools()
-    + [clear_history, exits_yourself, no_action],
+    + [
+        clear_history,
+        no_action,
+    ],  # NOTE: exits_yourself() is a valid tool, but has been removed
     output_type=TerminatingAction,
-    system_prompt="** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice in a single turn, regardless of arguments.\n   - **Fail-Fast:** If any tool call returns an error or fails, stop immediately and give up on the task.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal \"thinking\" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object.\n- You must call `inform_output` after you are done.\n- Immediately after this call, cease all processing/thinking.",
+    system_prompt='** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice in a single turn, regardless of arguments.\n   - **Fail-Fast:** If any tool call returns an error or fails, stop immediately and give up on the task.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object.\n- You must call `inform_output` after you are done.\n- Immediately after this call, cease all processing/thinking.',
     end_strategy="exhaustive",
     retries=3,
 )
@@ -197,7 +199,9 @@ async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
     def __inner(history: list[ModelMessage]) -> None:
         with Live(refresh_per_second=4) as live:
             if isinstance(prompt, str):
-                result = agent.run_stream_sync(f"{prompt_context}\n{prompt}", message_history=history)
+                result = agent.run_stream_sync(
+                    f"{prompt_context}\n{prompt}", message_history=history
+                )
             else:
                 result = agent.run_stream_sync(
                     [
@@ -263,9 +267,7 @@ async def _main():
         try:
             await communication.inform_activated(False)
             console.log("Awaiting wakeword")
-            if (
-                not waked
-            ):  # this comes from later in the loop body, where the wakeword is uttered during a step
+            if not waked:  # this comes from later in the loop body, where the wakeword is uttered during a step
                 await wakeword.run_then_return()
 
             await communication.inform_activated(True)
@@ -292,49 +294,12 @@ async def _main():
             await exits_yourself()
 
 
-async def _interactive_main():
-    global history
-
-    wakeword = Wakeword()
-    await twitch_chat.connect(asyncio.get_running_loop())
-
-    while True:
-        try:
-            await communication.inform_activated(True)
-            prompt = Prompt.ask("Maki Text Prompt")
-            if len(prompt.strip()) == 0:
-                continue
-
-            fut1 = asyncio.create_task(_step(prompt, history))
-            fut2 = asyncio.create_task(wakeword.run_then_return())
-            await communication.inform_loading()
-            _, pending = await asyncio.wait(
-                [fut1, fut2], return_when=asyncio.FIRST_COMPLETED
-            )
-
-            for fut in pending:
-                console.log(f"Waiting for {fut}")
-                fut.cancel()
-                await fut
-        except KeyboardInterrupt:
-            console.log("Quit")
-            await exits_yourself()
-
-
 @app.command()
 def main():
     """
     Audio main
     """
     asyncio.run(_main())
-
-
-@app.command()
-def interactive_main():
-    """
-    Interactive Main
-    """
-    asyncio.run(_interactive_main())
 
 
 if __name__ == "__main__":

@@ -14,9 +14,11 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 class Evaluator:
     def __init__(self, config: dict[str, dict[str, str]]) -> None:
         self.ollama_model = OpenAIChatModel(
-            model_name=config['openrouter']['evaluator_model'],
-            settings=ModelSettings(max_tokens=int(config['openrouter']['max_tokens'])),
-            provider=OpenRouterProvider(api_key=config['openrouter']['openrouter_api_key']),
+            model_name=config["openrouter"]["evaluator_model"],
+            settings=ModelSettings(max_tokens=int(config["openrouter"]["max_tokens"])),
+            provider=OpenRouterProvider(
+                api_key=config["openrouter"]["openrouter_api_key"]
+            ),
         )
 
         self.math_agent = Agent(
@@ -34,7 +36,7 @@ class Evaluator:
             prompt: the natural language query for code generation
         """
         results = await self.math_agent.run(prompt)
-        print('[TOOL] AI Code Generator: ', results.output)
+        print("[TOOL] AI Code Generator: ", results.output)
         return results.output
 
     def python_eval(self, to_eval: str) -> str:
@@ -43,19 +45,19 @@ class Evaluator:
         Args:
             to_eval: the python code to evaluate
         """
-        print('Python', to_eval)
-        with open('to_eval.py', mode='w') as f:
+        print("Python", to_eval)
+        with open("to_eval.py", mode="w") as f:
             f.write(to_eval)
 
         cmd = subprocess.Popen(
-            'python3 to_eval.py',
+            "python3 to_eval.py",
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         stdout, stderr = cmd.communicate()
-        print('[TOOL] Stdout', stdout)
-        print('[TOOL] Stderr', stderr)
+        print("[TOOL] Stdout", stdout)
+        print("[TOOL] Stderr", stderr)
         if stderr:
             raise ModelRetry(f"Script terminated {str(stderr)}")
 
@@ -68,10 +70,9 @@ class Evaluator:
             filename: the file to save to
             to_save: the python code to save
         """
-        print('[TOOL] Saving text', to_save.replace('\n', '\\n'))
-        with open(filename, mode='w') as f:
+        print("[TOOL] Saving text", to_save.replace("\n", "\\n"))
+        with open(filename, mode="w") as f:
             f.write(to_save)
-
 
     def get_tools(self) -> list[Tool]:
         return [
