@@ -141,46 +141,12 @@
       .attr('viewBox', [0, 0, width, height])
       .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
 
-    // Add the x-axis.
-    svg
-      .append('g')
-      .attr('transform', `translate(0,${height - marginBottom})`)
-      .call(
-        d3
-          .axisBottom(x)
-          .ticks(width / 80)
-          .tickSizeOuter(0)
-      );
-
-    // Add the y-axis, remove the domain line, add grid lines and a label.
-    svg
-      .append('g')
-      .attr('transform', `translate(${marginLeft},0)`)
-      .call(d3.axisLeft(y).ticks(height / 40))
-      .call((g: any) => g.select('.domain').remove())
-      .call((g) =>
-        g
-          .selectAll('.tick line')
-          .clone()
-          .attr('x2', width - marginLeft - marginRight)
-          .attr('stroke-opacity', 0.1)
-      )
-      .call((g: any) =>
-        g
-          .append('text')
-          .attr('x', -marginLeft)
-          .attr('y', 10)
-          .attr('fill', 'currentColor')
-          .attr('text-anchor', 'start')
-          .text('Heartrate')
-      );
-
     // Append a path for the line.
     svg
       .append('path')
       .attr('fill', 'none')
       .attr('stroke', 'red')
-      .attr('stroke-width', 5.0)
+      .attr('stroke-width', 10.0)
       .attr('d', line(dataset as any));
 
     return svg.node();
@@ -394,7 +360,7 @@
 
   <div class="rightpanel">
     {#if pollStore.data}
-      <div class="poll-box">
+      <div class="grey-box">
         <h3>{pollStore.data?.title}</h3>
         {#each pollStore.data?.options ?? [] as option, idx}
           <div class="option">
@@ -434,7 +400,7 @@
       >
       <p>{$heartrate}</p>
     </div>
-    <div bind:this={heartrateGraphParent} class="heartrategraph"></div>
+    <div bind:this={heartrateGraphParent} class="grey-box"></div>
   </div>
 </div>
 
@@ -639,7 +605,7 @@
     margin: 0;
   }
 
-  .poll-box {
+  .grey-box {
     width: 90%;
     padding: 10px;
     border: 1px solid #ccc;
