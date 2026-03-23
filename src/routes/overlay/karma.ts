@@ -1,6 +1,8 @@
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import {
+  AnimatedSprite,
   Assets,
+  ColorMatrixFilter,
   Container,
   ObservablePoint,
   Sprite,
@@ -19,9 +21,11 @@ const ANGLE_MAX = Math.PI / 16;
 
 interface ScaleSpriteCollection {
   body: Sprite;
+  handle: Sprite;
   leftBowl: Sprite;
   rightBowl: Sprite;
-  handle: Sprite;
+  leftFire: Sprite;
+  rightFire: Sprite;
 
   container: Container;
   drawn: boolean;
@@ -248,11 +252,21 @@ export class KarmaContainer {
           '<'
         )
         .to(
+          collection.leftFire,
+          { x: target.leftBowlPosition.x, y: target.leftBowlPosition.y },
+          '<'
+        )
+        .to(
           collection.rightBowl,
           {
             x: target.rightBowlPosition.x,
             y: target.rightBowlPosition.y
           },
+          '<'
+        )
+        .to(
+          collection.rightFire,
+          { x: target.rightBowlPosition.x, y: target.rightBowlPosition.y },
           '<'
         );
       return;
@@ -300,13 +314,20 @@ export class KarmaContainer {
   private async loadScaleSprites(): Promise<ScaleSpriteCollection> {
     const bodyAsset = await Assets.load('/scale-body.png');
     const handleAsset = await Assets.load('/scale-handle.png');
-    const leftBowlAsset = await Assets.load('/scale-bowl.png');
-    const rightBowlAsset = await Assets.load('/scale-bowl.png');
+    const bowlAsset = await Assets.load('/scale-bowl.png');
+    const fireSpriteSheet = await Assets.load('/flame.json');
+    console.log(fireSpriteSheet);
 
     const body = Sprite.from(bodyAsset);
     const handle = Sprite.from(handleAsset);
-    const leftBowl = Sprite.from(leftBowlAsset);
-    const rightBowl = Sprite.from(rightBowlAsset);
+    const leftBowl = Sprite.from(bowlAsset);
+    const rightBowl = Sprite.from(bowlAsset);
+    const leftFire = new AnimatedSprite(fireSpriteSheet.animations['flaming']);
+    const rightFire = new AnimatedSprite(fireSpriteSheet.animations['flaming']);
+
+    const invertFilter = new ColorMatrixFilter();
+    invertFilter.matrix = [-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0];
+    leftFire.filters = [invertFilter];
 
     // positions the scale in the neutral position
     const container = new Container();
@@ -314,23 +335,41 @@ export class KarmaContainer {
     container.addChild(body);
     container.addChild(leftBowl);
     container.addChild(rightBowl);
+    container.addChild(leftFire);
+    container.addChild(rightFire);
 
     body.origin = { x: 31, y: 12 };
     handle.origin = { x: 31, y: 12 };
     leftBowl.origin = { x: 31, y: 27 };
     rightBowl.origin = { x: 31, y: 27 };
+    leftFire.origin = { x: 31, y: 27 };
+    rightFire.origin = { x: 31, y: 27 };
 
     leftBowl.position = { x: -20, y: 0 };
     rightBowl.position = { x: 21, y: 0 };
+    leftFire.position = { x: -20, y: 0 };
+    rightFire.position = { x: 21, y: 0 };
 
     container.scale = 5.0;
     container.x = (this.app.canvas.width - container.width) / 2;
+
+    leftFire.animationSpeed = 0.25;
+    rightFire.animationSpeed = 0.25;
+    leftFire.scale = 0.3;
+    rightFire.scale = 0.3;
+    leftFire.alpha = 0.7;
+    rightFire.alpha = 0.7;
+
+    leftFire.play();
+    rightFire.play();
 
     return {
       body,
       handle,
       leftBowl,
       rightBowl,
+      leftFire,
+      rightFire,
       container,
       drawn: false
     };
