@@ -1,4 +1,4 @@
-FROM docker.io/ollama/ollama AS builder
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda AS builder
 
 LABEL stage="builder"
 
@@ -23,27 +23,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 RUN /root/.local/bin/uv python install 3.11 && \
-    /root/.local/bin/uv venv .venv && \
-    /root/.local/bin/uv venv .kokoro
+    /root/.local/bin/uv venv /.venv
 
 # Chatterbox
 RUN git clone https://github.com/vanorsigma/chatterbox.git && \
-    . .venv/bin/activate && \
+    . /.venv/bin/activate && \
     /root/.local/bin/uv pip install pip && \
-    pip install ./chatterbox
-
-# PATCH: Allow 5070s to run this by using the right index-url
-RUN . .venv/bin/activate && \
-    pip uninstall -y torch torchaudio && \
-    pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128 && \
-    pip install soundfile
+    /root/.local/bin/uv pip install ./chatterbox
 
 # Kokoro
-RUN . .kokoro/bin/activate && \
-    /root/.local/bin/uv pip install torch --index-url https://download.pytorch.org/whl/cu128 && \
+RUN . /.venv/bin/activate && \
+    /root/.local/bin/uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128 && \
     /root/.local/bin/uv pip install soundfile kokoro-onnx[gpu] onnxruntime-gpu uvicorn fastapi
 
-FROM docker.io/ollama/ollama
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -55,7 +48,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN /root/.local/bin/uv python install 3.11
 
 COPY --from=builder /.venv /.venv
-COPY --from=builder /.kokoro /.kokoro
 
 WORKDIR /opt/
 

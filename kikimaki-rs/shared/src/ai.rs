@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
 use rig::{
-    client::{CompletionClient, Nothing},
-    completion::{CompletionModel, CompletionRequestBuilder},
+    client::{CompletionClient, Nothing, builder::DefaultProviders::OpenAI},
+    completion::{CompletionModel as _, CompletionRequestBuilder},
     message::Message,
-    providers::ollama::{self},
+    providers::{ollama::{self}, openrouter::{self, CompletionModel}},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -39,7 +39,7 @@ const RATING_MIN: f32 = -500.0;
 const RATING_MAX: f32 = 50.0;
 
 pub struct Ai {
-    completion_model: ollama::CompletionModel,
+    completion_model: CompletionModel,
     memories: Arc<Mutex<Memories>>,
 }
 
@@ -60,9 +60,9 @@ struct KikiResponse {
 
 impl Ai {
     pub async fn new(host: impl Into<String> + std::fmt::Display, port: u16) -> Self {
-        let client = ollama::Client::builder()
+        let client = openrouter::Client::builder()
             .base_url(format!("http://{host}:{port}"))
-            .api_key(Nothing)
+            .api_key("not important")
             .build()
             .expect("can get ollama client");
 
@@ -78,8 +78,10 @@ impl Ai {
         &self,
         history: impl Into<Vec<Message>>,
         prompt: impl Into<Message>,
+        system_prompt: impl Into<String>,
     ) -> Result<String, AiError> {
         let request = CompletionRequestBuilder::new(self.completion_model.clone(), prompt)
+            .preamble(system_prompt.into())
             .without_preamble()
             .messages(history.into())
             .additional_params(json!({
@@ -87,12 +89,15 @@ impl Ai {
             }))
             .build();
 
-        let response = match tokio::time::timeout(Duration::from_secs(10), self
-            .completion_model
-            .completion(request)).await {
-                Ok(r) => r.map_err(AiError::CompletionError),
-                Err(e) => Err(AiError::TimeoutError(e)),
-            }?;
+        let response = match tokio::time::timeout(
+            Duration::from_secs(10),
+            self.completion_model.completion(request),
+        )
+        .await
+        {
+            Ok(r) => r.map_err(AiError::CompletionError),
+            Err(e) => Err(AiError::TimeoutError(e)),
+        }?;
 
         Ok(match response.choice.first() {
             rig::message::AssistantContent::Text(text) => text.to_string(),
@@ -100,7 +105,11 @@ impl Ai {
         })
     }
 
-    pub async fn send(&self, message: impl Into<String>) -> Result<String, AiError> {
+    pub async fn send(
+        &self,
+        prompt: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Result<String, AiError> {
         let mut memories = self.memories.lock().await;
         let the_message = format!(
             "{}\n{}",
@@ -109,7 +118,7 @@ impl Ai {
         );
 
         let result = self
-            .send_raw(vec![], the_message)
+            .send_raw(vec![], the_message, prompt)
             .await
             .inspect(|result| log::info!("Raw response: {result}"))?;
 

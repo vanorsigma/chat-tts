@@ -13,6 +13,9 @@ pub enum PipelineError {
 }
 
 pub struct Settings {
+    /// System Prompt
+    pub system_prompt: String,
+
     /// Local AI host
     pub local_ai_host: String,
 
@@ -28,14 +31,10 @@ pub async fn make_pipeline(
     settings: Settings,
     cancellation: CancellationToken,
 ) -> Result<Pipeline, PipelineError> {
-    let ai = ai::Ai::new(
-        settings.local_ai_host,
-        settings.local_ai_port,
-    )
-    .await;
+    let ai = ai::Ai::new(settings.local_ai_host, settings.local_ai_port).await;
 
     let webserver = webserver::CatWebServer::new::<String, _>(
-        async move |message| match ai.send(message).await {
+        async move |message| match ai.send(message, settings.system_prompt.clone()).await {
             Ok(a) => {
                 log::debug!("Ai response was {a}");
                 Some(a)
