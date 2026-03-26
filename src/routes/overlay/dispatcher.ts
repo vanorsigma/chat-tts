@@ -35,16 +35,6 @@ export class OverlayDispatchers {
     this.observers = this.observers.filter((ob) => observer !== ob);
   }
 
-  // TODO: this function requires a user access token, which means I'll need to
-  // update twitch.ts to return both bot tokens and handle refreshing tokens,
-  // both not something i want to do now
-  // async getUserList(channelId: string) {
-  //   // TODO: we are ignoring the fact that >100 users can be in a channel
-  //   const chatters = await this.api.asUser(this.botId,
-  //     async ctx => ctx.chat.getChatters(channelId));
-  //   return chatters.data.map(chatter => chatter.userName);
-  // }
-
   private onMessage(message: ChatMessage) {
     for (const observer of this.observers) {
       observer.onMessage(message);
@@ -54,22 +44,19 @@ export class OverlayDispatchers {
   /**
    * Very dangerous, sends a message without the ~
    */
-  async rawSendMessageAsUser(channelId: string, message: string) {
+  async rawSendMessageAsUser(channelId: string, message: string, replyTo?: string) {
     if (import.meta.env.DEV) {
-      console.log('Would have sent raw', message);
+      console.log(`Would have sent raw message: ${message} with reply to ${replyTo}`);
       return;
     }
 
-    await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `${message}`);
+    await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `${message}`, {
+      replyParentMessageId: replyTo
+    });
   }
 
-  async sendMessageAsUser(channelId: string, message: string) {
-    if (import.meta.env.DEV) {
-      console.log('Would have sent', message);
-      return;
-    }
-
-    await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `~ ${message}`);
+  async sendMessageAsUser(channelId: string, message: string, replyTo?: string) {
+    return this.rawSendMessageAsUser(channelId, `~ ${message}`, replyTo);
   }
 
   async timeoutUser(channelId: string, targetId: string, reason: string, duration_seconds: number) {

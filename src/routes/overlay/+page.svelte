@@ -11,7 +11,7 @@
     PUBLIC_TWITCH_BOT_ID,
     PUBLIC_KIKI_API,
     PUBLIC_TARGET_CHANNEL_ID,
-    PUBLIC_SE_URL,
+    PUBLIC_SE_URL
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
   import {
@@ -32,7 +32,8 @@
     goodnightKissStore,
     createCheckInStore,
     createMakiStore,
-    karmaStore
+    karmaStore,
+    biddingStore
   } from './stores.svelte';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
@@ -198,10 +199,7 @@
         await audio.play();
       } catch {
         // HACK: Ugly hardcoded channel constant
-        dispatchers?.sendMessageAsUser(
-          PUBLIC_TARGET_CHANNEL_ID,
-          'failed to play for some reason'
-        );
+        dispatchers?.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'failed to play for some reason');
         playAudioStore.dequeue();
       }
     });
@@ -269,8 +267,7 @@
 </script>
 
 <div class="overlay">
-  <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements">
-  </iframe>
+  <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements"> </iframe>
 
   {#if makiActivated}
     <div class="makiShared">
@@ -375,6 +372,33 @@
         {/each}
       </div>
     {/if}
+
+    {#if biddingStore.data}
+      <div class="grey-box">
+        <h2>Bid (%bid)</h2>
+        <h3>{biddingStore?.data.options.title}</h3>
+        <div class="progress-container">
+          <div
+            class="progress-bar-blue"
+            style="width: {((biddingStore.data.options.duration - biddingStore.data.elapsed) /
+              biddingStore.data.options.duration) *
+              100}%;"
+          ></div>
+        </div>
+        {#each [...biddingStore?.data.bids.entries()] as [option, value]}
+          <div class="option">
+            <div class="option-title">{option} ({value} bid)</div>
+            <div class="progress-container">
+              <div
+                class="progress-bar"
+                style="width: {(value / biddingStore.totalBids) * 100}%;"
+              ></div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <div class="heartrate">
       <svg
         width="70.90000000000006"
@@ -617,6 +641,12 @@
   .progress-bar {
     height: 10px;
     background-color: #4caf50;
+    border-radius: 5px;
+  }
+
+  .progress-bar-blue {
+    height: 10px;
+    background-color: skyblue;
     border-radius: 5px;
   }
 

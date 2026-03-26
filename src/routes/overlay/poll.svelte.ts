@@ -24,13 +24,13 @@ export class PollObserver implements OverlayObserver {
   private timeout;
   private dispatcher: OverlayDispatchers;
 
-  constructor(dispatcher: OverlayDispatchers, poll: Poll) {
+  constructor(dispatcher: OverlayDispatchers, poll: Poll, broadcaster_id: string) {
     GLOBAL_POLL_LOCK = true;
     console.log('Poll soon: ', poll);
     this.poll = poll;
     this.alreadyVoted = new Set();
     this.timeout = setTimeout(
-      this.timeUp.bind(this),
+      this.timeUp.bind(this, broadcaster_id),
       (poll.expiryTime ?? 0) - new Date().getTime()
     );
     this.dispatcher = dispatcher;
@@ -115,7 +115,11 @@ export function getPollParameters(message: string): Poll {
 export function pollCommandHandler(dispatcher: OverlayDispatchers, message: ChatMessage): void {
   if (GLOBAL_POLL_LOCK) return;
   if (message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster) {
-    const observer = new PollObserver(dispatcher, getPollParameters(message.text));
+    const observer = new PollObserver(
+      dispatcher,
+      getPollParameters(message.text),
+      message.channelId!
+    );
     dispatcher.addObserver(observer);
   }
 }

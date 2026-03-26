@@ -316,7 +316,6 @@ export class KarmaContainer {
     const handleAsset = await Assets.load('/scale-handle.png');
     const bowlAsset = await Assets.load('/scale-bowl.png');
     const fireSpriteSheet = await Assets.load('/flame.json');
-    console.log(fireSpriteSheet);
 
     const body = Sprite.from(bodyAsset);
     const handle = Sprite.from(handleAsset);

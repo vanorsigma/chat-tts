@@ -2,6 +2,25 @@ import type { CheckInClearResponse, CheckInResponse } from './checkinInterface';
 import type { Poll } from './poll.svelte';
 import { KARMA_DECAY_RATE, MAX_KARMA, MIN_KARMA, SHOW_IMAGE_COOLDOWN } from './constants';
 import { TimedCache } from '$lib/TimedCache';
+import type { BidInstance } from './bid.svelte';
+
+export function createBiddingStore() {
+  let bidInstance: BidInstance | null = $state(null);
+
+  function set(bi: BidInstance) {
+    bidInstance = bi;
+  }
+
+  return {
+    get data() {
+      return bidInstance;
+    },
+    get totalBids() {
+      return bidInstance?.bids.values().reduce((prev, curr) => prev + curr) ?? 0;
+    },
+    set
+  };
+}
 
 export function createKarmaStore() {
   let karma: number = 0;
@@ -469,3 +488,4 @@ export const showImageStore = createShowImageStore();
 export const playAudioStore = createPlayAudioStore();
 export const goodnightKissStore = createGoodnightKissStore();
 export const karmaStore = createKarmaStore();
+export const biddingStore = createBiddingStore();
