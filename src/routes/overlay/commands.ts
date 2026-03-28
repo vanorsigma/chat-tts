@@ -1013,8 +1013,8 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
         ))
       ) {
         dispatcher.sendMessageAsUser(message.channelId!, 'bro u r too poor', msg.id);
+        return null;
       }
-      return null;
 
       dispatcher.sendMessageAsUser(message.channelId!, 'ok', msg.id);
       return [option, bidNumber];
