@@ -59,12 +59,34 @@ export class OverlayDispatchers {
     return this.rawSendMessageAsUser(channelId, `~ ${message}`, replyTo);
   }
 
-  async timeoutUser(channelId: string, targetId: string, reason: string, duration_seconds: number) {
-    // if (import.meta.env.DEV) return;
+  async getChatterList(channelId: string) {
+    if (import.meta.env.DEV) {
+      console.log('Would have gotten the chatter list.');
+      return [];
+    }
 
-    this.api.asUser(this.botId, async (ctx) => {
-      ctx.moderation.banUser(channelId, {
-        user: targetId,
+    return await this.api.asUser(
+      this.botId,
+      async (ctx) => await ctx.chat.getChattersPaginated(channelId).getAll()
+    );
+  }
+
+  async timeoutUser(
+    channelId: string,
+    targetUser: string,
+    reason: string,
+    duration_seconds: number
+  ) {
+    if (import.meta.env.DEV) {
+      console.log(
+        `Would have timed out ${targetUser} for ${reason} for ${duration_seconds} seconds.`
+      );
+      return;
+    }
+
+    return await this.api.asUser(this.botId, async (ctx) => {
+      return await ctx.moderation.banUser(channelId, {
+        user: targetUser,
         reason,
         duration: duration_seconds
       });

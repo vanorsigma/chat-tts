@@ -48,6 +48,7 @@ export class BidObserver implements OverlayObserver {
           .reduce((prev, curr) => (curr[1] > prev[1] ? curr : prev));
 
         // tie check
+        biddingStore.clear();
         GLOBAL_BID_LOCK = false;
         if ([...this.bidInstance?.bids.values().filter((v) => v === numBids)].length > 1) {
           options.bidCompleteCallback?.call(this, null, null, this.bidInstance.bids);

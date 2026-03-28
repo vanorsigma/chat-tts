@@ -38,16 +38,18 @@ async function checkCostAddIfEnough(
   username: string,
   difference: number,
   use_stock_market: boolean = true,
-  message_id: string | undefined = undefined
+  message_id: string | undefined = undefined,
+  check_only: boolean = false
 ): Promise<boolean> {
   const currentTask = _checkCostAddIfEnoughLock
     .then(async () => {
       const points = (await getPointsForUser(username)) ?? 0;
 
       if (points + difference >= 0) {
+        if (check_only) return true;
         await setPointsForUser(username, points + difference);
         return true;
-      }
+      } else if (check_only) return false;
 
       if (use_stock_market) {
         try {
@@ -877,7 +879,8 @@ async function blockHandler(
       username,
       -Constants.BLOCK_MINIMUM_BID,
       undefined,
-      message.id
+      message.id,
+      true
     ))
   ) {
     dispatcher.sendMessageAsUser(
@@ -957,6 +960,111 @@ async function blockHandler(
     );
 }
 
+async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const user = message.userInfo;
+  if (!message.userInfo.userName) return;
+  const username = user.userName;
+  if (!username) return;
+  const args = message.text.split(' ').slice(1);
+
+  // TODO: working guard for now
+  if (!message.userInfo.isBroadcaster) return;
+
+  const chatterList = await dispatcher.getChatterList(message.channelId!);
+  const chatter = chatterList.find((data) => args[0].includes(data.userName.toLowerCase()));
+  if (!chatter) {
+    await dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `The user is not connected to the channel / invalid user`,
+      message.id
+    );
+    return;
+  }
+
+  const title = `Should we kill ${chatter.userDisplayName}?`;
+  const observer = BidObserver.create(dispatcher, {
+    title,
+    duration: 30_000,
+    startingOptions: ['yes', 'no'],
+    predicate: async (msg) => {
+      const args = msg.text.split(' ').slice(1);
+      if (args.length < 2) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'Not enough arguments', msg.id);
+        return null;
+      }
+
+      const option = args.slice(1).join(' ').toLowerCase();
+      if (option && option != 'yes' && option != 'no') {
+        dispatcher.sendMessageAsUser(message.channelId!, 'Invalid option', msg.id);
+        return null;
+      }
+
+      let bidNumber = Number.parseFloat(args[0]);
+      if (Number.isNaN(bidNumber)) bidNumber = 0;
+
+      if (
+        !(await checkCostAddIfEnough(
+          dispatcher,
+          message.channelId!,
+          username,
+          -bidNumber,
+          undefined,
+          message.id
+        ))
+      ) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'bro u r too poor', msg.id);
+      }
+      return null;
+
+      dispatcher.sendMessageAsUser(message.channelId!, 'ok', msg.id);
+      return [option, bidNumber];
+    },
+    bidCompleteCallback: async (option, numbids, _bids) => {
+      switch (option) {
+        case 'yes':
+          try {
+            await dispatcher.timeoutUser(
+              message.channelId!,
+              chatter.userId,
+              'by popular vote, u died, gg no re',
+              180
+            );
+            dispatcher.sendMessageAsUser(
+              message.channelId!,
+              `Bid closed, ${chatter.userDisplayName} has died.`,
+              message.id
+            );
+          } catch (e) {
+            await dispatcher.sendMessageAsUser(
+              message.channelId!,
+              `Can't do that, unfortunately.`,
+              message.id
+            );
+          }
+          break;
+        case 'no':
+          dispatcher.sendMessageAsUser(
+            message.channelId!,
+            `Bid closed, ${chatter.userDisplayName} is safe for now...`,
+            message.id
+          );
+          break;
+      }
+    }
+  });
+
+  if (observer) {
+    dispatcher.addObserver(observer);
+    dispatcher.sendMessageAsUser(message.channelId!, `Bid started, "${title}"`, message.id);
+  } else {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `There is currently an existing bid, will not proceed`,
+      message.id
+    );
+  }
+}
+
 const ALL_COMMANDS = [
   '%poll',
   '%vote',
@@ -988,7 +1096,8 @@ const ALL_COMMANDS = [
   '%hearts',
   '%bid',
   '%block',
-  '%unblock'
+  '%unblock',
+  '%kill'
 ] as const;
 
 type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -1166,6 +1275,9 @@ export class Commands implements OverlayObserver {
         this.callOnlyIfPastCooldown(dispatcher, message, () =>
           blockHandler(this, dispatcher, message, 'unblock')
         );
+        break;
+      case '%kill':
+        this.callOnlyIfPastCooldown(dispatcher, message, () => killHandler(dispatcher, message));
         break;
       case '%vote':
       case '%bid':

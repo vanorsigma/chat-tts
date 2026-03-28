@@ -37,6 +37,8 @@ export const GOOD_NIGHT_KISS_KARMA = -300;
 
 export const BLOCK_MINIMUM_BID = 1000;
 
+export const KILL_COST = 2000;
+
 // NOTE: set title has special karma requirements
 export const SET_TITLE_COST = 1000;
 export const SET_TITLE_KARMA_REQUIREMENT = 100;

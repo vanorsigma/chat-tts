@@ -12,7 +12,7 @@ export function createNewTwitchClientV2(channelName: string): ChatClient {
 }
 
 export function createNewTwitchApiClient(client_id: string, client_secret: string): ApiClient {
-  const scopes = ['user:write:chat', 'user:bot', 'moderator:read:chatters'];
+  const scopes = ['user:write:chat', 'user:bot', 'moderator:read:chatters', 'moderator:manage:banned_users'];
 
   const authProvider = new AppTokenAuthProvider(client_id, client_secret, scopes);
   return new ApiClient({

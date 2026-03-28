@@ -11,6 +11,10 @@ export function createBiddingStore() {
     bidInstance = bi;
   }
 
+  function clear() {
+    bidInstance = null;
+  }
+
   return {
     get data() {
       return bidInstance;
@@ -18,7 +22,8 @@ export function createBiddingStore() {
     get totalBids() {
       return bidInstance?.bids.values().reduce((prev, curr) => prev + curr) ?? 0;
     },
-    set
+    set,
+    clear
   };
 }
 
