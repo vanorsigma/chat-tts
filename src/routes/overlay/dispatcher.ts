@@ -11,20 +11,19 @@ export interface OverlayObserver {
 }
 
 export interface OverlayTimeoutObserver {
-  onTimeout(user: string, duration: number): void;
+  onTimeout(channel_id: string, user: string, duration: number): void;
 }
 
 export class OverlayDispatchers {
   observers: OverlayObserver[] = [];
   timeoutObservers: OverlayTimeoutObserver[] = [];
-  private twitch: ChatClient;
   private api: ApiClient;
   private botId: string;
   public readonly modelUpdater: ModelUpdater;
 
   constructor(twitch: ChatClient, api: ApiClient, modelUpdater: ModelUpdater, botId: string) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
-    twitch.onTimeout((_1, user, duration, _2) => this.onTimeout(user, duration));
+    twitch.onTimeout((channel, user, duration, _1) => this.onTimeout(channel, user, duration));
     this.twitch = twitch;
     this.api = api;
     this.botId = botId;
@@ -57,9 +56,9 @@ export class OverlayDispatchers {
     }
   }
 
-  private onTimeout(user: string, duration: number) {
+  private onTimeout(channel_id: string, user: string, duration: number) {
     for (const observer of this.timeoutObservers) {
-      observer.onTimeout(user, duration);
+      observer.onTimeout(channel_id, user, duration);
     }
   }
 
