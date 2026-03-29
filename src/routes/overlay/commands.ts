@@ -25,6 +25,7 @@ import { ApprovableObserver } from './approvable';
 import * as Constants from './constants';
 import { getAttachmentUrlForTag, isTagExist, registerTag } from './attachmentsInterface';
 import { BidObserver } from './bid.svelte';
+import { walk } from 'svelte/compiler';
 
 const COOLDOWN = 10 * 1000;
 const TOGGLE_COOLDOWN = 2 * 60 * 1000;
@@ -897,6 +898,9 @@ async function blockHandler(
     duration: 120_000,
     startingOptions: ['yes', 'no'],
     predicate: async (msg) => {
+      const biddingUser = msg.userInfo;
+      if (!biddingUser.userName) return null;
+
       const args = msg.text.split(' ').slice(1);
       if (args.length < 2) {
         dispatcher.sendMessageAsUser(message.channelId!, 'Not enough arguments', msg.id);
@@ -923,7 +927,7 @@ async function blockHandler(
         !(await checkCostAddIfEnough(
           dispatcher,
           message.channelId!,
-          username,
+          biddingUser.userName,
           -bidNumber,
           undefined,
           message.id
@@ -1000,6 +1004,8 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
     duration: 120_000,
     startingOptions: ['yes', 'no'],
     predicate: async (msg) => {
+      const biddingUser = msg.userInfo;
+      if (!biddingUser.userName) return null;
       const args = msg.text.split(' ').slice(1);
       if (args.length < 2) {
         dispatcher.sendMessageAsUser(message.channelId!, 'Not enough arguments', msg.id);
@@ -1027,7 +1033,7 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
         !(await checkCostAddIfEnough(
           dispatcher,
           message.channelId!,
-          username,
+          biddingUser.userName,
           -bidNumber,
           undefined,
           message.id
