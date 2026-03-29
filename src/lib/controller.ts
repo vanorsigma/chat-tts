@@ -691,6 +691,11 @@ export class Controller {
       return;
     }
 
+    // hard vanorgamma filter
+    if (message.userInfo.userId === "1374180546") {
+      return;
+    }
+
     // random chance to rotate the screen
     if (Math.random() < (this.config.distractConfig?.rotateChance ?? 0) && this.obsController && this.trinketController) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);

@@ -894,7 +894,7 @@ async function blockHandler(
   const title = `Should we ${action} the command ${commandToBlock}?`;
   const observer = BidObserver.create(dispatcher, {
     title,
-    duration: 30_000,
+    duration: 120_000,
     startingOptions: ['yes', 'no'],
     predicate: async (msg) => {
       const args = msg.text.split(' ').slice(1);
@@ -910,7 +910,14 @@ async function blockHandler(
       }
 
       let bidNumber = Number.parseFloat(args[0]);
-      if (Number.isNaN(bidNumber)) bidNumber = 0;
+      if (Number.isNaN(bidNumber)) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'Not a valid number', msg.id);
+        return null;
+      }
+      if (bidNumber < 0) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'No negative arguments', msg.id);
+        return null;
+      }
 
       if (
         !(await checkCostAddIfEnough(
@@ -930,10 +937,17 @@ async function blockHandler(
     bidCompleteCallback: (option, numbids, _bids) => {
       switch (option) {
         case 'yes':
-          commands.blacklist.push(commandToBlock);
+          switch (action) {
+            case 'block':
+              commands.blacklist.push(commandToBlock);
+              break;
+            case 'unblock':
+              commands.blacklist = commands.blacklist.filter((cmd) => cmd !== commandToBlock);
+              break;
+          }
           dispatcher.sendMessageAsUser(
             message.channelId!,
-            `Bid closed, ${action ? 'RIPBOZO' : 'Welcome back'} ${commandToBlock} with ${numbids} bidded currency`,
+            `Bid closed, ${action === 'block' ? 'RIPBOZO' : 'Welcome back'} ${commandToBlock} with ${numbids} bidded currency`,
             message.id
           );
           break;
@@ -941,7 +955,7 @@ async function blockHandler(
         case null:
           dispatcher.sendMessageAsUser(
             message.channelId!,
-            `Bid closed, ${commandToBlock} is ${action ? 'safe for now...' : 'is still blocked SadCat'}'`,
+            `Bid closed, ${commandToBlock} is ${action === 'block' ? 'safe for now...' : 'is still blocked SadCat'}'`,
             message.id
           );
           break;
@@ -967,11 +981,10 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
   if (!username) return;
   const args = message.text.split(' ').slice(1);
 
-  // TODO: working guard for now
-  if (!message.userInfo.isBroadcaster) return;
-
   const chatterList = await dispatcher.getChatterList(message.channelId!);
-  const chatter = chatterList.find((data) => args[0].includes(data.userName.toLowerCase()));
+  const chatter = chatterList.find((data) =>
+    args[0].toLowerCase().includes(data.userName.toLowerCase())
+  );
   if (!chatter) {
     await dispatcher.sendMessageAsUser(
       message.channelId!,
@@ -984,7 +997,7 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
   const title = `Should we kill ${chatter.userDisplayName}?`;
   const observer = BidObserver.create(dispatcher, {
     title,
-    duration: 30_000,
+    duration: 120_000,
     startingOptions: ['yes', 'no'],
     predicate: async (msg) => {
       const args = msg.text.split(' ').slice(1);
@@ -1000,7 +1013,15 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
       }
 
       let bidNumber = Number.parseFloat(args[0]);
-      if (Number.isNaN(bidNumber)) bidNumber = 0;
+      if (Number.isNaN(bidNumber)) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'Not a valid number', msg.id);
+        return null;
+      }
+
+      if (bidNumber < 0) {
+        dispatcher.sendMessageAsUser(message.channelId!, 'No negative arguments', msg.id);
+        return null;
+      }
 
       if (
         !(await checkCostAddIfEnough(
@@ -1097,7 +1118,10 @@ const ALL_COMMANDS = [
   '%bid',
   '%block',
   '%unblock',
-  '%kill'
+  '%kill',
+  '%rotate',
+  '%distract',
+  '%endbid'
 ] as const;
 
 type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -1145,11 +1169,12 @@ export class Commands implements OverlayObserver {
   callOnlyIfPastCooldown(
     dispatcher: OverlayDispatchers,
     message: ChatMessage,
-    callback: () => void
+    callback: () => void,
+    cooldown: number = COOLDOWN
   ) {
     if (new Date().getTime() >= this.nextValid) {
       callback();
-      this.nextValid = new Date().getTime() + COOLDOWN;
+      this.nextValid = new Date().getTime() + cooldown;
     } else {
       dispatcher.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'command under cooldown', message.id);
     }
@@ -1252,18 +1277,27 @@ export class Commands implements OverlayObserver {
         restartHandler(dispatcher, message);
         break;
       case '%undress':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Undress')
+        this.callOnlyIfPastCooldown(
+          dispatcher,
+          message,
+          () => togglesHandler(dispatcher, message, 'Undress'),
+          1000
         );
         break;
       case '%stars':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Stars')
+        this.callOnlyIfPastCooldown(
+          dispatcher,
+          message,
+          () => togglesHandler(dispatcher, message, 'Stars'),
+          1000
         );
         break;
       case '%hearts':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Hearts')
+        this.callOnlyIfPastCooldown(
+          dispatcher,
+          message,
+          () => togglesHandler(dispatcher, message, 'Hearts'),
+          1000
         );
         break;
       case '%block':
@@ -1281,6 +1315,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%vote':
       case '%bid':
+      case '%distract':
+      case '%rotate':
+      case '%endbid':
         // We recognize these as valid commands, but they are handled elsewhere
         break;
     }

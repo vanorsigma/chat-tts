@@ -38,29 +38,14 @@ export class BidObserver implements OverlayObserver {
   private timeout: NodeJS.Timeout;
   private progress: NodeJS.Timeout;
   private bidInstance: BidInstance;
+  private options: BidOptions;
+  private dispatcher: OverlayDispatchers;
 
   protected constructor(dispatcher: OverlayDispatchers, options: BidOptions) {
     GLOBAL_BID_LOCK = true;
-    this.timeout = setTimeout(() => {
-      if (this.bidInstance?.bids) {
-        const [winningBidOption, numBids] = this.bidInstance?.bids
-          .entries()
-          .reduce((prev, curr) => (curr[1] > prev[1] ? curr : prev));
-
-        // tie check
-        biddingStore.clear();
-        GLOBAL_BID_LOCK = false;
-        if ([...this.bidInstance?.bids.values().filter((v) => v === numBids)].length > 1) {
-          options.bidCompleteCallback?.call(this, null, null, this.bidInstance.bids);
-        } else {
-          options.bidCompleteCallback?.call(this, winningBidOption, numBids, this.bidInstance.bids);
-        }
-      }
-
-      clearTimeout(this.timeout);
-      clearInterval(this.progress);
-      dispatcher.removeObserver(this);
-    }, options.duration);
+    this.options = options;
+    this.dispatcher = dispatcher;
+    this.timeout = setTimeout(() => this.clearBid(), options.duration);
 
     this.progress = setInterval(() => {
       this.bidInstance.elapsed += ELAPSED_GRANULARITY;
@@ -72,6 +57,32 @@ export class BidObserver implements OverlayObserver {
       bids: new Map(options.startingOptions.map((option) => [option, 0.0])),
       elapsed: 0
     } as BidInstance;
+  }
+
+  public clearBid() {
+    if (this.bidInstance?.bids) {
+      const [winningBidOption, numBids] = this.bidInstance?.bids
+        .entries()
+        .reduce((prev, curr) => (curr[1] > prev[1] ? curr : prev));
+
+      // tie check
+      biddingStore.clear();
+      GLOBAL_BID_LOCK = false;
+      if ([...this.bidInstance?.bids.values().filter((v) => v === numBids)].length > 1) {
+        this.options.bidCompleteCallback?.call(this, null, null, this.bidInstance.bids);
+      } else {
+        this.options.bidCompleteCallback?.call(
+          this,
+          winningBidOption,
+          numBids,
+          this.bidInstance.bids
+        );
+      }
+    }
+
+    clearTimeout(this.timeout);
+    clearInterval(this.progress);
+    this.dispatcher.removeObserver(this);
   }
 
   public static create(dispatcher: OverlayDispatchers, options: BidOptions): BidObserver | null {
@@ -87,6 +98,10 @@ export class BidObserver implements OverlayObserver {
 
   async onMessage(message: ChatMessage): Promise<void> {
     const splits = message.text.split(' ');
+    if (splits[0] === '%endbid' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
+      this.clearBid();
+      return;
+    }
     if (splits[0] !== '%bid') return;
 
     const userDefinedPredicate = this.bidInstance.options.predicate;
