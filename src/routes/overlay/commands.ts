@@ -873,6 +873,15 @@ async function blockHandler(
     return;
   }
 
+  if (Constants.UNBLOCKABLE_COMMANDS.includes(commandToBlock)) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `Cannot perform this action on ${commandToBlock}`,
+      message.id
+    );
+    return;
+  }
+
   if (
     !(await checkCostAddIfEnough(
       dispatcher,

@@ -35,6 +35,7 @@ export const GOOD_NIGHT_KISS_COST = 5000;
 export const GOOD_NIGHT_KISS_USER = 'pastel8844';
 export const GOOD_NIGHT_KISS_KARMA = -300;
 
+export const UNBLOCKABLE_COMMANDS = ['%restart', '%block', '%unblock'];
 export const BLOCK_MINIMUM_BID = 1000;
 
 export const KILL_COST = 2000;
