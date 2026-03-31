@@ -1,7 +1,5 @@
 from typing import Any, Sequence
 import typing
-from pydantic_ai.messages import ToolCallPart
-import threading
 import typer
 import asyncio
 import json
@@ -18,31 +16,22 @@ from actions import TerminatingAction
 from tools.communication import Communication
 from tools.search import SearchTool
 from wakeword.wakeword import Wakeword
-from pydantic import ValidationError
 from pydantic_ai import (
     Agent,
     AgentRunResult,
     BinaryContent,
     CallToolsNode,
     ModelMessage,
-    ModelRequest,
-    ModelRequestNode,
-    ModelRequestPart,
     ModelResponse,
     ModelSettings,
     TextPart,
-    ToolReturnPart,
     UsageLimits,
     UserContent,
-    UserPromptNode,
-    UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
-from rich.panel import Panel
 from rich.console import Console
-from rich.live import Live
 
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
@@ -100,20 +89,16 @@ async def exits_yourself() -> bool:
 
 agent = Agent(
     ollama_model,
-    # deps_type=None,
     tools=twitch.get_twitch_tools()
     + random_tools  # evaluator.get_tools()
     + search.get_tools()
     + communication.get_tools()
-    + twitch_chat.get_twitch_tools()
-    + [
-        clear_history,
-    ],  # NOTE: exits_yourself() is a valid tool, but has been removed
+    + twitch_chat.get_twitch_tools(),
     output_type=TerminatingAction,
     model_settings=ModelSettings(
         extra_body={"parallel_tool_calls": False}
     ),  # Gemini blocks this, we force OpenRouter to handle it
-    system_prompt='**Role:** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice on the same user intent.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n  - **Single Call:** Only output one tool call per request.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object. \n- Immediately after this call, cease all processing/thinking.',
+    system_prompt='**Role:** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice on the same user intent.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n  - **Single Call:** Only output one tool call per request.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object, preferably `inform_output`.  \n- Immediately after this call, cease all processing/thinking.',
     end_strategy="early",
     retries=3,
 )
@@ -212,13 +197,12 @@ async def run_with_feedback(
         return run.result
 
 
-async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
+async def _step(prompt: str | bytes) -> None:
     prompt_context = await twitch.get_prompt_ctx()
 
     if isinstance(prompt, str):
         result = await run_with_feedback(
             f"{prompt_context}\n{prompt}",
-            message_history=history,
             usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
         )
     else:
@@ -227,23 +211,10 @@ async def _step(prompt: str | bytes, history: list[ModelMessage]) -> None:
                 prompt_context,
                 BinaryContent(prompt, media_type="audio/wav"),
             ],
-            message_history=history,
             usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
         )
 
-    assert result, "Should have resul in step"
-    clear_history_called = False
-    result_output = result.all_messages()
-    for model_response in result_output:
-        for part in model_response.parts:
-            if isinstance(part, ToolCallPart):
-                if part.tool_name == "clear_history":
-                    print("[TOOL AFTER] clear history post processing")
-                    clear_history_called = True
-
-    if not clear_history_called:
-        history = result_output[-10:]
-
+    assert result, "Should have result in step"
     console.log(result.usage())
 
 
@@ -267,7 +238,7 @@ async def _main():
             console.log("Ready to prompt")
             audio_bytes = get_mic_audio()
 
-            fut1 = asyncio.create_task(_step(audio_bytes, history))
+            fut1 = asyncio.create_task(_step(audio_bytes))
             fut2 = asyncio.create_task(wakeword.run_then_return())
             await communication.inform_loading()
             done, pending = await asyncio.wait(
