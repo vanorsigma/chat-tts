@@ -1,6 +1,8 @@
 import type { ChatMessage } from '@twurple/chat';
-import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
+import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
 import { biddingStore } from './stores.svelte';
+
+export type Bids = Map<string, number>;
 
 export interface BidOptions {
   // Title of the bid
@@ -27,7 +29,7 @@ export interface BidOptions {
 
 export interface BidInstance {
   options: BidOptions;
-  bids: Map<string, number>;
+  bids: Bids;
   elapsed: number;
 }
 
@@ -111,4 +113,87 @@ export class BidObserver implements OverlayObserver {
     const [bidOption, bidNumber] = predicateResult;
     await this.rawAddBit(bidOption, bidNumber);
   }
+}
+
+export async function makeStandardYesNoBid(
+  dispatcher: OverlayDispatchers,
+  title: string,
+  duration: number,
+  channelId: string,
+  msgId: string,
+  processBidCost: (bidMessage: ChatMessage, bidNumber: number) => Promise<boolean>,
+  onYesWin: (numbids: number, bids: Bids) => Promise<void>,
+  onNoWin: (numbids: number, bids: Bids) => Promise<void>,
+  onError: (e: unknown) => void = () => {}
+): Promise<BidObserver | null> {
+  const observer = BidObserver.create(dispatcher, {
+    title,
+    duration,
+    startingOptions: ['yes', 'no'],
+    predicate: async (msg) => {
+      const biddingUser = msg.userInfo;
+      if (!biddingUser.userName) return null;
+      const args = msg.text.split(' ').slice(1);
+      if (args.length < 2) {
+        dispatcher.sendMessageAsUser(msg.channelId!, 'Not enough arguments', msg.id);
+        return null;
+      }
+
+      const option = args.slice(1).join(' ').toLowerCase();
+      if (option && option != 'yes' && option != 'no') {
+        dispatcher.sendMessageAsUser(msg.channelId!, 'Invalid option', msg.id);
+        return null;
+      }
+
+      let bidNumber = Number.parseFloat(args[0]);
+      if (Number.isNaN(bidNumber)) {
+        dispatcher.sendMessageAsUser(msg.channelId!, 'Not a valid number', msg.id);
+        return null;
+      }
+
+      if (bidNumber < 0) {
+        dispatcher.sendMessageAsUser(msg.channelId!, 'No negative arguments', msg.id);
+        return null;
+      }
+
+      if (!(await processBidCost(msg, bidNumber))) {
+        dispatcher.sendMessageAsUser(msg.channelId!, 'bro u r too poor', msg.id);
+        return null;
+      }
+
+      dispatcher.sendMessageAsUser(msg.channelId!, 'ok', msg.id);
+      return [option, bidNumber];
+    },
+    bidCompleteCallback: async (option, numbids, bids) => {
+      switch (option) {
+        case 'yes':
+          try {
+            await onYesWin(numbids ?? 0, bids);
+          } catch (e) {
+            onError(e);
+          }
+          break;
+        case null:
+        case 'no':
+          try {
+            await onNoWin(numbids ?? 0, bids);
+          } catch (e) {
+            onError(e);
+          }
+          break;
+      }
+    }
+  });
+
+  if (observer) {
+    dispatcher.addObserver(observer);
+    dispatcher.sendMessageAsUser(channelId, `Bid started, "${title}"`, msgId);
+  } else {
+    dispatcher.sendMessageAsUser(
+      channelId,
+      `There is currently an existing bid, will not proceed`,
+      msgId
+    );
+  }
+  return observer;
 }

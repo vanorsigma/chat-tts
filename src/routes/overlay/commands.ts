@@ -24,14 +24,14 @@ import { ApprovableObserver } from './approvable';
 
 import * as Constants from './constants';
 import { getAttachmentUrlForTag, isTagExist, registerTag } from './attachmentsInterface';
-import { BidObserver } from './bid.svelte';
-import { walk } from 'svelte/compiler';
+import { makeStandardYesNoBid } from './bid.svelte';
 
 const COOLDOWN = 10 * 1000;
 const TOGGLE_COOLDOWN = 2 * 60 * 1000;
 const PEOPLE_WHO_CHECKED_IN: string[] = [];
 const TOGGLE_EXPIRY: Map<string, NodeJS.Timeout> = new Map();
 
+/* Helper Functions */
 let _checkCostAddIfEnoughLock: Promise<boolean> = Promise.resolve(true);
 async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,
@@ -71,6 +71,7 @@ async function checkCostAddIfEnough(
   return await currentTask;
 }
 
+/* Handlers */
 async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const user = message.userInfo;
   if (!user.userName) return;
@@ -882,109 +883,62 @@ async function blockHandler(
     return;
   }
 
-  if (
-    !(await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -Constants.BLOCK_MINIMUM_BID,
-      undefined,
-      message.id,
-      true
-    ))
-  ) {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `You will need a minimum of ${Constants.BLOCK_MINIMUM_BID} as a minimum bid for this command`,
-      message.id
-    );
-    return;
-  }
-
   const title = `Should we ${action} the command ${commandToBlock}?`;
-  const observer = BidObserver.create(dispatcher, {
+  const originalChannelId = message.channelId!;
+  const originalMessageId = message.id;
+  await makeStandardYesNoBid(
+    dispatcher,
     title,
-    duration: 120_000,
-    startingOptions: ['yes', 'no'],
-    predicate: async (msg) => {
-      const biddingUser = msg.userInfo;
-      if (!biddingUser.userName) return null;
-
-      const args = msg.text.split(' ').slice(1);
-      if (args.length < 2) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Not enough arguments', msg.id);
-        return null;
-      }
-
-      const option = args.slice(1).join(' ').toLowerCase();
-      if (option && option != 'yes' && option != 'no') {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Invalid option', msg.id);
-        return null;
-      }
-
-      let bidNumber = Number.parseFloat(args[0]);
-      if (Number.isNaN(bidNumber)) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Not a valid number', msg.id);
-        return null;
-      }
-      if (bidNumber < 0) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'No negative arguments', msg.id);
-        return null;
-      }
-
+    120_000,
+    originalChannelId,
+    originalMessageId,
+    async (bidMessage, bidNumber) => {
       if (
         !(await checkCostAddIfEnough(
           dispatcher,
           message.channelId!,
-          biddingUser.userName,
+          bidMessage.userInfo.userName,
           -bidNumber,
           undefined,
-          message.id
+          bidMessage.id
         ))
-      )
-        return null;
+      ) {
+        dispatcher.sendMessageAsUser(originalChannelId, 'u r too poor...', bidMessage.id);
+        return false;
+      }
 
-      dispatcher.sendMessageAsUser(message.channelId!, 'ok', msg.id);
-      return [option, bidNumber];
+      return true;
     },
-    bidCompleteCallback: (option, numbids, _bids) => {
-      switch (option) {
-        case 'yes':
-          switch (action) {
-            case 'block':
-              commands.blacklist.push(commandToBlock);
-              break;
-            case 'unblock':
-              commands.blacklist = commands.blacklist.filter((cmd) => cmd !== commandToBlock);
-              break;
-          }
-          dispatcher.sendMessageAsUser(
-            message.channelId!,
-            `Bid closed, ${action === 'block' ? 'RIPBOZO' : 'Welcome back'} ${commandToBlock} with ${numbids} bidded currency`,
-            message.id
-          );
+    async (numbids, _bids) => {
+      switch (action) {
+        case 'block':
+          commands.blacklist.push(commandToBlock);
           break;
-        case 'no':
-        case null:
-          dispatcher.sendMessageAsUser(
-            message.channelId!,
-            `Bid closed, ${commandToBlock} is ${action === 'block' ? 'safe for now...' : 'is still blocked SadCat'}'`,
-            message.id
-          );
+        case 'unblock':
+          commands.blacklist = commands.blacklist.filter((cmd) => cmd !== commandToBlock);
           break;
       }
+      dispatcher.sendMessageAsUser(
+        originalChannelId,
+        `Bid closed, ${action === 'block' ? 'RIPBOZO' : 'Welcome back'} ${commandToBlock} with ${numbids} bidded currency`,
+        originalMessageId
+      );
+    },
+    async (_numbids, _bids) => {
+      dispatcher.sendMessageAsUser(
+        originalChannelId,
+        `Bid closed, ${commandToBlock} is ${action === 'block' ? 'safe for now...' : 'is still blocked SadCat'}'`,
+        originalMessageId
+      );
+    },
+    (_e) => {
+      dispatcher.sendMessageAsUser(
+        originalChannelId,
+        `An error occurred while attempting to do close this bid`,
+        originalMessageId
+      );
     }
-  });
-
-  if (observer) {
-    dispatcher.addObserver(observer);
-    dispatcher.sendMessageAsUser(message.channelId!, `Bid started, "${title}"`, message.id);
-  } else
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      'There is currently an existing bid, will not proceed',
-      message.id
-    );
+  );
 }
 
 async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -1007,100 +961,68 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
     return;
   }
 
+  const originalMessageChannelId = message.channelId!;
+  const originalMessageId = message.id;
   const title = `Should we kill ${chatter.userDisplayName}?`;
-  const observer = BidObserver.create(dispatcher, {
+  await makeStandardYesNoBid(
+    dispatcher,
     title,
-    duration: 120_000,
-    startingOptions: ['yes', 'no'],
-    predicate: async (msg) => {
-      const biddingUser = msg.userInfo;
-      if (!biddingUser.userName) return null;
-      const args = msg.text.split(' ').slice(1);
-      if (args.length < 2) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Not enough arguments', msg.id);
-        return null;
-      }
-
-      const option = args.slice(1).join(' ').toLowerCase();
-      if (option && option != 'yes' && option != 'no') {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Invalid option', msg.id);
-        return null;
-      }
-
-      let bidNumber = Number.parseFloat(args[0]);
-      if (Number.isNaN(bidNumber)) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'Not a valid number', msg.id);
-        return null;
-      }
-
-      if (bidNumber < 0) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'No negative arguments', msg.id);
-        return null;
-      }
-
+    120_000,
+    message.channelId!,
+    message.id,
+    async (biddingMsg, bidNumber) => {
       if (
         !(await checkCostAddIfEnough(
           dispatcher,
-          message.channelId!,
-          biddingUser.userName,
+          originalMessageChannelId,
+          biddingMsg.userInfo.userName,
           -bidNumber,
           undefined,
-          message.id
+          biddingMsg.id
         ))
       ) {
-        dispatcher.sendMessageAsUser(message.channelId!, 'bro u r too poor', msg.id);
-        return null;
+        dispatcher.sendMessageAsUser(
+          originalMessageChannelId,
+          'bro u r too poor',
+          originalMessageId
+        );
+        return true;
       }
 
-      dispatcher.sendMessageAsUser(message.channelId!, 'ok', msg.id);
-      return [option, bidNumber];
+      dispatcher.sendMessageAsUser(originalMessageChannelId, 'ok', originalMessageId);
+      return false;
     },
-    bidCompleteCallback: async (option, numbids, _bids) => {
-      switch (option) {
-        case 'yes':
-          try {
-            await dispatcher.timeoutUser(
-              message.channelId!,
-              chatter.userId,
-              'by popular vote, u died, gg no re',
-              180
-            );
-            dispatcher.sendMessageAsUser(
-              message.channelId!,
-              `Bid closed, ${chatter.userDisplayName} has died.`,
-              message.id
-            );
-          } catch (e) {
-            await dispatcher.sendMessageAsUser(
-              message.channelId!,
-              `Can't do that, unfortunately.`,
-              message.id
-            );
-          }
-          break;
-        case 'no':
-          dispatcher.sendMessageAsUser(
-            message.channelId!,
-            `Bid closed, ${chatter.userDisplayName} is safe for now...`,
-            message.id
-          );
-          break;
-      }
+    async (_numbids, _bids) => {
+      await dispatcher.timeoutUser(
+        originalMessageChannelId,
+        chatter.userId,
+        'by popular vote, u died, gg no re',
+        180
+      );
+      dispatcher.sendMessageAsUser(
+        originalMessageChannelId,
+        `Bid closed, ${chatter.userDisplayName} has died.`,
+        originalMessageId
+      );
+    },
+    async (_numbids, _bids) => {
+      dispatcher.sendMessageAsUser(
+        originalMessageChannelId,
+        `Bid closed, ${chatter.userDisplayName} is safe for now...`,
+        originalMessageId
+      );
+    },
+    (_e) => {
+      dispatcher.sendMessageAsUser(
+        originalMessageChannelId,
+        'Error occurred while trying to finish the bid...',
+        originalMessageId
+      );
     }
-  });
-
-  if (observer) {
-    dispatcher.addObserver(observer);
-    dispatcher.sendMessageAsUser(message.channelId!, `Bid started, "${title}"`, message.id);
-  } else {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `There is currently an existing bid, will not proceed`,
-      message.id
-    );
-  }
+  );
 }
 
+/* Command Handlers */
 const ALL_COMMANDS = [
   '%poll',
   '%vote',
