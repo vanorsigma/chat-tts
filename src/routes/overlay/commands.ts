@@ -967,7 +967,7 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
   await makeStandardYesNoBid(
     dispatcher,
     title,
-    120_000,
+    60_000,
     message.channelId!,
     message.id,
     async (biddingMsg, bidNumber) => {
@@ -986,11 +986,10 @@ async function killHandler(dispatcher: OverlayDispatchers, message: ChatMessage)
           'bro u r too poor',
           originalMessageId
         );
-        return true;
+        return false;
       }
 
-      dispatcher.sendMessageAsUser(originalMessageChannelId, 'ok', originalMessageId);
-      return false;
+      return true;
     },
     async (_numbids, _bids) => {
       await dispatcher.timeoutUser(
@@ -1058,7 +1057,8 @@ const ALL_COMMANDS = [
   '%kill',
   '%rotate',
   '%distract',
-  '%endbid'
+  '%endbid',
+  '%refreshVoice'
 ] as const;
 
 type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -1255,6 +1255,7 @@ export class Commands implements OverlayObserver {
       case '%distract':
       case '%rotate':
       case '%endbid':
+      case '%refreshVoice':
         // We recognize these as valid commands, but they are handled elsewhere
         break;
     }

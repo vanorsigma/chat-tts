@@ -35,7 +35,7 @@ export const GOOD_NIGHT_KISS_COST = 5000;
 export const GOOD_NIGHT_KISS_USER = 'pastel8844';
 export const GOOD_NIGHT_KISS_KARMA = -300;
 
-export const UNBLOCKABLE_COMMANDS = ['%restart', '%block', '%unblock'];
+export const UNBLOCKABLE_COMMANDS = ['%restart', '%block', '%unblock', '%closemarket'];
 export const BLOCK_MINIMUM_BID = 1000;
 
 export const KILL_COST = 2000;
@@ -61,7 +61,7 @@ export const DESPAIR_HR_THRESHOLD = 50;
 export const TOGGLES_KARMA = new Map([
   ['Hearts', 5.0],
   ['Stars', 5.0],
-  ['Undress', 50.0],
+  ['Undress', 50.0]
 ]);
 
 export const KARMA_MAP = new Map([
