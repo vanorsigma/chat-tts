@@ -44,6 +44,7 @@
   import { MaxwellContainer } from './maxwell';
   import { KarmaContainer } from './karma';
   import { ModelUpdater } from './modelupdater';
+  import { TimeoutAnimation } from './timeoutanimation';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -170,6 +171,7 @@
     chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
     karmaBackend = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
     dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
+    let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);

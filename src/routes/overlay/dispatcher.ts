@@ -2,21 +2,23 @@
  * Dispatches messages to any observers
  */
 
-import type { ApiClient } from '@twurple/api';
+import type { ApiClient, HelixUser } from '@twurple/api';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import type { ModelUpdater } from './modelupdater';
+import { LRUCache } from '$lib/LRUcache';
 
 export interface OverlayObserver {
   onMessage(message: ChatMessage): void;
 }
 
 export interface OverlayTimeoutObserver {
-  onTimeout(channel_id: string, user: string, duration: number): void;
+  onTimeout(channel_name: string, user: string, duration: number): void;
 }
 
 export class OverlayDispatchers {
   observers: OverlayObserver[] = [];
   timeoutObservers: OverlayTimeoutObserver[] = [];
+  userCache: LRUCache<HelixUser> = new LRUCache(10);
   private api: ApiClient;
   private botId: string;
   public readonly modelUpdater: ModelUpdater;
@@ -24,7 +26,6 @@ export class OverlayDispatchers {
   constructor(twitch: ChatClient, api: ApiClient, modelUpdater: ModelUpdater, botId: string) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     twitch.onTimeout((channel, user, duration, _1) => this.onTimeout(channel, user, duration));
-    this.twitch = twitch;
     this.api = api;
     this.botId = botId;
     this.modelUpdater = modelUpdater;
@@ -78,6 +79,17 @@ export class OverlayDispatchers {
 
   async sendMessageAsUser(channelId: string, message: string, replyTo?: string) {
     return this.rawSendMessageAsUser(channelId, `~ ${message}`, replyTo);
+  }
+
+  async getHelixUserFromName(channelName: string) {
+    let user = this.userCache.get(channelName)
+    if (user) return user;
+
+    user = await this.api.users.getUserByName(channelName);
+    if (!user) return null;
+
+    this.userCache.put(channelName, user);
+    return user;
   }
 
   async getChatterList(channelId: string) {

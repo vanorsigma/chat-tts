@@ -9,16 +9,16 @@ export class LRUCache<T> {
     this.maxEntries = maxEntries;
   }
 
-  public get(key: string): T {
+  public get(key: string): T | null {
     const hasKey = this.values.has(key);
-    let entry: T | undefined;
+    let entry: T | null = null;
     if (hasKey) {
-      entry = this.values.get(key);
+      entry = this.values.get(key) ?? null;
       this.values.delete(key);
       this.values.set(key, entry!);
     }
 
-    return entry!;
+    return entry;
   }
 
   public put(key: string, value: T) {
