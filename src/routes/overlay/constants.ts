@@ -34,8 +34,17 @@ export const SELF_THOUGHT_KARMA = -200;
 export const GOOD_NIGHT_KISS_COST = 5000;
 export const GOOD_NIGHT_KISS_USER = 'pastel8844';
 export const GOOD_NIGHT_KISS_KARMA = -300;
+export const GOOD_NIGHT_KISS_TIMEOUT_DURATION = 30 * 60;
 
-export const UNBLOCKABLE_COMMANDS = ['%restart', '%block', '%unblock', '%closemarket'];
+export const UNBLOCKABLE_COMMANDS = [
+  '%restart',
+  '%block',
+  '%unblock',
+  '%closemarket',
+  '%refreshVoice',
+  '%rotate',
+  '%distract'
+];
 export const BLOCK_MINIMUM_BID = 1000;
 
 export const KILL_COST = 2000;

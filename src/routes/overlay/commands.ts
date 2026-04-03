@@ -680,7 +680,12 @@ async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: Cha
   if (args[0] === 'clear' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
     const userid = goodnightKissStore.reset();
     dispatcher.sendMessageAsUser(message.channelId!, `cleared`, message.id);
-    dispatcher.timeoutUser(message.channelId!, userid, 'Good night! EvilTuckk', 28800);
+    dispatcher.timeoutUser(
+      message.channelId!,
+      userid,
+      'Good night! EvilTuckk',
+      Constants.GOOD_NIGHT_KISS_TIMEOUT_DURATION
+    );
     return;
   }
 
