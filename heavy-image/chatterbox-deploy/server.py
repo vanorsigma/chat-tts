@@ -53,7 +53,9 @@ async def generate_audio(request: SelfThoughtRequest):
         buffer.seek(0)
 
         return StreamingResponse(buffer, media_type="audio/wav")
-
+    except torch.AcceleratorError:
+        print(f"potential issue with generating tts")
+        os._exit(42)
     except RuntimeError as e:
         error_msg = str(e)
         if "device-side assert" in error_msg:
