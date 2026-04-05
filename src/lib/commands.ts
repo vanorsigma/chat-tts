@@ -5,7 +5,7 @@ export abstract class Command {
   abstract processCommandMessage(controller: Controller, message: ChatMessage): Promise<boolean>;
 }
 
-class RefreshVoice extends Command {
+export class RefreshVoice extends Command {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, message: ChatMessage) {
     controller.voice.refreshUser(message.userInfo);
@@ -14,7 +14,7 @@ class RefreshVoice extends Command {
   }
 }
 
-class Rotate extends Command {
+export class Rotate extends Command {
   lastTimestamp: number = 0;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -44,7 +44,7 @@ class Rotate extends Command {
   }
 }
 
-class Distract extends Command {
+export class Distract extends Command {
   lastTimestamp: number = 0;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

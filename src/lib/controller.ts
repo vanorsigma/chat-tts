@@ -3,7 +3,7 @@ import { createNewTwitchClientV2 } from './twitch';
 import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from './speech';
 import type { FullConfig, ObsSettings } from './config';
 import OBSWebSocket from 'obs-websocket-js';
-import { COMMANDS, LEADER, type Command } from './commands';
+import { COMMANDS, LEADER, RefreshVoice, type Command } from './commands';
 import { Synth } from 'beepbox';
 import axios from 'axios';
 import { isRemoteTTSMessage } from './remoteTTSMessages';
@@ -28,7 +28,7 @@ interface NewVoiceSettings {
 
 type NewVoiceSettingsWithSynthesis = NewVoiceSettings & {
   voice: SpeechSynthesisVoice;
-}
+};
 
 interface VoiceSettings {
   voice: SpeechSynthesisVoice;
@@ -92,7 +92,6 @@ class TrinketController {
 
     this.disabled = !enabled;
   }
-
 
   get enabled() {
     return !this.disabled;
@@ -443,14 +442,14 @@ class RemoteVoiceController implements VoiceController {
         pitch_range_low: config.pitchRange.minimum,
         pitch_range_high: config.pitchRange.maximum,
         rate_range_low: config.rateRange.minimum,
-        rate_range_high: config.rateRange.maximum,
+        rate_range_high: config.rateRange.maximum
       },
       sound_effects: [
-        ...config.soundEffects.map(effect => ({
+        ...config.soundEffects.map((effect) => ({
           tag: effect.tag,
-          filename: effect.filePath,
+          filename: effect.filePath
         }))
-      ],
+      ]
     });
   }
 
@@ -463,8 +462,8 @@ class RemoteVoiceController implements VoiceController {
   ): Promise<void> {
     await axios.get(`${this.baseurl}/processMessage`, {
       params: {
-        'username': message.userInfo.userName ?? '',
-        'message': message.text,
+        username: message.userInfo.userName ?? '',
+        message: message.text
       }
     });
   }
@@ -621,7 +620,9 @@ export class Controller {
   constructor(config: FullConfig) {
     this.chat_logs = writable([]);
     this.twitch = createNewTwitchClientV2(config.channelName);
-    this.voice = config.remoteVoiceConfig ? new RemoteVoiceController(config) : new LocalVoiceController(config);
+    this.voice = config.remoteVoiceConfig
+      ? new RemoteVoiceController(config)
+      : new LocalVoiceController(config);
     this.commands = new CommandController();
     if (config.obsSettings) {
       this.obsController = new ObsController(config.obsSettings);
@@ -635,7 +636,9 @@ export class Controller {
       config.distractConfig != null
         ? new TrinketController(config.distractConfig?.enabled, config.distractConfig?.wsUrl)
         : undefined;
-    this.remoteChatTTSController = config.remoteChatTTS ? new RemoteChatTTSController(this, config.remoteChatTTS.busURL) : undefined;
+    this.remoteChatTTSController = config.remoteChatTTS
+      ? new RemoteChatTTSController(this, config.remoteChatTTS.busURL)
+      : undefined;
     this.config = config;
   }
 
@@ -671,13 +674,19 @@ export class Controller {
     this._matchAndPlaySong(message.text);
 
     const voice = await this.voice.getVoiceMapForUser(message.userInfo);
-    const filtered = ((!message.userInfo.isMod && !message.userInfo.isVip) ? this.isFiltered(message.text) : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
+    const filtered =
+      (!message.userInfo.isMod && !message.userInfo.isVip
+        ? this.isFiltered(message.text)
+        : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
     this.updateChatLog(
       `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
     );
 
     const potentialCommand = this.commands.getCommand(message.text);
-    if (potentialCommand && !this.config.commandsDisabled) {
+    if (
+      potentialCommand &&
+      (!this.config.commandsDisabled || potentialCommand instanceof RefreshVoice)
+    ) {
       potentialCommand.processCommandMessage(this, message);
       return;
     }
@@ -692,16 +701,23 @@ export class Controller {
     }
 
     // hard vanorgamma filter
-    if (message.userInfo.userId === "1374180546") {
+    if (message.userInfo.userId === '1374180546') {
       return;
     }
 
     // random chance to rotate the screen
-    if (Math.random() < (this.config.distractConfig?.rotateChance ?? 0) && this.obsController && this.trinketController) {
+    if (
+      Math.random() < (this.config.distractConfig?.rotateChance ?? 0) &&
+      this.obsController &&
+      this.trinketController
+    ) {
       await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
     }
 
-    if (Math.random() < (this.config.distractConfig?.distractChance ?? 0) && this.trinketController) {
+    if (
+      Math.random() < (this.config.distractConfig?.distractChance ?? 0) &&
+      this.trinketController
+    ) {
       await this.trinketController.sendDistract();
     }
 
@@ -726,7 +742,7 @@ export class Controller {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     this.twitch.onMessage(async (_channel, _user, _text, msg) => {
       await this.updateWithMessage(msg);
-    })
+    });
 
     await this.obsController?.connect();
     this.twitch.connect();
