@@ -359,6 +359,7 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
 
   const addUrl = async () => {
     showImageStore.addUrl(imageUrl);
+    karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA, 'Show Image');
     try {
       if (optionalTagName) await registerTag(optionalTagName, imageUrl);
     } catch (e) {
@@ -400,7 +401,6 @@ async function showImageHandler(dispatcher: OverlayDispatchers, message: ChatMes
             )
         );
         dispatcher.addObserver(approverObserver);
-        karmaStore.updateKarma(Constants.SHOW_IMAGE_KARMA, 'Show Image');
       }
     }
   })();
@@ -442,6 +442,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   const addUrl = async () => {
     try {
       playAudioStore.addUrl(audioUrl);
+      karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA, 'Play Audio');
       if (optionalTagName) await registerTag(optionalTagName, audioUrl);
     } catch (e) {
       dispatcher.sendMessageAsUser(message.channelId!, `cannot add tag audio: ${e}`, message.id);
@@ -449,7 +450,7 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
   };
 
   (async () => {
-    if (username === Constants.SHOW_IMAGE_USER) {
+    if (username === Constants.PLAY_AUDIO_USER) {
       dispatcher.sendMessageAsUser(message.channelId!, `ok`, message.id);
       addUrl();
     } else {
@@ -477,7 +478,6 @@ async function playAudioHandler(dispatcher: OverlayDispatchers, message: ChatMes
           () => dispatcher.sendMessageAsUser(message.channelId!, `unfortunate`, message.id)
         );
         dispatcher.addObserver(approverObserver);
-        karmaStore.updateKarma(Constants.PLAY_AUDIO_KARMA, 'Play Audio');
       }
     }
   })();
