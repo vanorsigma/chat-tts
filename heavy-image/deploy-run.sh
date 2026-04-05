@@ -33,7 +33,7 @@ export LD_LIBRARY_PATH="/.venv/lib/python3.11/site-packages/nvidia/cudnn/lib/:$L
 # export CUDA_VISIBLE_DEVICES=1
 source /.venv/bin/activate
 cd /opt/chatterbox-deploy
-python3 server.py &
+./server-wrapper.sh &
 
 # export LD_LIBRARY_PATH="/.kokoro/lib64/python3.11/site-packages/nvidia/cudnn/lib/:$LD_LIBRARY_PATH"
 export ONNX_PROVIDER="CUDAExecutionProvider"

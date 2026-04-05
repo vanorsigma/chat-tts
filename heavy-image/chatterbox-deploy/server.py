@@ -54,6 +54,11 @@ async def generate_audio(request: SelfThoughtRequest):
 
         return StreamingResponse(buffer, media_type="audio/wav")
 
+    except RuntimeError as e:
+        error_msg = str(e)
+        if "device-side assert" in error_msg:
+            print(f"Fatal Cuda Error: {error_msg}")
+            sys.exit(42)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise HTTPException(
