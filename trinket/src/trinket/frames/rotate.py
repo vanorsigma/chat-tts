@@ -12,19 +12,22 @@ from PyQt6.QtWidgets import QApplication, QLabel
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 
-class RotateFrame(QOpenGLWidget): # pylint: disable=too-few-public-methods,too-many-instance-attributes
+class RotateFrame(QOpenGLWidget):  # pylint: disable=too-few-public-methods
     """
     The frame that will perform the rotation
     """
 
     def __init__(self, speed: int):
         super().__init__()
+        if speed == 0:
+            raise ValueError("speed must be non-zero")
         self.speed = speed
-        self.completed = False
         self.angle = 0
         self.setWindowTitle("Thingy")
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setStyleSheet('background-color: black;')
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setStyleSheet("background-color: black;")
 
         screen = QGuiApplication.primaryScreen()
         self.shot_pixmap = screen.grabWindow()
@@ -38,18 +41,17 @@ class RotateFrame(QOpenGLWidget): # pylint: disable=too-few-public-methods,too-m
 
         self.angle_timer = QTimer()
         self.angle_timer.timeout.connect(self.update_angle)
-        self.angle_timer.start(int(1000 / 60)) # 60fps rotations
+        self.angle_timer.start(int(1000 / 60))  # 60fps rotations
 
-    def update_angle(self): # pylint: disable=missing-function-docstring
+    def update_angle(self):
         self.angle = self.angle + self.speed * 0.1
         if self.angle >= 360 or self.angle <= -360:
-            self.completed = True
             self.angle_timer.stop()
             self.close()
             return
         self.update()
 
-    def paintEvent(self, _event): # pylint: disable=invalid-name,missing-function-docstring
+    def paintEvent(self, _event):  # pylint: disable=invalid-name
         transform = QTransform()
         transform.rotate(self.angle)
 
@@ -59,7 +61,8 @@ class RotateFrame(QOpenGLWidget): # pylint: disable=too-few-public-methods,too-m
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setGeometry(0, 0, self.width, self.height)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     window = RotateFrame(100)

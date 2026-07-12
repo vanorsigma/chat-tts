@@ -2,17 +2,16 @@
 Utility classes
 """
 
+import threading
 
-class CancellationToken:
+
+class CancellationToken(threading.Event):
     """
-    CancellationToken, implemented so that classes can keep a reference to it
+    Thread-safe cancellation signal backed by threading.Event.
     """
 
-    def __init__(self):
-        self._cancelled = False
+    def is_cancelled(self) -> bool:
+        return self.is_set()
 
-    def cancel(self):  # pylint: disable=missing-function-docstring
-        self._cancelled = True
-
-    def is_cancelled(self) -> bool:  # pylint: disable=missing-function-docstring
-        return self._cancelled
+    def cancel(self) -> None:
+        self.set()

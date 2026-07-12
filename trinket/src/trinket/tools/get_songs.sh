@@ -1,10 +1,13 @@
 #!/bin/bash
 # Gets songs from the playlist using yt-dlp. Obviously requires yt-dlp.
+# NOTE: The PREFIX and SUFFIX variables are used in sed substitution patterns.
+# Avoid metacharacters (/, *, ., etc.) in your regex input; they will be
+# interpreted literally by sed and may produce unexpected results.
 
 if ! command -v yt-dlp &> /dev/null
 then
     echo "yt-dlp could not be found. Please install it."
-    exit
+    exit 1
 fi
 
 PROJECT_DIR=""
@@ -43,7 +46,7 @@ echo -n "Common regex suffix to strip: "
 read SUFFIX
 
 
-yt-dlp -x --audio-format m4a -o "%(title)s.%(ext)s" $PLAYLIST_URL
+yt-dlp -x --audio-format m4a -o "%(title)s.%(ext)s" "$PLAYLIST_URL"
 for file in *.m4a; do
     new_name=$(echo "$file" | tr '[:upper:]' '[:lower:]')
     new_name=$(echo "$new_name" | tr ' ' '_')
@@ -57,6 +60,6 @@ for file in *.m4a; do
     fi
 
     echo "Renaming to $new_name"
-    mkdir -p $PROJECT_DIR/src/trinket/resources/songs
+    mkdir -p "$PROJECT_DIR/src/trinket/resources/songs"
     mv "$file" "$PROJECT_DIR/src/trinket/resources/songs/$new_name"
 done
