@@ -7,18 +7,10 @@ import { COMMANDS, LEADER, RefreshVoice, type Command } from './commands';
 import { Synth } from 'beepbox';
 import axios from 'axios';
 import { isRemoteTTSMessage } from './remoteTTSMessages';
+import { sleep } from './utils';
 import type { ChatClient, ChatMessage, ChatUser } from '@twurple/chat';
 
 const shortnameMatcher = /<(.*)>/g;
-
-function sleep(duration: number): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  return new Promise((resolve, _) => {
-    setTimeout(() => {
-      resolve();
-    }, duration);
-  });
-}
 
 interface NewVoiceSettings {
   voice_name: string;
