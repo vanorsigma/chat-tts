@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LocalSongController } from '$lib/controller';
+  import { LocalSongController } from '$lib/controllers/song';
 
   let controller = new LocalSongController();
   let ws: WebSocket | undefined;

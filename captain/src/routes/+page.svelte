@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ConfigParsingError, parseYaml, type FullConfig } from '$lib/config';
   import ConfigDisplay from '$lib/ConfigDisplay.svelte';
-  import { Controller } from '$lib/controller';
+  import { Controller } from '$lib/controllers';
   import Editor from '$lib/Editor.svelte';
   import Faker from '$lib/Faker.svelte';
   import { onDestroy } from 'svelte';

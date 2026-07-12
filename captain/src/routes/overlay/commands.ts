@@ -1257,11 +1257,13 @@ export class Commands implements OverlayObserver {
         break;
       case '%vote':
       case '%bid':
+      case '%endbid':
+        // These are handled by the bid/poll system directly, not as overlay commands
+        break;
       case '%distract':
       case '%rotate':
-      case '%endbid':
       case '%refreshVoice':
-        // We recognize these as valid commands, but they are handled elsewhere
+        // These are handled by the lib Controller's own Twitch client
         break;
     }
     return;

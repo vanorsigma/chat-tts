@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@twurple/chat';
-import type { Controller } from './controller'; // type imports don't end up circular
+import type { Controller } from './controllers';
 
 export abstract class Command {
   abstract processCommandMessage(controller: Controller, message: ChatMessage): Promise<boolean>;
