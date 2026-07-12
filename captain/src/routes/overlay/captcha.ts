@@ -1,5 +1,5 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
-import { getPointsForUser, setPointsForUser } from './pointsInterface';
+import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import type { ChatMessage } from '@twurple/chat';
 import { karmaStore } from './stores.svelte';
 

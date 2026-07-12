@@ -1,4 +1,4 @@
-import { json, type RequestHandler } from '@sveltejs/kit';
+import { error, json, text, type RequestHandler } from '@sveltejs/kit';
 import { glob, readdir, readFile, writeFile } from 'fs/promises';
 import { extension, lookup } from 'mime-types';
 import path from 'path';
@@ -41,9 +41,8 @@ async function getAllPossibleTags(): Promise<string[] | null> {
     .map((f) => path.parse(f.name).name);
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-  const searchParam = new URLSearchParams(request.url.split('?')[1]);
-  const tag = decodeURIComponent(searchParam.get('tag')?.trim() ?? '');
+export const GET: RequestHandler = async ({ url }) => {
+  const tag = decodeURIComponent(url.searchParams.get('tag')?.trim() ?? '');
 
   if (!tag) {
     const possibleTags = await getAllPossibleTags();
@@ -51,16 +50,12 @@ export const GET: RequestHandler = async ({ request }) => {
   }
 
   if (whitespaceRegex.test(tag)) {
-    return new Response('Tag invalid', {
-      status: 400
-    });
+    error(400, 'Tag invalid');
   }
 
   const attachment = await getParticularAttachment(tag);
   if (!attachment) {
-    return new Response('not found', {
-      status: 404
-    });
+    error(404, 'not found');
   }
 
   return new Response(attachment.buffer as BodyInit, {
@@ -74,15 +69,11 @@ export const GET: RequestHandler = async ({ request }) => {
 export const POST: RequestHandler = async ({ request }) => {
   const formData = Object.fromEntries(await request.formData());
   if (!(formData.url as string)) {
-    return new Response('You must provide a file to upload', {
-      status: 400
-    });
+    error(400, 'You must provide a file to upload');
   }
 
   if (!(formData.tag as string)) {
-    return new Response('You must provide a tag', {
-      status: 400
-    });
+    error(400, 'You must provide a tag');
   }
 
   const url = decodeURIComponent(formData.url! as string);
@@ -91,16 +82,12 @@ export const POST: RequestHandler = async ({ request }) => {
   console.log(`Will save attachment ${url} as ${tag}`);
 
   if (await findMatchingFile(tag)) {
-    return new Response('File already exists', {
-      status: 400
-    });
+    error(400, 'File already exists');
   }
 
   const attachmentResponse = await fetch(url);
   if (!attachmentResponse.ok) {
-    return new Response('Cannot access file', {
-      status: 500
-    });
+    error(500, 'Cannot access file');
   }
 
   const ext = extension(attachmentResponse.headers.get('Content-Type') ?? 'text/plain');
@@ -108,14 +95,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     await writeFile(`attachments/${tag}.${ext}`, data);
-  } catch (e: unknown) {
-    console.error('Error while saving attachments', e);
-    return new Response('File fails to save', {
-      status: 500
-    });
+  } catch {
+    console.error('Error while saving attachments');
+    error(500, 'File fails to save');
   }
 
-  return new Response('OK', {
-    status: 200
-  });
+  return text('OK');
 };

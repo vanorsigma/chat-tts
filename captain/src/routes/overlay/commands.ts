@@ -15,7 +15,7 @@ import {
   showImageStore
 } from './stores.svelte';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
-import { getPointsForUser, setPointsForUser } from './pointsInterface';
+import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
 import type { ChatMessage } from '@twurple/chat';
 import { PUBLIC_SELF_THOUGHT_URL, PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
@@ -23,7 +23,7 @@ import { checkinUser } from './checkinInterface';
 import { ApprovableObserver } from './approvable';
 
 import * as Constants from './constants';
-import { getAttachmentUrlForTag, isTagExist, registerTag } from './attachmentsInterface';
+import { getAttachmentUrlForTag, isTagExist, registerTag } from '$lib/api/attachments';
 import { makeStandardYesNoBid } from './bid.svelte';
 
 const COOLDOWN = 10 * 1000;
