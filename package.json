@@ -46,7 +46,7 @@
     "@types/mime-types": "^3.0.1",
     "@types/papaparse": "^5.5.2",
     "axios": "^1.11.0",
-    "beepbox": "github:vanorsigma/jummbox",
+    "beepbox": "github:vanorsigma/jummbox#135d51b",
     "canvas-confetti": "^1.9.4",
     "d3": "^7.9.0",
     "discord.js": "^14.22.1",
