@@ -3,30 +3,14 @@ import { asChatCommand, type ChatCommand } from './registry';
 import { COOLDOWN } from './middleware';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import type { ChatMessage } from '@twurple/chat';
-import {
-  maxwellHandler,
-  transferHandler,
-  givePointsHandler,
-  getPointsHandler,
-  checkInHandler,
-  flashbangHandler,
-  blackSilenceHandler,
-  mistakeHandler,
-  showImageHandler,
-  playAudioHandler,
-  investHandler,
-  stockHandler,
-  closeMarketHandler,
-  selfThoughtHandler,
-  goodnightkissHandler,
-  settitleHandler,
-  giveKarmaHandler,
-  restartHandler,
-  togglesHandler,
-  blockHandler,
-  killHandler
-} from './handlers';
+import { transferHandler, givePointsHandler, getPointsHandler, checkInHandler } from './handlers/economy';
+import { maxwellHandler, flashbangHandler, blackSilenceHandler, mistakeHandler, selfThoughtHandler } from './handlers/redeems';
+import { mediaHandler } from './handlers/media';
+import { investHandler, stockHandler, closeMarketHandler } from './handlers/stockmarket';
+import { goodnightkissHandler, settitleHandler, giveKarmaHandler, togglesHandler } from './handlers/interactive';
+import { blockHandler, killHandler, restartHandler } from './handlers/moderation';
 import { pollCommandHandler } from '../poll.svelte';
+import * as Constants from '../constants';
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
@@ -130,12 +114,22 @@ export class Commands implements OverlayObserver {
         break;
       case '%si':
       case '%showimage':
-        showImageHandler(dispatcher, message);
+        mediaHandler(dispatcher, message, {
+          kind: 'image',
+          cost: Constants.SHOW_IMAGE_COST,
+          karma: Constants.SHOW_IMAGE_KARMA,
+          freeUser: Constants.SHOW_IMAGE_USER
+        });
         break;
       case '%pa':
       case '%playsound':
       case '%playaudio':
-        playAudioHandler(dispatcher, message);
+        mediaHandler(dispatcher, message, {
+          kind: 'audio',
+          cost: Constants.PLAY_AUDIO_COST,
+          karma: Constants.PLAY_AUDIO_KARMA,
+          freeUser: Constants.PLAY_AUDIO_USER
+        });
         break;
       case '%invest':
         investHandler(dispatcher, message, 'invest');
