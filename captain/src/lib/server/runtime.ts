@@ -1,20 +1,21 @@
 import { existsSync, readFileSync, watch } from 'fs';
 import { join } from 'path';
 import WebSocket from 'ws';
+import { parse } from 'yaml';
 import { setBroadcastFn } from './logger';
+import { Controller } from '$lib/controllers';
+import { ParseableConfig } from '$lib/config';
 import type { FakerMessage, ControlMessage } from '$lib/bus/messages';
 
 const BUS_URL = 'ws://localhost:3001';
+const CONFIG_PATH = join(process.cwd(), 'config.yml');
 
-let controller: unknown = null;
-
-type ConfigChangeHandler = (rawYaml: string) => void;
+let controller: Controller | null = null;
 
 let _initialized = false;
 let senderWs: WebSocket | null = null;
 let receiverWs: WebSocket | null = null;
 let _configWatcher: ReturnType<typeof watch> | null = null;
-let onConfigChange: ConfigChangeHandler | null = null;
 let fakerHandler: ((msg: FakerMessage) => void) | null = null;
 let controlHandler: ((msg: ControlMessage) => void) | null = null;
 
@@ -53,19 +54,32 @@ function connectToBus() {
   });
 }
 
-const CONFIG_PATH = join(process.cwd(), 'config.yml');
-
 function readConfig(): string | null {
   if (!existsSync(CONFIG_PATH)) return null;
   return readFileSync(CONFIG_PATH, 'utf-8');
 }
 
+function reloadConfig(rawYaml: string) {
+  try {
+    const parsed = new ParseableConfig(parse(rawYaml));
+    const fullConfig = parsed.toFullConfig();
+
+    if (controller) {
+      controller.end().catch((e) => console.warn('Error ending controller:', e));
+    }
+
+    controller = new Controller(fullConfig);
+    controller.start();
+    console.log('Config reloaded successfully');
+  } catch (e) {
+    console.error('Failed to reload config:', e);
+  }
+}
+
 function startConfigWatcher() {
   _configWatcher = watch(CONFIG_PATH, () => {
     const raw = readConfig();
-    if (raw && onConfigChange) {
-      onConfigChange(raw);
-    }
+    if (raw) reloadConfig(raw);
   });
 }
 
@@ -76,18 +90,13 @@ export function initializeRuntime() {
   connectToBus();
 
   const raw = readConfig();
-  if (raw && onConfigChange) {
-    onConfigChange(raw);
-  }
+  if (raw) reloadConfig(raw);
+
   startConfigWatcher();
 }
 
-export function getController(): unknown {
+export function getController(): Controller | null {
   return controller;
-}
-
-export function setController(c: unknown) {
-  controller = c;
 }
 
 export function setFakerHandler(handler: (msg: FakerMessage) => void) {
@@ -96,10 +105,6 @@ export function setFakerHandler(handler: (msg: FakerMessage) => void) {
 
 export function setControlHandler(handler: (msg: ControlMessage) => void) {
   controlHandler = handler;
-}
-
-export function setConfigChangeHandler(handler: ConfigChangeHandler) {
-  onConfigChange = handler;
 }
 
 export { BUS_URL as getBusUrl };

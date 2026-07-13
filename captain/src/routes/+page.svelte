@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { ConfigParsingError, parseYaml, type FullConfig } from '$lib/config';
-  import ConfigDisplay from '$lib/ConfigDisplay.svelte';
+  import ConfigEditor from '$lib/ConfigEditor.svelte';
   import { Controller } from '$lib/controllers';
-  import Editor from '$lib/Editor.svelte';
   import Faker from '$lib/Faker.svelte';
+  import { configSchema } from '$lib/config/schema';
   import { onDestroy, onMount } from 'svelte';
   import { readable, writable } from 'svelte/store';
   import type { LogMessage } from '$lib/bus/messages';
-
-  let config: FullConfig | undefined;
-  let previousConfigText = '';
-  let configText = '';
+  let configData: Record<string, unknown> | null = null;
   let controller: Controller | undefined;
+  let saveStatus = '';
 
   let tail = false;
 
@@ -19,6 +16,13 @@
   let ws: WebSocket | undefined;
 
   onMount(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data) configData = data;
+      })
+      .catch(() => {});
+
     ws = new WebSocket('ws://localhost:3001/receivers');
     ws.onmessage = (event) => {
       try {
@@ -30,14 +34,32 @@
         // ignore
       }
     };
-    ws.onclose = () => {
-      // reconnect handled by the browser devtools or user refresh
-    };
   });
 
   onDestroy(() => {
     ws?.close();
   });
+
+  async function onSaveConfig() {
+    if (!configData) return;
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      if (res.ok) {
+        saveStatus = 'Saved';
+        configData = JSON.parse(JSON.stringify(configData));
+      } else {
+        const err = await res.json();
+        saveStatus = `Error: ${err.error ?? 'unknown'}`;
+      }
+    } catch (e) {
+      saveStatus = `Error: ${e}`;
+    }
+    setTimeout(() => (saveStatus = ''), 3000);
+  }
 
   $: chatLogsStore = controller?.getChatLogsStore() ?? readable([]);
   const scrollToBottom = (node: HTMLElement, _data: unknown[]) => {
@@ -50,27 +72,6 @@
 
     return { update: scroll };
   };
-
-  function onReloadConfig() {
-    try {
-      config = parseYaml(configText).toFullConfig();
-    } catch (e) {
-      if (e instanceof ConfigParsingError) {
-        alert(`Error while parsing config: ${e}`);
-        return;
-      }
-
-      console.error(e);
-      return;
-    }
-
-    controller?.end();
-
-    controller = new Controller(config);
-    controller?.start();
-
-    previousConfigText = configText;
-  }
 
   function onCancelSpeech() {
     controller?.cancel();
@@ -100,30 +101,15 @@
 
 <section>
   <h2>Config</h2>
-  {#if config}
-    <ConfigDisplay {config} />
+  {#if configData}
+    <ConfigEditor schema={configSchema} data={configData} />
+    <button on:click={onSaveConfig}>Save Config</button>
+    {#if saveStatus}
+      <span class="save-status">{saveStatus}</span>
+    {/if}
+  {:else}
+    <p>No config loaded. Create one below or upload a config.yml file.</p>
   {/if}
-  <label for="song-no-speed">
-    <input
-      name="song-no-speed"
-      type="checkbox"
-      disabled={!config}
-      bind:checked={
-        () => config?.dynamicConfig.songPitchSpeedAffected,
-        (value) => {
-          if (config) {
-            config.dynamicConfig.songPitchSpeedAffected = value ?? false;
-          }
-        }
-      }
-    />
-    Pitch & Speed modifies song
-  </label>
-  <p>Paste the YAML file here and click "Reload config."</p>
-  <Editor bind:configText />
-  <button on:click={onReloadConfig} disabled={previousConfigText.trim() === configText.trim()}
-    >Reload Config</button
-  >
 </section>
 
 <section>
@@ -206,5 +192,10 @@
 
   :global(.log-debug) {
     color: #808080;
+  }
+
+  .save-status {
+    margin-left: 0.5em;
+    font-size: 0.85em;
   }
 </style>
