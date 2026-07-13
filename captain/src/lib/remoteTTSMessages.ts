@@ -1,20 +1,20 @@
 export interface CancelTTS {
-  type: 'tts',
+  type: 'tts';
   command: {
-    type: 'cancel'
-  }
+    type: 'cancel';
+  };
 }
 
 export interface DisableTTS {
-  type: 'tts',
+  type: 'tts';
   command: {
-    type: 'disable',
-    duration: number,  // in seconds
-  }
+    type: 'disable';
+    duration: number; // in seconds
+  };
 }
 
 export type RemoteTTSMessages = CancelTTS | DisableTTS;
 
 export function isRemoteTTSMessage(obj: object): obj is RemoteTTSMessages {
-  return Object.keys(obj).includes('type') && (obj as RemoteTTSMessages).type === 'tts'
+  return Object.keys(obj).includes('type') && (obj as RemoteTTSMessages).type === 'tts';
 }

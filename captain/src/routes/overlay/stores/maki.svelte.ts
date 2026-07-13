@@ -13,13 +13,14 @@ export function createMakiStore(ws: WebSocket) {
     console.log('received', message_event);
     const data = JSON.parse(message_event.data);
     switch (data['type']) {
-      case 'makioutputmessage':
-        const message = data['message'];
+      case 'makioutputmessage': {
+        const msg = data['message'];
         const duration = Number(data['dismiss_after']);
-        makiMessageQueue = [...makiMessageQueue, { message, duration }];
+        makiMessageQueue = [...makiMessageQueue, { message: msg, duration }];
 
         if (!timer) tick();
         break;
+      }
       case 'makiactivated':
         if (data['state']) {
           activated = true;

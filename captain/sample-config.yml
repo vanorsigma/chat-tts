@@ -1,15 +1,15 @@
-channelName: "vanorsigma"
+channelName: 'vanorsigma'
 voices:
-  - "English (America)"
-  - "English (America)+Andrea"
-  - "English (America)+female1"
-  - "English (America)+female2"
-  - "English (America)+female3"
-  - "English (America)+female4"
+  - 'English (America)'
+  - 'English (America)+Andrea'
+  - 'English (America)+female1'
+  - 'English (America)+female2'
+  - 'English (America)+female3'
+  - 'English (America)+female4'
 soundEffects:
-  - tag: "(metalpipes)"
-    filePath: "https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3"
+  - tag: '(metalpipes)'
+    filePath: 'https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3'
 standaloneSongConfig:
-  wsUrl: "ws://localhost:3001/senders"
+  wsUrl: 'ws://localhost:3001/senders'
 filteredExps:
   - "[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"

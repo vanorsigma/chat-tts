@@ -1,4 +1,4 @@
-import { cancelSpeech, getVoicesList, selectVoiceByName, speak } from '../speech';
+import { cancelSpeech, selectVoiceByName, speak } from '../speech';
 import type { FullConfig } from '../config';
 import axios from 'axios';
 import type { ChatMessage, ChatUser } from '@twurple/chat';

@@ -21,7 +21,6 @@ export class CaptchaObserver implements OverlayObserver {
   private solved: boolean = false;
 
   constructor(dispatcher: OverlayDispatchers, onSolve: () => void) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     this.answer = [...Array(6).keys()].map((_) => choose(characters.split(''))).join('');
     this.dispatcher = dispatcher;
     this.dispatcher.addObserver(this);
@@ -29,7 +28,7 @@ export class CaptchaObserver implements OverlayObserver {
     setTimeout(() => {
       this.dispatcher.removeObserver(this);
       if (!this.solved) {
-        this.onSolve()
+        this.onSolve();
       }
     }, CAPTCHA_DURATION);
   }

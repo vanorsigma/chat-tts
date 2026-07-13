@@ -28,7 +28,7 @@ export class HeartrateStockMarket {
 
   private unsubcribe_hr: (() => void) | null = null;
 
-  private subscribers: Array<(heartrates: Array<number>) => void> = new Array();
+  private subscribers: Array<(heartrates: Array<number>) => void> = [];
 
   private stocks = new Map<string, UserStockInformation>();
 

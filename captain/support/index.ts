@@ -10,7 +10,13 @@ import {
   InteractionUpdateOptions
 } from 'discord.js';
 import { Synth } from 'beepbox/esm/synth/synth';
-import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from '../captain/src/lib/server/db';
+import {
+  deleteSong,
+  getSong,
+  initDbIfRequired,
+  listSongs,
+  saveSong
+} from '../captain/src/lib/server/db';
 import { startWebsocketServer } from './websocket';
 
 import dotenv from 'dotenv';

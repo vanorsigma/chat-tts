@@ -216,7 +216,7 @@ export class ChatBulletContainer {
     const rate = Math.max(Math.random(), 0.25) * (1000 / 60);
 
     let x = 0;
-    let y = Math.random() * (height - 50);
+    const y = Math.random() * (height - 50);
 
     const container = new Container();
 
@@ -253,8 +253,7 @@ export class ChatBulletContainer {
         const res = await kiki_response;
         if (res) {
           kikiText.text = `${res.kamoji} ${res.emoji}`;
-          if (res.rating > 0.1 || res.rating < -0.1)
-            karmaStore.updateKarma(res.rating, 'Kiki');
+          if (res.rating > 0.1 || res.rating < -0.1) karmaStore.updateKarma(res.rating, 'Kiki');
           kikiText.style.update();
         } else {
           kikiText.text = 'Kiki was unable to respond :(';

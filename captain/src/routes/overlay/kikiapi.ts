@@ -16,9 +16,12 @@ export class KikiAPI {
   }
 
   async fetchKikiResponse(message: string): Promise<KikiResponse | null> {
-    const response = await fetch(`${this.apiurl}/?` + new URLSearchParams({
-      'message': message
-    }).toString());
+    const response = await fetch(
+      `${this.apiurl}/?` +
+        new URLSearchParams({
+          message: message
+        }).toString()
+    );
 
     if (response.status !== 200) {
       console.error('Kiki did not respond');

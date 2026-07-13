@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   return text((await getPointsForUser(username)).toString());
-}
+};
 
 export const POST: RequestHandler = async ({ url }) => {
   const username = url.searchParams.get('username')?.trim() ?? '';
@@ -22,4 +22,4 @@ export const POST: RequestHandler = async ({ url }) => {
     await setPointsForUser(username, Number(points));
   }
   return text('OK');
-}
+};

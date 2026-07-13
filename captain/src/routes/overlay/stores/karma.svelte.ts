@@ -3,7 +3,7 @@ import { TimedCache } from '$lib/TimedCache';
 
 export function createKarmaStore() {
   let karma = $state(0) as number;
-  let timedCache: TimedCache<string, number> = new TimedCache(60 * 1000);
+  const timedCache: TimedCache<string, number> = new TimedCache(60 * 1000);
   let subscribers: Array<(karma: number, oldKarma: number, message?: string) => void> = [];
 
   function subscribe(

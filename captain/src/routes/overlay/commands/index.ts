@@ -45,13 +45,11 @@ export class Commands implements OverlayObserver {
     }
 
     const ws = new WebSocket(url);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ws.onopen = (_) => {
       console.log('ws open');
       this.busWs = ws;
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ws.onclose = (_) => {
       console.log('ws close');
       this.busWs = undefined;
@@ -81,7 +79,7 @@ export class Commands implements OverlayObserver {
     const firstSplit = message.text.split(' ')[0];
     if (!firstSplit.startsWith('%')) return;
 
-    let commandIndicator = asChatCommand(firstSplit);
+    const commandIndicator = asChatCommand(firstSplit);
     if (!commandIndicator) {
       dispatcher.sendMessageAsUser(message.channelId!, 'Not a valid command.', message.id);
       return;

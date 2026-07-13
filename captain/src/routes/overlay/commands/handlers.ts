@@ -10,16 +10,21 @@ import {
   showImageStore
 } from '../stores';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
-import { getPointsForUser, setPointsForUser } from '$lib/api/points';
+import { getPointsForUser } from '$lib/api/points';
 import { GLOBAL_HEART_STOCK_MARKET } from '../heartstockmarket.svelte';
 import type { ChatMessage } from '@twurple/chat';
-import { PUBLIC_SELF_THOUGHT_URL, PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
+import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
 import { checkinUser } from '../checkinInterface';
 import { ApprovableObserver } from '../approvable';
 import * as Constants from '../constants';
 import { getAttachmentUrlForTag, isTagExist, registerTag } from '$lib/api/attachments';
 import { makeStandardYesNoBid } from '../bid.svelte';
-import { checkCostAddIfEnough, COOLDOWN, TOGGLE_COOLDOWN, PEOPLE_WHO_CHECKED_IN, TOGGLE_EXPIRY } from './middleware';
+import {
+  checkCostAddIfEnough,
+  TOGGLE_COOLDOWN,
+  PEOPLE_WHO_CHECKED_IN,
+  TOGGLE_EXPIRY
+} from './middleware';
 import { asChatCommand } from './registry';
 import type { Commands } from './index';
 
@@ -193,7 +198,11 @@ export async function flashbangHandler(dispatcher: OverlayDispatchers, message: 
   }
 }
 
-export function blackSilenceHandler(dispatcher: OverlayDispatchers, message: ChatMessage, ws: WebSocket) {
+export function blackSilenceHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  ws: WebSocket
+) {
   const user = message.userInfo;
   if (!user.userName) return;
 
@@ -287,7 +296,7 @@ export async function showImageHandler(dispatcher: OverlayDispatchers, message: 
 
   let imageUrl = args[0];
   let optionalTagName = args.at(1);
-  let isTag = !imageUrl.startsWith('http');
+  const isTag = !imageUrl.startsWith('http');
   if (isTag && imageUrl.startsWith('{') && imageUrl.endsWith('}')) {
     imageUrl = imageUrl.slice(1, -1);
   }
@@ -368,7 +377,7 @@ export async function playAudioHandler(dispatcher: OverlayDispatchers, message: 
 
   let audioUrl = args[0];
   let optionalTagName = args.at(1);
-  let isTag = !audioUrl.startsWith('http');
+  const isTag = !audioUrl.startsWith('http');
   if (isTag && audioUrl.startsWith('{') && audioUrl.endsWith('}')) {
     audioUrl = audioUrl.slice(1, -1);
   }
@@ -449,7 +458,7 @@ export async function investHandler(
 
   if (args[0].trim() === 'all') {
     switch (operation) {
-      case 'uninvest':
+      case 'uninvest': {
         const returns = GLOBAL_HEART_STOCK_MARKET.uninvestAll(username);
         (await checkCostAddIfEnough(
           dispatcher,
@@ -465,7 +474,8 @@ export async function investHandler(
           message.id
         );
         return;
-      case 'invest':
+      }
+      case 'invest': {
         const points = await getPointsForUser(username);
         if (!points) {
           dispatcher.sendMessageAsUser(message.channelId!, `nothing to invest`, message.id);
@@ -473,6 +483,7 @@ export async function investHandler(
         }
         amount = points;
         break;
+      }
     }
   } else {
     amount = Number(args[0]);
@@ -641,8 +652,8 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
     return;
   }
 
-  let targetUser = message.userInfo.userName;
-  let targetUserId = message.userInfo.userId;
+  const targetUser = message.userInfo.userName;
+  const targetUserId = message.userInfo.userId;
 
   if (
     message.userInfo.userName === Constants.GOOD_NIGHT_KISS_USER ||

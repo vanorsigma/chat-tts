@@ -1,4 +1,4 @@
- // Utilities shared across all routes
+// Utilities shared across all routes
 import { AnimatedSprite, Assets, Sprite, Texture } from 'pixi.js';
 
 export function sleep(ms: number) {

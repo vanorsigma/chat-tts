@@ -149,10 +149,10 @@ export class ParseableConfig {
         rotateCooldown: 300,
         distractChance: 0.001,
         rotateChance: 0.01,
-        ...this.distractConfig,
+        ...this.distractConfig
       },
       remoteChatTTS: this.remoteChatTTS,
-      ignorePrefix: this.ignorePrefix ?? '~',
+      ignorePrefix: this.ignorePrefix ?? '~'
     };
   }
 }

@@ -6,7 +6,6 @@ export abstract class Command {
 }
 
 export class RefreshVoice extends Command {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, message: ChatMessage) {
     controller.voice.refreshUser(message.userInfo);
     controller.updateChatLog(`${message.userInfo.userName}'s voice was refreshed.`);
@@ -17,7 +16,6 @@ export class RefreshVoice extends Command {
 export class Rotate extends Command {
   lastTimestamp: number = 0;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, message: ChatMessage) {
     if (controller.trinketController === undefined && controller.trinketController === undefined) {
       return true;
@@ -47,7 +45,6 @@ export class Rotate extends Command {
 export class Distract extends Command {
   lastTimestamp: number = 0;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async processCommandMessage(controller: Controller, message: ChatMessage) {
     if (controller.trinketController === undefined) {
       return true;

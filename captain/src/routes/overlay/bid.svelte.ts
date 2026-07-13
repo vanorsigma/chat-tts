@@ -145,7 +145,7 @@ export async function makeStandardYesNoBid(
         return null;
       }
 
-      let bidNumber = Number.parseFloat(args[0]);
+      const bidNumber = Number.parseFloat(args[0]);
       if (Number.isNaN(bidNumber)) {
         dispatcher.sendMessageAsUser(msg.channelId!, 'Not a valid number', msg.id);
         return null;

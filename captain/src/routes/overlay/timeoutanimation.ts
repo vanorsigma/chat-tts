@@ -60,7 +60,7 @@ export class TimeoutAnimation implements OverlayTimeoutObserver {
       fill: '#000000',
       stroke: {
         color: '#ffffff',
-        width: 5,
+        width: 5
       }
     });
 
@@ -126,7 +126,7 @@ export class TimeoutAnimation implements OverlayTimeoutObserver {
         avatarContainer.tint = 0xff0000;
         const tl = gsap.timeline({
           onComplete: () => {
-            console.log("removing child");
+            console.log('removing child');
             this.app.stage.removeChild(container);
           }
         });

@@ -2,7 +2,7 @@ import { writable, type Readable, type Writable } from 'svelte/store';
 import { createNewTwitchClientV2 } from '../twitch';
 import { getVoicesList } from '../speech';
 import type { FullConfig } from '../config';
-import type { ChatClient, ChatMessage, ChatUser } from '@twurple/chat';
+import type { ChatClient, ChatMessage } from '@twurple/chat';
 import { CommandController } from './command';
 import type { SongController } from './song';
 import { RemoteSongController, LocalSongController } from './song';
@@ -10,7 +10,7 @@ import { TrinketController } from './trinket';
 import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatTTS';
 import { RemoteVoiceController, LocalVoiceController, type VoiceController } from './voice';
 import { ObsController } from './obs';
-import { RefreshVoice, type Command } from '../commands';
+import { RefreshVoice } from '../commands';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -158,7 +158,6 @@ export class Controller implements ChatTTSOrchestrator {
       console.log('connected.');
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     this.twitch.onMessage(async (_channel, _user, _text, msg) => {
       await this.updateWithMessage(msg);
     });

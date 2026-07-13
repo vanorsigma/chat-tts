@@ -1,5 +1,5 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 dotenv.config();
 
 const commands = [

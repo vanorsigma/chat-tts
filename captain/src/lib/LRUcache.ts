@@ -1,7 +1,6 @@
 // credit: https://gist.github.com/dherges/86012049be7b1263b2e594134ff5816a
 
 export class LRUCache<T> {
-
   private values: Map<string, T> = new Map<string, T>();
   private maxEntries: number;
 
@@ -22,7 +21,6 @@ export class LRUCache<T> {
   }
 
   public put(key: string, value: T) {
-
     if (this.values.size >= this.maxEntries) {
       const keyToDelete = this.values.keys().next().value;
       this.values.delete(keyToDelete!);
@@ -30,5 +28,4 @@ export class LRUCache<T> {
 
     this.values.set(key, value);
   }
-
 }

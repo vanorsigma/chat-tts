@@ -20,7 +20,7 @@ export class ApprovableObserver implements OverlayObserver {
     message: ChatMessage,
     authorisedUsers: Array<string>,
     onAuthorised: () => void,
-    onDeny: () => void,
+    onDeny: () => void
   ) {
     this.dispatcher = dispatcher;
     this.onAuthorised = onAuthorised;
@@ -31,18 +31,22 @@ export class ApprovableObserver implements OverlayObserver {
     ApprovableObserver.currentObservers.push(this);
     this.timeout = setTimeout(() => {
       this.cleanup();
-      this.onDeny()
+      this.onDeny();
     }, AUTHORIZATION_PERIOD);
 
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `${Constants.MODERATOR_USERS.concat(authorisedUsers).map(name => `@${name}`).join(' ')} PLEASE check request by ${message.userInfo.userName} (ID ${this.id})`
+      `${Constants.MODERATOR_USERS.concat(authorisedUsers)
+        .map((name) => `@${name}`)
+        .join(' ')} PLEASE check request by ${message.userInfo.userName} (ID ${this.id})`
     );
   }
 
   private cleanup() {
-    clearTimeout(this.timeout)
-    ApprovableObserver.currentObservers = ApprovableObserver.currentObservers.filter(el => el !== this)
+    clearTimeout(this.timeout);
+    ApprovableObserver.currentObservers = ApprovableObserver.currentObservers.filter(
+      (el) => el !== this
+    );
     this.dispatcher.removeObserver(this);
   }
 
@@ -62,22 +66,25 @@ export class ApprovableObserver implements OverlayObserver {
     if (args[1] === undefined) {
       if (ApprovableObserver.currentObservers.length === 1) {
         id = ApprovableObserver.currentObservers[0].id;
-      } else if (this.id === Math.min(...ApprovableObserver.currentObservers.map(o => o.id))) {
-        this.dispatcher.sendMessageAsUser(message.channelId!, `@${message.userInfo.userName} specify an ID (one of ${ApprovableObserver.currentObservers.map(o => o.id).join(',')})`);
+      } else if (this.id === Math.min(...ApprovableObserver.currentObservers.map((o) => o.id))) {
+        this.dispatcher.sendMessageAsUser(
+          message.channelId!,
+          `@${message.userInfo.userName} specify an ID (one of ${ApprovableObserver.currentObservers.map((o) => o.id).join(',')})`
+        );
         return;
-      } else { return }
+      } else {
+        return;
+      }
     } else {
       id = Number(args[1]);
       if (isNaN(id)) return;
-
     }
 
     if (id === this.id) {
       if (cmd === 'approve') {
         this.cleanup();
         this.onAuthorised();
-      }
-      else if (cmd === 'deny') {
+      } else if (cmd === 'deny') {
         this.cleanup();
         this.onDeny();
       }

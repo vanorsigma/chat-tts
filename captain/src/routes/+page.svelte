@@ -15,7 +15,6 @@
   let tail = false;
 
   $: chatLogsStore = controller?.getChatLogsStore() ?? readable([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const scrollToBottom = (node: HTMLElement, _data: string[]) => {
     const scroll = () =>
       node.scroll({

@@ -40,15 +40,19 @@ export async function setPointsForUser(user: string, points: number): Promise<vo
 
 export async function getPointsForUser(user: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    db.all('SELECT points FROM points WHERE username = ?', [user], (e: Error | null, result: any[]) => {
-      if (e) {
-        console.warn('database error', e);
-        reject(e);
-        return;
-      }
+    db.all(
+      'SELECT points FROM points WHERE username = ?',
+      [user],
+      (e: Error | null, result: any[]) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
 
-      resolve((result.at(0) as { points: number })?.points ?? 0 as number);
-    });
+        resolve((result.at(0) as { points: number })?.points ?? (0 as number));
+      }
+    );
   });
 }
 

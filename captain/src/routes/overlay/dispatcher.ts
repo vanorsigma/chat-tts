@@ -82,7 +82,7 @@ export class OverlayDispatchers {
   }
 
   async getHelixUserFromName(channelName: string) {
-    let user = this.userCache.get(channelName)
+    let user = this.userCache.get(channelName);
     if (user) return user;
 
     user = await this.api.users.getUserByName(channelName);

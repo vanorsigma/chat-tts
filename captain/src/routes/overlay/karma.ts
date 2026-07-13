@@ -15,7 +15,11 @@ import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
 import { DING_THRESHOLD, KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
 import { karmaStore } from './stores';
-import { calculateAdjustmentNumbers, scurve, type ScaleSpriteAdjustmentNumbers } from './karmaModel';
+import {
+  calculateAdjustmentNumbers,
+  scurve,
+  type ScaleSpriteAdjustmentNumbers
+} from './karmaModel';
 
 interface ScaleSpriteCollection {
   body: Sprite;
@@ -86,14 +90,19 @@ export class KarmaContainer {
     }
   }
 
-  private async updateScale(diffKarma: number, message: string) {
+  private async updateScale(diffKarma: number, _message: string) {
     if (this.collection == null) return;
     if (this.showTimeout) {
       clearTimeout(this.showTimeout);
     }
 
     const currentAngle = this.collection.handle.rotation;
-    const adjustmentNumber = calculateAdjustmentNumbers(this.currentKarma, currentAngle, MIN_KARMA, MAX_KARMA);
+    const adjustmentNumber = calculateAdjustmentNumbers(
+      this.currentKarma,
+      currentAngle,
+      MIN_KARMA,
+      MAX_KARMA
+    );
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
     const totalKarmaText = new Text();
