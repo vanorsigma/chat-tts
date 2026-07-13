@@ -2,7 +2,7 @@ import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { pollStore } from './stores';
 import type { ChatMessage } from '@twurple/chat';
 
-export let GLOBAL_POLL_LOCK = false;
+let GLOBAL_POLL_LOCK = false;
 
 export interface PollOption {
   name: string;
@@ -15,7 +15,7 @@ export interface Poll {
   expiryTime: number | undefined;
 }
 
-export class PollObserver implements OverlayObserver {
+class PollObserver implements OverlayObserver {
   /**
    * Poll starts the moment it is created
    */
@@ -98,7 +98,7 @@ export class PollObserver implements OverlayObserver {
   }
 }
 
-export function getPollParameters(message: string): Poll {
+function getPollParameters(message: string): Poll {
   const rest = message.replace('%poll', '').trim();
   const splits = rest.split(';');
 

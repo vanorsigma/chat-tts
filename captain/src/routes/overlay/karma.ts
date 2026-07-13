@@ -54,22 +54,6 @@ export class KarmaContainer {
     this.initLater(twitch);
   }
 
-  get position(): ObservablePoint | undefined {
-    return this.collection?.container.position;
-  }
-
-  set position(pointData: PointData) {
-    if (this.collection) this.collection.container.position = pointData;
-  }
-
-  get width(): number | undefined {
-    return this.collection?.container.width;
-  }
-
-  get height(): number | undefined {
-    return this.collection?.container.height;
-  }
-
   async initLater(twitch: ChatClient) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
     this.collection = await this.loadScaleSprites();

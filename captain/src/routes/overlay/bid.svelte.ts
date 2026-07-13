@@ -4,7 +4,7 @@ import { biddingStore } from './stores';
 
 export type Bids = Map<string, number>;
 
-export interface BidOptions {
+interface BidOptions {
   // Title of the bid
   title: string;
 
@@ -33,10 +33,10 @@ export interface BidInstance {
   elapsed: number;
 }
 
-export let GLOBAL_BID_LOCK = false;
-export const ELAPSED_GRANULARITY = 1000; // decreasing this may cause lag
+let GLOBAL_BID_LOCK = false;
+const ELAPSED_GRANULARITY = 1000;
 
-export class BidObserver implements OverlayObserver {
+class BidObserver implements OverlayObserver {
   private timeout: NodeJS.Timeout;
   private progress: NodeJS.Timeout;
   private bidInstance: BidInstance;

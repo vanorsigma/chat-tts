@@ -42,9 +42,6 @@ export class HeartrateStockMarket {
     };
   }
 
-  setMaximumHeartrates(maximum_heartrates: number): void {
-    this.maximum_heartrates = maximum_heartrates;
-  }
 
   setHeartrateObject(hr: Heartrate): void {
     if (this.unsubcribe_hr) {

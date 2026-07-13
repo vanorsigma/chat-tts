@@ -47,10 +47,6 @@ export class OverlayDispatchers {
     }
   }
 
-  removeTimeoutOverser(observer: OverlayTimeoutObserver) {
-    this.timeoutObservers = this.timeoutObservers.filter((ob) => observer !== ob);
-  }
-
   private onMessage(message: ChatMessage) {
     for (const observer of this.observers) {
       observer.onMessage(message);
