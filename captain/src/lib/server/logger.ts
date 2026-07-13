@@ -75,7 +75,7 @@ export function installConsoleHijack() {
     return (...args: unknown[]) => {
       orig[level](...args);
 
-      const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      const msg = `[Captain] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`;
 
       const entry: LogMessage = {
         type: 'log',

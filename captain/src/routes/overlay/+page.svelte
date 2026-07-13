@@ -46,6 +46,7 @@
   import { TimeoutAnimation } from './timeoutanimation';
   import { buildSvgGraphFor } from './heartrateGraph';
   import { AudioPlayer } from './audioPlayer';
+  import { installConsoleHijack } from './logger';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -75,6 +76,7 @@
 
   let audioPlayer: AudioPlayer | undefined = undefined;
 
+  installConsoleHijack(PUBLIC_BUS_URL);
   const ws = new WebSocket(PUBLIC_RECEIVER_URL);
   const checkInStore = createCheckInStore(ws);
   const makiStore = createMakiStore(ws);
