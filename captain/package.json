@@ -29,11 +29,6 @@
     "vite": "^5.4.19"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.8.1",
-    "@codemirror/lang-yaml": "^6.1.2",
-    "@codemirror/language": "^6.11.3",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.1",
     "@descript/web-audio-js": "0.15.3-patched.6",
     "@pixi/sound": "^6.0.1",
     "@sveltejs/adapter-node": "^5.3.1",
