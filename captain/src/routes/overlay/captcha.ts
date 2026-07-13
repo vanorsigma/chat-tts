@@ -11,6 +11,33 @@ function choose<T>(choices: Array<T>): T {
   return choices[index];
 }
 
+export function startCaptchaLoop(
+  dispatcher: OverlayDispatchers,
+  captchaElement: HTMLDivElement,
+  setText: (val: string | null) => void,
+  setPosition: (top: number, left: number) => void
+) {
+  function loop() {
+    setTimeout(
+      () => {
+        setPosition(
+          Math.random() * (window.innerHeight - Number(getComputedStyle(captchaElement).height.replace('px', ''))),
+          Math.random() * (window.innerWidth - Number(getComputedStyle(captchaElement).width.replace('px', '')))
+        );
+
+        const captcha = new CaptchaObserver(dispatcher, () => {
+          setText(null);
+          loop();
+        });
+        setText(captcha.value);
+      },
+      Math.max(1000, Math.random() * 10 * 60 * 1000)
+    );
+  }
+
+  loop();
+}
+
 export class CaptchaObserver implements OverlayObserver {
   private answer: string;
   private dispatcher: OverlayDispatchers;

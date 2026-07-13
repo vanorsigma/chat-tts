@@ -35,16 +35,17 @@
     karmaStore,
     biddingStore
   } from './stores';
-  import { CaptchaObserver } from './captcha';
+  import { startCaptchaLoop } from './captcha';
   import { Heartrate } from './heartrate';
   import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
-  import * as d3 from 'd3';
   import type { ChatClient } from '@twurple/chat';
-  import { makeApplication } from './utils';
+  import { makeApplication, properRandom } from './utils';
   import { MaxwellContainer } from './maxwell';
   import { KarmaContainer } from './karma';
   import { ModelUpdater } from './modelupdater';
   import { TimeoutAnimation } from './timeoutanimation';
+  import { buildSvgGraphFor } from './heartrateGraph';
+  import { AudioPlayer } from './audioPlayer';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -54,7 +55,6 @@
   let blackSilenceCount: number = 0;
   let client: ChatClient | null = null;
   let chatBulletBackend: ChatBulletContainer | undefined = undefined;
-  let karmaBackend: KarmaContainer | undefined = undefined;
 
   let blackSilenceBorder = false;
 
@@ -73,14 +73,13 @@
   let makiActivated: boolean = false;
   let makiThinking: boolean = false;
 
-  let currentlyPlayingAudios: HTMLAudioElement[] = [];
+  let audioPlayer: AudioPlayer | undefined = undefined;
 
   const ws = new WebSocket(PUBLIC_RECEIVER_URL);
   const checkInStore = createCheckInStore(ws);
   const makiStore = createMakiStore(ws);
 
   function onShowImageLoad(event: Event) {
-    // once the iMage loads, reposition and rescale it immediately
     const target = event.target;
     if (!(target as HTMLImageElement).naturalWidth || !(target as HTMLImageElement).naturalHeight)
       return;
@@ -94,64 +93,13 @@
     const fullHeightNo = Number(height.replace('px', ''));
 
     const { naturalWidth, naturalHeight } = imgTarget;
-    const targetWidth = Math.max(Math.random(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
+    const targetWidth = Math.max(properRandom(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
     const targetHeight = (naturalHeight / naturalWidth) * targetWidth;
 
-    const randoms = new Uint8Array(2);
-    crypto.getRandomValues(randoms);
-    imgTarget.style.left = `${(randoms[0] / 255.0) * (fullWidthNo - targetWidth)}px`;
-    imgTarget.style.top = `${(randoms[1] / 255.0) * (fullHeightNo - targetWidth)}px`;
+    imgTarget.style.left = `${properRandom() * (fullWidthNo - targetWidth)}px`;
+    imgTarget.style.top = `${properRandom() * (fullHeightNo - targetHeight)}px`;
     imgTarget.style.width = `${targetWidth}px`;
     imgTarget.style.height = `${targetHeight}px`;
-  }
-
-  function buildSvgGraphFor(numbers: number[]): SVGSVGElement | null {
-    const width = 928;
-    const height = 500;
-    const marginTop = 20;
-    const marginRight = 30;
-    const marginBottom = 30;
-    const marginLeft = 40;
-
-    const dataset = numbers.map((val, ind) => [val, ind]);
-    // Declare the x (horizontal position) scale.
-    const x = d3.scaleLinear(
-      [0, d3.max(dataset as [number, number][], (d: [number, number]) => d[1])] as any,
-      [marginLeft, width - marginRight]
-    );
-
-    // Declare the y (vertical position) scale.
-    const y = d3.scaleLinear(
-      [
-        d3.min(dataset as [number, number][], (d: [number, number]) => d[0]) as any,
-        d3.max(dataset as [number, number][], (d: [number, number]) => d[0]) as any
-      ],
-      [height - marginBottom, marginTop]
-    );
-
-    // Declare the line generator.
-    const line = d3
-      .line()
-      .x((d: [number, number]) => x(d[1]))
-      .y((d: [number, number]) => y(d[0]));
-
-    // Create the SVG container.
-    const svg = d3
-      .create('svg')
-      .attr('width', width)
-      .attr('height', height)
-      .attr('viewBox', [0, 0, width, height])
-      .attr('style', 'max-width: 100%; height: auto; height: intrinsic;');
-
-    // Append a path for the line.
-    svg
-      .append('path')
-      .attr('fill', 'none')
-      .attr('stroke', 'red')
-      .attr('stroke-width', 10.0)
-      .attr('d', line(dataset as any));
-
-    return svg.node();
   }
 
   let maxwellContainerInstance: MaxwellContainer | undefined = undefined;
@@ -169,14 +117,26 @@
 
     maxwellContainerInstance = new MaxwellContainer(gameApplication);
     chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
-    karmaBackend = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
+    const _ = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
     dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
     let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
     let commands = new Commands(dispatchers);
     commands.setBusURL(PUBLIC_BUS_URL);
     dispatchers.addObserver(commands);
     client.connect();
-    captchaLoop(dispatchers);
+
+    audioPlayer = new AudioPlayer(dispatchers);
+    audioPlayer.start();
+
+    startCaptchaLoop(
+      dispatchers,
+      captchaElement,
+      (val) => (captchaText = val),
+      (top, left) => {
+        captchaTop = top;
+        captchaLeft = left;
+      }
+    );
 
     makiStore.subscribe((message, duration, activated, thinking) => {
       currentMakiMessage = message;
@@ -189,23 +149,6 @@
       await maxwellContainerInstance?.spawnMaxwell(MAXWELL_COOLDOWN);
     });
 
-    playAudioStore.subscribe(async (url) => {
-      if (!url) return null;
-      try {
-        const audio = new Audio(url);
-        audio.volume = 0.2;
-        currentlyPlayingAudios.push(audio);
-        audio.addEventListener('ended', () => {
-          onAudioPlaybackOver(audio);
-        });
-        await audio.play();
-      } catch {
-        // HACK: Ugly hardcoded channel constant
-        dispatchers?.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'failed to play for some reason');
-        playAudioStore.dequeue();
-      }
-    });
-
     stockMarket.subscribe((heartrates) => {
       const graph = buildSvgGraphFor(heartrates);
       if (!graph) return;
@@ -214,25 +157,6 @@
     });
   });
 
-  function captchaLoop(dispatcher: OverlayDispatchers) {
-    setTimeout(
-      () => {
-        captchaTop =
-          Math.random() *
-          (1080 - Number(getComputedStyle(captchaElement).height.replace('px', '')));
-        captchaLeft =
-          Math.random() * (1920 - Number(getComputedStyle(captchaElement).width.replace('px', '')));
-
-        let captcha = new CaptchaObserver(dispatcher, () => {
-          captchaText = null;
-          captchaLoop(dispatcher);
-        });
-        captchaText = captcha.value;
-      },
-      Math.max(1000, Math.random() * 10 * 60 * 1000)
-    );
-  }
-
   function onFlashbangDone() {
     flashbangCount = flashbangStore.count;
   }
@@ -240,12 +164,10 @@
   function onBlackSilenceStart() {
     chatBulletBackend?.deleteAllBullets();
     chatBulletBackend?.setEnabled(false);
-    currentlyPlayingAudios.forEach((aud) => aud.pause());
-    currentlyPlayingAudios = [];
+    audioPlayer?.pauseAll();
     blackSilenceBorder = true;
     playAudioStore.purge();
     showImageStore.purge();
-    playAudioStore.purge();
     maxwellContainerInstance?.removeAllMaxwells();
 
     setTimeout(() => {
@@ -260,11 +182,6 @@
 
   function onMistakeDone() {
     mistakeCount = mistakeStore.count;
-  }
-
-  function onAudioPlaybackOver(audio: HTMLAudioElement) {
-    playAudioStore.dequeue();
-    currentlyPlayingAudios = currentlyPlayingAudios.filter((aud) => aud !== audio);
   }
 </script>
 
@@ -298,7 +215,6 @@
   >
     <span style="font-size: 5em">{captchaText}</span>
   </div>
-  <!-- I've checked, it's possible to embed StreamElements the thing here, but I'm not gonna -->
   {#if blackSilenceBorder}
     <div class="blackSilenceBorder"></div>
   {/if}
@@ -543,7 +459,6 @@
     height: 100%;
     align-items: center;
     justify-content: center;
-    /* background-color: black; */
   }
 
   .blackSilenceBorder {
@@ -556,11 +471,11 @@
     background: radial-gradient(
       farthest-side,
       transparent 0%,
-      /* transparent 40%, */ rgba(0, 0, 0, 0.9) 100%
+      rgba(0, 0, 0, 0.9) 100%
     );
-    background-size: 10000% 10000%; /* Initial size of the gradient */
+    background-size: 10000% 10000%;
     background-repeat: no-repeat;
-    background-position: center; /* Centers the gradient */
+    background-position: center;
     animation: growGradient 2s ease-in-out forwards;
   }
 
