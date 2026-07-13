@@ -60,11 +60,11 @@
                 step={child.step}
                 placeholder={child.placeholder}
                 value={getNested(data, field.key)
-                  ? ((getNested(data, field.key) as Record<string, unknown>)[child.key] ?? '')
+                  ? ((getNested(data, field.key) as Record)[child.key] ?? '')
                   : ''}
                 on:input={(e) => {
                   const obj = {
-                    ...((getNested(data, field.key) as Record<string, unknown>) ?? {})
+                    ...((getNested(data, field.key) as Record) ?? {})
                   };
                   obj[child.key] =
                     child.kind === 'number'
@@ -100,14 +100,14 @@
               {#if child.kind === 'list-of-text'}
                 <fieldset class="list-field">
                   <legend>{child.label}</legend>
-                  {#each ((data[field.key] as Record<string, unknown>)[child.key] as string[] | undefined) ?? [] as item, i}
+                  {#each ((data[field.key] as Record)[child.key] as string[] | undefined) ?? [] as item, i}
                     <div class="list-row">
                       <input
                         type="text"
                         placeholder={child.placeholder}
                         value={item}
                         on:input={(e) => {
-                          const parent = data[field.key] as Record<string, unknown>;
+                          const parent = data[field.key] as Record;
                           const arr = [...((parent[child.key] as string[]) ?? [])];
                           arr[i] = e.currentTarget.value;
                           parent[child.key] = arr;
@@ -119,7 +119,7 @@
                         type="button"
                         class="remove-btn"
                         on:click={() => {
-                          const parent = data[field.key] as Record<string, unknown>;
+                          const parent = data[field.key] as Record;
                           const arr = [...((parent[child.key] as string[]) ?? [])];
                           parent[child.key] = [...arr.slice(0, i), ...arr.slice(i + 1)];
                           data[field.key] = parent;
@@ -132,9 +132,70 @@
                     type="button"
                     class="add-btn"
                     on:click={() => {
-                      const parent = data[field.key] as Record<string, unknown>;
+                      const parent = data[field.key] as Record;
                       const arr = [...((parent[child.key] as string[]) ?? [])];
                       parent[child.key] = [...arr, ''];
+                      data[field.key] = parent;
+                      data = data;
+                    }}>+ Add</button
+                  >
+                </fieldset>
+              {:else if child.kind === 'list-of-objects'}
+                <fieldset class="list-field">
+                  <legend>{child.label}</legend>
+                  {#each ((data[field.key] as Record)[child.key] as Record[] | undefined) ?? [] as item, i}
+                    <div class="list-object-row">
+                      {#each child.listObjectFields ?? [] as subField}
+                        <label>
+                          {subField.label}
+                          <input
+                            type={subField.kind === 'number' ? 'number' : 'text'}
+                            min={subField.min}
+                            max={subField.max}
+                            step={subField.step}
+                            placeholder={subField.placeholder}
+                            value={(item[subField.key] as string | number) ?? ''}
+                            on:input={(e) => {
+                              const parent = data[field.key] as Record;
+                              const arr = [...((parent[child.key] as Record[]) ?? [])];
+                              arr[i] = {
+                                ...arr[i],
+                                [subField.key]:
+                                  subField.kind === 'number'
+                                    ? parseFloat(e.currentTarget.value)
+                                    : e.currentTarget.value
+                              };
+                              parent[child.key] = arr;
+                              data[field.key] = parent;
+                              data = data;
+                            }}
+                          />
+                        </label>
+                      {/each}
+                      <button
+                        type="button"
+                        class="remove-btn"
+                        on:click={() => {
+                          const parent = data[field.key] as Record;
+                          const arr = [...((parent[child.key] as Record[]) ?? [])];
+                          parent[child.key] = [...arr.slice(0, i), ...arr.slice(i + 1)];
+                          data[field.key] = parent;
+                          data = data;
+                        }}>×</button
+                      >
+                    </div>
+                  {/each}
+                  <button
+                    type="button"
+                    class="add-btn"
+                    on:click={() => {
+                      const parent = data[field.key] as Record;
+                      const arr = [...((parent[child.key] as Record[]) ?? [])];
+                      const defaultObj: Record = {};
+                      for (const f of child.listObjectFields ?? []) {
+                        defaultObj[f.key] = f.default ?? '';
+                      }
+                      parent[child.key] = [...arr, defaultObj];
                       data[field.key] = parent;
                       data = data;
                     }}>+ Add</button
@@ -149,10 +210,9 @@
                     max={child.max}
                     step={child.step}
                     placeholder={child.placeholder}
-                    value={((data[field.key] as Record<string, unknown>)[child.key] as number) ??
-                      ''}
+                    value={((data[field.key] as Record)[child.key] as number) ?? ''}
                     on:input={(e) => {
-                      const parent = data[field.key] as Record<string, unknown>;
+                      const parent = data[field.key] as Record;
                       parent[child.key] = parseFloat(e.currentTarget.value);
                       data[field.key] = parent;
                       data = data;
@@ -163,9 +223,9 @@
                 <label class="bool-label">
                   <input
                     type="checkbox"
-                    checked={!!(data[field.key] as Record<string, unknown>)[child.key]}
+                    checked={!!(data[field.key] as Record)[child.key]}
                     on:change={(e) => {
-                      const parent = data[field.key] as Record<string, unknown>;
+                      const parent = data[field.key] as Record;
                       parent[child.key] = e.currentTarget.checked;
                       data[field.key] = parent;
                       data = data;
@@ -180,10 +240,9 @@
                   <input
                     type="text"
                     placeholder={child.placeholder}
-                    value={((data[field.key] as Record<string, unknown>)[child.key] as string) ??
-                      ''}
+                    value={((data[field.key] as Record)[child.key] as string) ?? ''}
                     on:input={(e) => {
-                      const parent = data[field.key] as Record<string, unknown>;
+                      const parent = data[field.key] as Record;
                       parent[child.key] = e.currentTarget.value;
                       data[field.key] = parent;
                       data = data;
@@ -221,7 +280,7 @@
       {:else if field.kind === 'list-of-objects'}
         <fieldset class="list-field">
           <legend>{field.label}</legend>
-          {#each (data[field.key] as Record<string, unknown>[] | undefined) ?? [] as item, i}
+          {#each (data[field.key] as Record[] | undefined) ?? [] as item, i}
             <div class="list-object-row">
               {#each field.listObjectFields ?? [] as child}
                 <label>
@@ -231,7 +290,7 @@
                     placeholder={child.placeholder}
                     value={(item[child.key] as string) ?? ''}
                     on:input={(e) => {
-                      const arr = [...((data[field.key] as Record<string, unknown>[]) ?? [])];
+                      const arr = [...((data[field.key] as Record[]) ?? [])];
                       arr[i] = { ...arr[i], [child.key]: e.currentTarget.value };
                       setNested(data, field.key, arr);
                     }}

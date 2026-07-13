@@ -2,8 +2,14 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import { checkCostAddIfEnough } from '../middleware';
 import { requireUsername, withCostOrFreeUser } from './shared';
-import * as Constants from '../../constants';
-import { flashbangStore, blackSilenceStore, maxwellStore, mistakeStore, karmaStore } from '../../stores';
+import { getOverlayConfig } from '../../constants';
+import {
+  flashbangStore,
+  blackSilenceStore,
+  maxwellStore,
+  mistakeStore,
+  karmaStore
+} from '../../stores';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
 
@@ -11,9 +17,15 @@ export async function maxwellHandler(dispatcher: OverlayDispatchers, message: Ch
   const username = requireUsername(message);
   if (!username) return;
 
-  await withCostOrFreeUser(dispatcher, message, Constants.MAXWELL_USER, Constants.MAXWELL_COST, () => {
-    maxwellStore.increment();
-  });
+  await withCostOrFreeUser(
+    dispatcher,
+    message,
+    getOverlayConfig().maxwell.user,
+    getOverlayConfig().maxwell.cost,
+    () => {
+      maxwellStore.increment();
+    }
+  );
 }
 
 export async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -26,16 +38,16 @@ export async function flashbangHandler(dispatcher: OverlayDispatchers, message: 
         dispatcher,
         message.channelId!,
         username,
-        -Constants.FLASHBANG_COST,
+        -getOverlayConfig().flashbang.cost,
         undefined,
         message.id
       )
     ) {
       flashbangStore.increment();
-      karmaStore.updateKarma(Constants.FLASHBANG_KARMA, 'Flashbang');
+      karmaStore.updateKarma(getOverlayConfig().flashbang.karma, 'Flashbang');
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `throwing a flashbang, -${Constants.FLASHBANG_COST}`,
+        `throwing a flashbang, -${getOverlayConfig().flashbang.cost}`,
         message.id
       );
     }
@@ -56,11 +68,11 @@ export function blackSilenceHandler(
     await withCostOrFreeUser(
       dispatcher,
       message,
-      Constants.BLACK_SILENCE_USER,
-      Constants.BLACK_SILENCE_COST,
+      getOverlayConfig().blackSilence.user,
+      getOverlayConfig().blackSilence.cost,
       () => {
         blackSilenceStore.increment();
-        karmaStore.updateKarma(Constants.BLACK_SILENCE_KARMA, 'Black Silence');
+        karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
 
         ws.send(
           JSON.stringify({
@@ -74,7 +86,7 @@ export function blackSilenceHandler(
             type: 'tts',
             command: {
               type: 'disable',
-              duration: Constants.BLACK_SILENCE_DURATION / 1000
+              duration: getOverlayConfig().blackSilence.durationMs / 1000
             }
           } as DisableTTS)
         );
@@ -87,10 +99,16 @@ export async function mistakeHandler(dispatcher: OverlayDispatchers, message: Ch
   const username = requireUsername(message);
   if (!username) return;
 
-  await withCostOrFreeUser(dispatcher, message, Constants.MISTAKE_USER, Constants.MISTAKE_COST, () => {
-    mistakeStore.increment();
-    karmaStore.updateKarma(Constants.MISTAKE_KARMA, 'Mistake Redeem');
-  });
+  await withCostOrFreeUser(
+    dispatcher,
+    message,
+    getOverlayConfig().mistake.user,
+    getOverlayConfig().mistake.cost,
+    () => {
+      mistakeStore.increment();
+      karmaStore.updateKarma(getOverlayConfig().mistake.karma, 'Mistake Redeem');
+    }
+  );
 }
 
 export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -104,7 +122,7 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
       dispatcher,
       message.channelId!,
       username,
-      -Constants.SELF_THOUGHT_COST,
+      -getOverlayConfig().selfThought.cost,
       undefined,
       message.id
     )
@@ -122,13 +140,17 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
         dispatcher,
         message.channelId!,
         username,
-        Constants.SELF_THOUGHT_COST,
+        getOverlayConfig().selfThought.cost,
         undefined,
         message.id
       ))!;
     } else {
-      karmaStore.updateKarma(Constants.SELF_THOUGHT_KARMA, 'Self Thought');
-      dispatcher.sendMessageAsUser(message.channelId!, `-${Constants.SELF_THOUGHT_COST}`, message.id);
+      karmaStore.updateKarma(getOverlayConfig().selfThought.karma, 'Self Thought');
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `-${getOverlayConfig().selfThought.cost}`,
+        message.id
+      );
     }
   }
 }

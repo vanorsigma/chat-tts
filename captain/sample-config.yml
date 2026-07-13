@@ -9,6 +9,88 @@ distractConfig:
 remoteChatTTS: {}
 standaloneSongConfig: {}
 
+moderationConfig:
+  moderatorUsers:
+    - pastel8844
+    - deplytha
+    - asmodeus_desu
+  unblockableCommands:
+    - '%restart'
+    - '%block'
+    - '%unblock'
+    - '%closemarket'
+    - '%refreshVoice'
+    - '%rotate'
+    - '%distract'
+  blockMinimumBid: 1000
+  killCost: 2000
+blackSilenceConfig:
+  user: nikitakik228
+  durationMs: 10000
+  cost: 500
+  karma: 50
+flashbangConfig:
+  cost: 500
+  karma: -100
+maxwellConfig:
+  cost: 100
+  user: 5kuli
+  cooldownMs: 30000
+  limit: 100
+mistakeConfig:
+  cost: 5000
+  user: mr_auto
+  karma: -1000
+showImageConfig:
+  cost: 10000
+  user: mayoigo_qwq
+  cooldownMs: 60000
+  karma: -200
+playAudioConfig:
+  cost: 10000
+  user: SpookiestSpooks
+  karma: -100
+selfThoughtConfig:
+  cost: 5000
+  karma: -200
+goodNightKissConfig:
+  cost: 5000
+  user: pastel8844
+  karma: -300
+  timeoutDurationSec: 1800
+setTitleConfig:
+  cost: 1000
+  karmaRequirement: 100
+  karmaModifier: -0.3
+  user: sekatsu1
+karmaConfig:
+  min: -5000
+  max: 5000
+  dingThreshold: 250
+  decayRate: 0.01
+  karmaMap:
+    - command: '%rotate'
+      karma: -100
+    - command: '%distract'
+      karma: -200
+  togglesKarma:
+    - name: Hearts
+      karma: 5.0
+    - name: Stars
+      karma: 5.0
+    - name: Undress
+      karma: 50.0
+modelConfig:
+  initialHeartrate: 50
+  blushHrThreshold: 80
+  despairHrThreshold: 50
+captchaConfig:
+  points: 500
+  karma: 100
+  durationMs: 30000
+checkInConfig:
+  points: 999.99
+
 soundEffects:
   - tag: "(metalpipes)"
     filePath: "https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3"

@@ -14,12 +14,7 @@
     PUBLIC_SE_URL
   } from '$env/static/public';
   import { OverlayDispatchers } from './dispatcher';
-  import {
-    BLACK_SILENCE_DURATION,
-    MAXWELL_COOLDOWN,
-    BLUSH_HR_THRESHOLD,
-    DESPAIR_HR_THRESHOLD
-  } from './constants';
+  import { getOverlayConfig, applyOverlayConfig } from './constants';
   import { Commands } from './commands';
   import {
     pollStore,
@@ -82,9 +77,6 @@
   const ws = new WebSocket(PUBLIC_RECEIVER_URL);
   const checkInStore = createCheckInStore(ws);
   const makiStore = createMakiStore(ws);
-  installFakerReceiver(ws, PUBLIC_TARGET_CHANNEL_ID, (fake) => {
-    dispatchers?.dispatchMessage(fake);
-  });
 
   function onShowImageLoad(event: Event) {
     const target = event.target;
@@ -113,13 +105,30 @@
 
   onMount(async () => {
     console.log('Initializing...');
+    try {
+      const res = await fetch('/api/config');
+      const rawConfig = await res.json();
+      console.log(`Applying overlay config...`);
+      if (res.ok) applyOverlayConfig(rawConfig);
+      installFakerReceiver(ws, PUBLIC_TARGET_CHANNEL_ID, (fake) => {
+        dispatchers?.dispatchMessage(fake);
+      });
+    } catch (e) {
+      console.warn('Failed to load config:', e);
+    }
     const modelUpdater = new ModelUpdater();
     client = createNewTwitchClientV2('vanorsigma');
     console.log('Twitch client created');
     stockMarket.setHeartrateObject(heartrate);
     heartrate.subscribe((hr: number) => {
-      modelUpdater.setBlendShape('Blush', hr < BLUSH_HR_THRESHOLD ? 0.0 : 1.0);
-      modelUpdater.setBlendShape('Despair', hr < DESPAIR_HR_THRESHOLD ? 1.0 : 0.0);
+      modelUpdater.setBlendShape(
+        'Blush',
+        hr < getOverlayConfig().model.blushHrThreshold ? 0.0 : 1.0
+      );
+      modelUpdater.setBlendShape(
+        'Despair',
+        hr < getOverlayConfig().model.despairHrThreshold ? 1.0 : 0.0
+      );
     });
     let gameApplication = await makeApplication(chatBulletContainer);
     console.log('Pixi application ready');
@@ -161,7 +170,7 @@
     });
 
     maxwellStore.subscribe(async (_maxwellCount: number) => {
-      await maxwellContainerInstance?.spawnMaxwell(MAXWELL_COOLDOWN);
+      await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwell.cooldownMs);
     });
 
     stockMarket.subscribe((heartrates) => {
@@ -188,7 +197,7 @@
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);
       blackSilenceBorder = false;
-    }, BLACK_SILENCE_DURATION);
+    }, getOverlayConfig().blackSilence.durationMs);
   }
 
   function onBlackSilenceDone() {
@@ -483,11 +492,7 @@
     z-index: 1000;
     top: 0px;
     left: 0px;
-    background: radial-gradient(
-      farthest-side,
-      transparent 0%,
-      rgba(0, 0, 0, 0.9) 100%
-    );
+    background: radial-gradient(farthest-side, transparent 0%, rgba(0, 0, 0, 0.9) 100%);
     background-size: 10000% 10000%;
     background-repeat: no-repeat;
     background-position: center;

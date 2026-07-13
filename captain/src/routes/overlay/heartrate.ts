@@ -1,4 +1,4 @@
-import { INITIAL_HEARTRATE } from './constants';
+import { getOverlayConfig } from './constants';
 import { ReconnectingWebSocket } from './stores/reconnectingWs';
 
 interface HeartrateConfig {
@@ -7,12 +7,7 @@ interface HeartrateConfig {
 }
 
 function isHeartrateConfig(data: unknown): data is HeartrateConfig {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'timestamp' in data &&
-    'data' in data
-  );
+  return typeof data === 'object' && data !== null && 'timestamp' in data && 'data' in data;
 }
 
 export class Heartrate {
@@ -27,7 +22,7 @@ export class Heartrate {
 
   public subscribe(fn: (value: number) => void): () => void {
     this.subscribers.push(fn);
-    fn(INITIAL_HEARTRATE);
+    fn(getOverlayConfig().model.initialHeartrate);
     return () => {
       this.subscribers = this.subscribers.filter((f) => f !== fn);
     };

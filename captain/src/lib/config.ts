@@ -1,4 +1,3 @@
-// Configuration file for the TTS bot.
 import { parse } from 'yaml';
 
 interface RangeConfigOptional {
@@ -38,6 +37,117 @@ export interface DistractConfig {
   rotateChance: number;
 }
 
+export interface OverlayModerationConfig {
+  moderatorUsers: string[];
+  unblockableCommands: string[];
+  blockMinimumBid: number;
+  killCost: number;
+}
+
+export interface OverlayBlackSilenceConfig {
+  user: string;
+  durationMs: number;
+  cost: number;
+  karma: number;
+}
+
+export interface OverlayFlashbangConfig {
+  cost: number;
+  karma: number;
+}
+
+export interface OverlayMaxwellConfig {
+  cost: number;
+  user: string;
+  cooldownMs: number;
+  limit: number;
+}
+
+export interface OverlayMistakeConfig {
+  cost: number;
+  user: string;
+  karma: number;
+}
+
+export interface OverlayShowImageConfig {
+  cost: number;
+  user: string;
+  cooldownMs: number;
+  karma: number;
+}
+
+export interface OverlayPlayAudioConfig {
+  cost: number;
+  user: string;
+  karma: number;
+}
+
+export interface OverlaySelfThoughtConfig {
+  cost: number;
+  karma: number;
+}
+
+export interface OverlayGoodNightKissConfig {
+  cost: number;
+  user: string;
+  karma: number;
+  timeoutDurationSec: number;
+}
+
+export interface OverlaySetTitleConfig {
+  cost: number;
+  karmaRequirement: number;
+  karmaModifier: number;
+  user: string;
+}
+
+export interface OverlayKarmaEntry {
+  command: string;
+  karma: number;
+}
+
+export interface OverlayToggleEntry {
+  name: string;
+  karma: number;
+}
+
+export interface OverlayKarmaConfig {
+  min: number;
+  max: number;
+  dingThreshold: number;
+  decayRate: number;
+  karmaMap: OverlayKarmaEntry[];
+  togglesKarma: OverlayToggleEntry[];
+}
+
+export interface OverlayModelConfig {
+  initialHeartrate: number;
+  blushHrThreshold: number;
+  despairHrThreshold: number;
+}
+
+export interface OverlayCaptchaConfig {
+  points: number;
+  karma: number;
+  durationMs: number;
+}
+
+export interface OverlayCheckInConfig {
+  points: number;
+}
+
+export interface OverlayCommandCooldownsConfig {
+  poll?: number;
+  flashbang?: number;
+  selfthought?: number;
+  undress?: number;
+  stars?: number;
+  hearts?: number;
+  block?: number;
+  unblock?: number;
+  kill?: number;
+}
+
 export interface RemoteVoiceConfig {
   controlURL: string;
 }
@@ -66,6 +176,22 @@ export class ParseableConfig {
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix?: string;
 
+  overlayModerationConfig?: OverlayModerationConfig;
+  overlayBlackSilenceConfig?: OverlayBlackSilenceConfig;
+  overlayFlashbangConfig?: OverlayFlashbangConfig;
+  overlayMaxwellConfig?: OverlayMaxwellConfig;
+  overlayMistakeConfig?: OverlayMistakeConfig;
+  overlayShowImageConfig?: OverlayShowImageConfig;
+  overlayPlayAudioConfig?: OverlayPlayAudioConfig;
+  overlaySelfThoughtConfig?: OverlaySelfThoughtConfig;
+  overlayGoodNightKissConfig?: OverlayGoodNightKissConfig;
+  overlaySetTitleConfig?: OverlaySetTitleConfig;
+  overlayKarmaConfig?: OverlayKarmaConfig;
+  overlayModelConfig?: OverlayModelConfig;
+  overlayCaptchaConfig?: OverlayCaptchaConfig;
+  overlayCheckInConfig?: OverlayCheckInConfig;
+  overlayCommandCooldownsConfig?: OverlayCommandCooldownsConfig;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(arbitraryObject: any) {
     const nonOptionalFields = ['channelName', 'commandsDisabled'];
@@ -90,6 +216,22 @@ export class ParseableConfig {
     this.distractConfig = arbitraryObject['distractConfig'];
     this.remoteChatTTS = arbitraryObject['remoteChatTTS'];
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
+
+    this.overlayModerationConfig = arbitraryObject['moderationConfig'];
+    this.overlayBlackSilenceConfig = arbitraryObject['blackSilenceConfig'];
+    this.overlayFlashbangConfig = arbitraryObject['flashbangConfig'];
+    this.overlayMaxwellConfig = arbitraryObject['maxwellConfig'];
+    this.overlayMistakeConfig = arbitraryObject['mistakeConfig'];
+    this.overlayShowImageConfig = arbitraryObject['showImageConfig'];
+    this.overlayPlayAudioConfig = arbitraryObject['playAudioConfig'];
+    this.overlaySelfThoughtConfig = arbitraryObject['selfThoughtConfig'];
+    this.overlayGoodNightKissConfig = arbitraryObject['goodNightKissConfig'];
+    this.overlaySetTitleConfig = arbitraryObject['setTitleConfig'];
+    this.overlayKarmaConfig = arbitraryObject['karmaConfig'];
+    this.overlayModelConfig = arbitraryObject['modelConfig'];
+    this.overlayCaptchaConfig = arbitraryObject['captchaConfig'];
+    this.overlayCheckInConfig = arbitraryObject['checkInConfig'];
+    this.overlayCommandCooldownsConfig = arbitraryObject['commandCooldownsConfig'];
   }
 
   toFullConfig(): FullConfig {
@@ -121,6 +263,101 @@ export class ParseableConfig {
         rotateChance: 0.01,
         ...this.distractConfig
       },
+      moderationConfig: {
+        moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
+        unblockableCommands: [
+          '%restart',
+          '%block',
+          '%unblock',
+          '%closemarket',
+          '%refreshVoice',
+          '%rotate',
+          '%distract'
+        ],
+        blockMinimumBid: 1000,
+        killCost: 2000,
+        ...this.overlayModerationConfig
+      },
+      blackSilenceConfig: {
+        user: 'nikitakik228',
+        durationMs: 10000,
+        cost: 500,
+        karma: 50,
+        ...this.overlayBlackSilenceConfig
+      },
+      flashbangConfig: { cost: 500, karma: -100, ...this.overlayFlashbangConfig },
+      maxwellConfig: {
+        cost: 100,
+        user: '5kuli',
+        cooldownMs: 30000,
+        limit: 100,
+        ...this.overlayMaxwellConfig
+      },
+      mistakeConfig: { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig },
+      showImageConfig: {
+        cost: 10000,
+        user: 'mayoigo_qwq',
+        cooldownMs: 60000,
+        karma: -200,
+        ...this.overlayShowImageConfig
+      },
+      playAudioConfig: {
+        cost: 10000,
+        user: 'SpookiestSpooks',
+        karma: -100,
+        ...this.overlayPlayAudioConfig
+      },
+      selfThoughtConfig: { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig },
+      goodNightKissConfig: {
+        cost: 5000,
+        user: 'pastel8844',
+        karma: -300,
+        timeoutDurationSec: 1800,
+        ...this.overlayGoodNightKissConfig
+      },
+      setTitleConfig: {
+        cost: 1000,
+        karmaRequirement: 100,
+        karmaModifier: -0.3,
+        user: 'sekatsu1',
+        ...this.overlaySetTitleConfig
+      },
+      karmaConfig: {
+        min: -5000,
+        max: 5000,
+        dingThreshold: 250,
+        decayRate: 0.01,
+        karmaMap: [
+          { command: '%rotate', karma: -100 },
+          { command: '%distract', karma: -200 }
+        ],
+        togglesKarma: [
+          { name: 'Hearts', karma: 5.0 },
+          { name: 'Stars', karma: 5.0 },
+          { name: 'Undress', karma: 50.0 }
+        ],
+        ...this.overlayKarmaConfig
+      },
+      modelConfig: {
+        initialHeartrate: 50,
+        blushHrThreshold: 80,
+        despairHrThreshold: 50,
+        ...this.overlayModelConfig
+      },
+      captchaConfig: { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig },
+      checkInConfig: { points: 999.99, ...this.overlayCheckInConfig },
+      commandCooldownsConfig: {
+        poll: 10000,
+        flashbang: 10000,
+        selfthought: 10000,
+        undress: 1000,
+        stars: 1000,
+        hearts: 1000,
+        block: 10000,
+        unblock: 10000,
+        kill: 10000,
+        ...this.overlayCommandCooldownsConfig
+      },
       remoteChatTTS: this.remoteChatTTS,
       ignorePrefix: this.ignorePrefix ?? '~'
     };
@@ -139,6 +376,21 @@ export interface FullConfig {
   standaloneSongConfig?: StandaloneSongConfig;
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
+  moderationConfig?: OverlayModerationConfig;
+  blackSilenceConfig?: OverlayBlackSilenceConfig;
+  flashbangConfig?: OverlayFlashbangConfig;
+  maxwellConfig?: OverlayMaxwellConfig;
+  mistakeConfig?: OverlayMistakeConfig;
+  showImageConfig?: OverlayShowImageConfig;
+  playAudioConfig?: OverlayPlayAudioConfig;
+  selfThoughtConfig?: OverlaySelfThoughtConfig;
+  goodNightKissConfig?: OverlayGoodNightKissConfig;
+  setTitleConfig?: OverlaySetTitleConfig;
+  karmaConfig?: OverlayKarmaConfig;
+  modelConfig?: OverlayModelConfig;
+  captchaConfig?: OverlayCaptchaConfig;
+  checkInConfig?: OverlayCheckInConfig;
+  commandCooldownsConfig?: OverlayCommandCooldownsConfig;
   dynamicConfig: DynamicConfig;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix: string;

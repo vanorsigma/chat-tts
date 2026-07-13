@@ -1,4 +1,4 @@
-import { SHOW_IMAGE_COOLDOWN } from '../constants';
+import { getOverlayConfig } from '../constants';
 import type { Poll } from '../poll.svelte';
 import type { BidInstance } from '../bid.svelte';
 import { createPubSub, type Unsubscribe } from './pubsub';
@@ -117,7 +117,7 @@ export function createShowImageStore() {
           const firstIndex = imageUrls.findIndex(([url]) => url === imageUrl);
           imageUrls = [...imageUrls.slice(0, firstIndex), ...imageUrls.slice(firstIndex + 1)];
           pub.notify(imageUrls);
-        }, SHOW_IMAGE_COOLDOWN)
+        }, getOverlayConfig().showImage.cooldownMs)
       ]
     ];
     pub.notify(imageUrls);

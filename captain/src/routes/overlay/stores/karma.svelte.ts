@@ -1,4 +1,4 @@
-import { KARMA_DECAY_RATE, MAX_KARMA, MIN_KARMA } from '../constants';
+import { getOverlayConfig } from '../constants';
 import { TimedCache } from '$lib/TimedCache';
 
 export function createKarmaStore() {
@@ -18,7 +18,10 @@ export function createKarmaStore() {
 
   function setKarma(newKarma: number, message?: string) {
     const oldKarma = karma;
-    karma = Math.min(MAX_KARMA, Math.max(MIN_KARMA, newKarma));
+    karma = Math.min(
+      getOverlayConfig().karma.max,
+      Math.max(getOverlayConfig().karma.min, newKarma)
+    );
     informSubscribers(oldKarma, message);
   }
 
@@ -27,7 +30,7 @@ export function createKarmaStore() {
       const decayFactor = timedCache.get(message) ?? 0.0;
       const decayValue = decayFactor * Math.abs(diffKarma);
       diffKarma -= decayValue;
-      timedCache.put(message, decayFactor + KARMA_DECAY_RATE);
+      timedCache.put(message, decayFactor + getOverlayConfig().karma.decayRate);
     }
 
     setKarma(karma + diffKarma, message);

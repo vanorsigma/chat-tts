@@ -2,7 +2,7 @@ import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { checkCostAddIfEnough } from './commands/middleware';
 import type { ChatMessage } from '@twurple/chat';
 import { karmaStore } from './stores';
-import { CAPTCHA_POINTS, CAPTCHA_KARMA, CAPTCHA_DURATION } from './constants';
+import { getOverlayConfig } from './constants';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -21,8 +21,11 @@ export function startCaptchaLoop(
     setTimeout(
       () => {
         setPosition(
-          Math.random() * (window.innerHeight - Number(getComputedStyle(captchaElement).height.replace('px', ''))),
-          Math.random() * (window.innerWidth - Number(getComputedStyle(captchaElement).width.replace('px', '')))
+          Math.random() *
+            (window.innerHeight -
+              Number(getComputedStyle(captchaElement).height.replace('px', ''))),
+          Math.random() *
+            (window.innerWidth - Number(getComputedStyle(captchaElement).width.replace('px', '')))
         );
 
         const captcha = new CaptchaObserver(dispatcher, () => {
@@ -55,7 +58,7 @@ export class CaptchaObserver implements OverlayObserver {
       if (!this.solved) {
         this.onSolve();
       }
-    }, CAPTCHA_DURATION);
+    }, getOverlayConfig().captcha.durationMs);
   }
 
   get value(): string {
@@ -74,15 +77,15 @@ export class CaptchaObserver implements OverlayObserver {
         this.dispatcher,
         message.channelId!,
         username,
-        CAPTCHA_POINTS,
+        getOverlayConfig().captcha.points,
         false,
         undefined
       );
       this.dispatcher.sendMessageAsUser(
         message.channelId!,
-        `${username} claimed ${CAPTCHA_POINTS}!`
+        `${username} claimed ${getOverlayConfig().captcha.points}!`
       );
-      karmaStore.updateKarma(CAPTCHA_KARMA, 'Captcha');
+      karmaStore.updateKarma(getOverlayConfig().captcha.karma, 'Captcha');
 
       if (!this.solved) {
         this.solved = true;

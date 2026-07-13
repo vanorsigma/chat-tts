@@ -8,11 +8,11 @@ import {
   Sprite,
   Text,
   TextStyle,
-  type Application,
+  type Application
 } from 'pixi.js';
 import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
-import { DING_THRESHOLD, KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
+import { getOverlayConfig } from './constants';
 import { karmaStore } from './stores';
 import {
   calculateAdjustmentNumbers,
@@ -41,7 +41,11 @@ export class KarmaContainer implements OverlayObserver {
   private textTimeout: NodeJS.Timeout | null = null;
   private clip: Sound | null = null;
 
-  constructor(dispatcher: OverlayDispatchers, app: Application, updateGlobalKarma: (karma: number) => void) {
+  constructor(
+    dispatcher: OverlayDispatchers,
+    app: Application,
+    updateGlobalKarma: (karma: number) => void
+  ) {
     sound.disableAutoPause = true;
     this.app = app;
     this.updateGlobalKarma = updateGlobalKarma;
@@ -64,12 +68,13 @@ export class KarmaContainer implements OverlayObserver {
   async onMessage(message: ChatMessage) {
     if (message.userInfo.badges.has('bot-badge')) return;
 
-    const karmaMatches = KARMA_MAP.keys()
+    const karmaMatches = getOverlayConfig()
+      .karma.map.keys()
       .filter((k) => message.text.includes(k))
       .toArray();
     if (karmaMatches.length > 0) {
       const firstMatch = karmaMatches.at(0)!;
-      const karmaValue = KARMA_MAP.get(firstMatch)!;
+      const karmaValue = getOverlayConfig().karma.map.get(firstMatch)!;
       this.updateGlobalKarma(karmaValue);
       this.updateScale(karmaValue, message.text);
     }
@@ -88,8 +93,8 @@ export class KarmaContainer implements OverlayObserver {
     const adjustmentNumber = calculateAdjustmentNumbers(
       this.currentKarma,
       currentAngle,
-      MIN_KARMA,
-      MAX_KARMA
+      getOverlayConfig().karma.min,
+      getOverlayConfig().karma.max
     );
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
@@ -119,9 +124,16 @@ export class KarmaContainer implements OverlayObserver {
 
     this.app.stage.addChild(totalKarmaText);
     this.app.stage.addChild(newKarmaText);
-    if (Math.abs(diffKarma) >= DING_THRESHOLD && this.clip) {
-      const clampedDiff = Math.min(Math.max(diffKarma, MIN_KARMA), MAX_KARMA);
-      const svalue = scurve(((Math.abs(clampedDiff) - MIN_KARMA) / (MAX_KARMA - MIN_KARMA)) * 2);
+    if (Math.abs(diffKarma) >= getOverlayConfig().karma.dingThreshold && this.clip) {
+      const clampedDiff = Math.min(
+        Math.max(diffKarma, getOverlayConfig().karma.min),
+        getOverlayConfig().karma.max
+      );
+      const svalue = scurve(
+        ((Math.abs(clampedDiff) - getOverlayConfig().karma.min) /
+          (getOverlayConfig().karma.max - getOverlayConfig().karma.min)) *
+          2
+      );
       const value = svalue * 0.1;
       this.clip.filters = [new filters.DistortionFilter(value)];
       this.clip.volume = 0.15 * value;
@@ -146,7 +158,12 @@ export class KarmaContainer implements OverlayObserver {
   private resetScale() {
     if (this.collection === null) return;
     const currentAngle = this.collection.handle.rotation;
-    const positionCalc = calculateAdjustmentNumbers(0, currentAngle, MIN_KARMA, MAX_KARMA);
+    const positionCalc = calculateAdjustmentNumbers(
+      0,
+      currentAngle,
+      getOverlayConfig().karma.min,
+      getOverlayConfig().karma.max
+    );
     this.moveToAdjustmentNumbers(this.collection!, positionCalc);
   }
 

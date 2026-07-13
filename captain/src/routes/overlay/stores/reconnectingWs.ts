@@ -33,7 +33,9 @@ export class ReconnectingWebSocket {
   }
 
   send(data: string) {
-    this.ws?.send(data);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(data);
+    }
   }
 
   reconnect() {
@@ -81,7 +83,8 @@ export class ReconnectingWebSocket {
 
   private scheduleReconnect() {
     setTimeout(() => {
-      if (this.ws?.readyState === WebSocket.CLOSED) {
+      const state = this.ws?.readyState;
+      if (state === WebSocket.CLOSED || state === WebSocket.CLOSING) {
         this.connect();
       }
     }, this.reconnectDelay);

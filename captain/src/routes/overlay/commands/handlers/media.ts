@@ -2,7 +2,6 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import { checkCostAddIfEnough } from '../middleware';
 import { requireUsername } from './shared';
-import * as Constants from '../../constants';
 import { showImageStore, playAudioStore, karmaStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
 import { isTagExist, getAttachmentUrlForTag, registerTag } from '$lib/api/attachments';
@@ -43,7 +42,11 @@ export async function mediaHandler(
       url = getAttachmentUrlForTag(url);
       optionalTagName = undefined;
     } else {
-      dispatcher.sendMessageAsUser(message.channelId!, 'that tag probably doesnt exist', message.id);
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        'that tag probably doesnt exist',
+        message.id
+      );
       return;
     }
   }

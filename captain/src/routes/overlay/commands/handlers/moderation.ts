@@ -1,10 +1,9 @@
 import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import type { Commands } from '../index';
-import type { Bids } from '../../bid.svelte';
 import { checkCostAddIfEnough } from '../middleware';
 import { requireUsername } from './shared';
-import * as Constants from '../../constants';
+import { getOverlayConfig } from '../../constants';
 import { asChatCommand } from '../registry';
 import { makeStandardYesNoBid } from '../../bid.svelte';
 import { closeMarketHandler } from './stockmarket';
@@ -48,7 +47,7 @@ export async function blockHandler(
     return;
   }
 
-  if (Constants.UNBLOCKABLE_COMMANDS.includes(commandToBlock)) {
+  if (getOverlayConfig().moderation.unblockableCommands.includes(commandToBlock)) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `Cannot perform this action on ${commandToBlock}`,
@@ -155,7 +154,11 @@ export async function killHandler(dispatcher: OverlayDispatchers, message: ChatM
           biddingMsg.id
         ))
       ) {
-        dispatcher.sendMessageAsUser(originalMessageChannelId, 'bro u r too poor', originalMessageId);
+        dispatcher.sendMessageAsUser(
+          originalMessageChannelId,
+          'bro u r too poor',
+          originalMessageId
+        );
         return false;
       }
       return true;

@@ -3,7 +3,7 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import { checkCostAddIfEnough, PEOPLE_WHO_CHECKED_IN } from '../middleware';
 import { requireUsername } from './shared';
 import { getPointsForUser } from '$lib/api/points';
-import * as Constants from '../../constants';
+import { getOverlayConfig } from '../../constants';
 import { checkinUser } from '../../checkinInterface';
 
 export async function transferHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -105,7 +105,7 @@ export async function checkInHandler(
 
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `vedalWave @${username} here's +${Constants.CHECK_IN_POINTS} meow`,
+    `vedalWave @${username} here's +${getOverlayConfig().checkIn.points} meow`,
     message.id
   );
   PEOPLE_WHO_CHECKED_IN.push(username);
@@ -114,7 +114,7 @@ export async function checkInHandler(
     dispatcher,
     message.channelId!,
     username,
-    Constants.CHECK_IN_POINTS,
+    getOverlayConfig().checkIn.points,
     undefined,
     message.id
   ))!;

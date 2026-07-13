@@ -1,84 +1,108 @@
-/// Constants
+const _overlayConfig = {
+  moderation: {
+    moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
+    unblockableCommands: [
+      '%restart',
+      '%block',
+      '%unblock',
+      '%closemarket',
+      '%refreshVoice',
+      '%rotate',
+      '%distract'
+    ],
+    blockMinimumBid: 1000,
+    killCost: 2000
+  },
+  blackSilence: { user: 'nikitakik228', durationMs: 10000, cost: 500, karma: 50 },
+  flashbang: { cost: 500, karma: -100 },
+  maxwell: { cost: 100, user: '5kuli', cooldownMs: 30000, limit: 100 },
+  mistake: { cost: 5000, user: 'mr_auto', karma: -1000 },
+  showImage: { cost: 10000, user: 'mayoigo_qwq', cooldownMs: 60000, karma: -200 },
+  playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
+  selfThought: { cost: 5000, karma: -200 },
+  goodNightKiss: { cost: 5000, user: 'pastel8844', karma: -300, timeoutDurationSec: 1800 },
+  setTitle: { cost: 1000, karmaRequirement: 100, karmaModifier: -0.3, user: 'sekatsu1' },
+  checkIn: { points: 999.99 },
+  karma: {
+    min: -5000,
+    max: 5000,
+    dingThreshold: 250,
+    decayRate: 0.01,
+    map: new Map<string, number>([
+      ['%rotate', -100],
+      ['%distract', -200]
+    ]),
+    toggles: new Map<string, number>([
+      ['Hearts', 5.0],
+      ['Stars', 5.0],
+      ['Undress', 50.0]
+    ])
+  },
+  model: { initialHeartrate: 50, blushHrThreshold: 80, despairHrThreshold: 50 },
+  captcha: { points: 500, karma: 100, durationMs: 30000 },
+  commandCooldowns: {
+    poll: 10000,
+    flashbang: 10000,
+    selfthought: 10000,
+    undress: 1000,
+    stars: 1000,
+    hearts: 1000,
+    block: 10000,
+    unblock: 10000,
+    kill: 10000
+  }
+};
 
-export const MODERATOR_USERS = ['pastel8844', 'deplytha', 'asmodeus_desu'];
+export function getOverlayConfig() {
+  return _overlayConfig;
+}
 
-export const BLACK_SILENCE_USER = 'nikitakik228';
-export const BLACK_SILENCE_DURATION = 10 * 1000;
-export const BLACK_SILENCE_COST = 500;
-export const BLACK_SILENCE_KARMA = 50;
+interface ApiKarmaEntry {
+  command: string;
+  karma: number;
+}
+interface ApiToggleEntry {
+  name: string;
+  karma: number;
+}
 
-export const FLASHBANG_COST = 500;
-export const FLASHBANG_KARMA = -100;
+export function applyOverlayConfig(raw?: Record<string, unknown>): void {
+  if (!raw) return;
 
-export const MAXWELL_COST = 100;
-export const MAXWELL_USER = '5kuli';
-export const MAXWELL_COOLDOWN = 30 * 1000;
-export const MAXWELL_LIMITS = 100;
+  const sectionMap: Record<string, keyof typeof _overlayConfig> = {
+    moderationConfig: 'moderation',
+    blackSilenceConfig: 'blackSilence',
+    flashbangConfig: 'flashbang',
+    maxwellConfig: 'maxwell',
+    mistakeConfig: 'mistake',
+    showImageConfig: 'showImage',
+    playAudioConfig: 'playAudio',
+    selfThoughtConfig: 'selfThought',
+    goodNightKissConfig: 'goodNightKiss',
+    setTitleConfig: 'setTitle',
+    checkInConfig: 'checkIn',
+    karmaConfig: 'karma',
+    modelConfig: 'model',
+    captchaConfig: 'captcha',
+    commandCooldownsConfig: 'commandCooldowns'
+  };
 
-export const MISTAKE_COST = 5000;
-export const MISTAKE_USER = 'mr_auto';
-export const MISTAKE_KARMA = -1000;
+  for (const [apiKey, internalKey] of Object.entries(sectionMap)) {
+    const section = raw[apiKey] as Record<string, unknown> | undefined;
+    if (section) {
+      Object.assign(_overlayConfig[internalKey] as Record<string, unknown>, section);
+    }
+  }
 
-export const SHOW_IMAGE_COST = 10_000;
-export const SHOW_IMAGE_USER = 'mayoigo_qwq';
-export const SHOW_IMAGE_COOLDOWN = 60 * 1000;
-export const SHOW_IMAGE_KARMA = -200;
-
-export const PLAY_AUDIO_COST = 10_000;
-export const PLAY_AUDIO_USER = 'SpookiestSpooks';
-export const PLAY_AUDIO_KARMA = -100;
-
-export const SELF_THOUGHT_COST = 5000;
-export const SELF_THOUGHT_KARMA = -200;
-
-export const GOOD_NIGHT_KISS_COST = 5000;
-export const GOOD_NIGHT_KISS_USER = 'pastel8844';
-export const GOOD_NIGHT_KISS_KARMA = -300;
-export const GOOD_NIGHT_KISS_TIMEOUT_DURATION = 30 * 60;
-
-export const UNBLOCKABLE_COMMANDS = [
-  '%restart',
-  '%block',
-  '%unblock',
-  '%closemarket',
-  '%refreshVoice',
-  '%rotate',
-  '%distract'
-];
-export const BLOCK_MINIMUM_BID = 1000;
-
-export const KILL_COST = 2000;
-
-// NOTE: set title has special karma requirements
-export const SET_TITLE_COST = 1000;
-export const SET_TITLE_KARMA_REQUIREMENT = 100;
-export const SET_TITLE_KARMA_MODIFIER = -0.3;
-export const SET_TITLE_USER = 'sekatsu1';
-
-export const CHECK_IN_POINTS = 999.99;
-
-/// Karma mapping
-export const MIN_KARMA = -5000;
-export const MAX_KARMA = 5000;
-export const DING_THRESHOLD = 250.0;
-export const KARMA_DECAY_RATE = 0.01;
-
-// Model Updates
-export const INITIAL_HEARTRATE = 50;
-export const BLUSH_HR_THRESHOLD = 80;
-export const DESPAIR_HR_THRESHOLD = 50;
-
-export const TOGGLES_KARMA = new Map([
-  ['Hearts', 5.0],
-  ['Stars', 5.0],
-  ['Undress', 50.0]
-]);
-
-export const KARMA_MAP = new Map([
-  ['%rotate', -100],
-  ['%distract', -200]
-]);
-
-export const CAPTCHA_POINTS = 500;
-export const CAPTCHA_KARMA = 100;
-export const CAPTCHA_DURATION = 30 * 1000;
+  const karmaRaw = raw.karmaConfig as Record<string, unknown> | undefined;
+  if (karmaRaw?.karmaMap) {
+    _overlayConfig.karma.map = new Map(
+      (karmaRaw.karmaMap as ApiKarmaEntry[]).map((e) => [e.command, e.karma])
+    );
+  }
+  if (karmaRaw?.togglesKarma) {
+    _overlayConfig.karma.toggles = new Map(
+      (karmaRaw.togglesKarma as ApiToggleEntry[]).map((e) => [e.name, e.karma])
+    );
+  }
+}

@@ -1,20 +1,35 @@
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import { asChatCommand, type ChatCommand } from './registry';
-import { COOLDOWN } from './middleware';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import type { ChatMessage } from '@twurple/chat';
-import { transferHandler, givePointsHandler, getPointsHandler, checkInHandler } from './handlers/economy';
-import { maxwellHandler, flashbangHandler, blackSilenceHandler, mistakeHandler, selfThoughtHandler } from './handlers/redeems';
+import { getOverlayConfig } from '../constants';
+import {
+  transferHandler,
+  givePointsHandler,
+  getPointsHandler,
+  checkInHandler
+} from './handlers/economy';
+import {
+  maxwellHandler,
+  flashbangHandler,
+  blackSilenceHandler,
+  mistakeHandler,
+  selfThoughtHandler
+} from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
 import { investHandler, stockHandler, closeMarketHandler } from './handlers/stockmarket';
-import { goodnightkissHandler, settitleHandler, giveKarmaHandler, togglesHandler } from './handlers/interactive';
+import {
+  goodnightkissHandler,
+  settitleHandler,
+  giveKarmaHandler,
+  togglesHandler
+} from './handlers/interactive';
 import { blockHandler, killHandler, restartHandler } from './handlers/moderation';
 import { pollCommandHandler } from '../poll.svelte';
-import * as Constants from '../constants';
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
-  nextValid: number = new Date().getTime();
+  cooldowns: Map<string, number> = new Map();
   blacklist: Array<ChatCommand> = [];
 
   private busWs?: WebSocket = undefined;
@@ -31,14 +46,19 @@ export class Commands implements OverlayObserver {
   }
 
   callOnlyIfPastCooldown(
+    commandKey: string,
     dispatcher: OverlayDispatchers,
     message: ChatMessage,
-    callback: () => void,
-    cooldown: number = COOLDOWN
+    callback: () => void
   ) {
-    if (new Date().getTime() >= this.nextValid) {
+    const now = Date.now();
+    const lastUsed = this.cooldowns.get(commandKey) ?? 0;
+    const cooldown =
+      (getOverlayConfig().commandCooldowns as Record<string, number | undefined>)[commandKey] ??
+      10000;
+    if (now >= lastUsed + cooldown) {
       callback();
-      this.nextValid = new Date().getTime() + cooldown;
+      this.cooldowns.set(commandKey, now);
     } else {
       dispatcher.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'command under cooldown', message.id);
     }
@@ -70,7 +90,7 @@ export class Commands implements OverlayObserver {
 
     switch (commandIndicator) {
       case '%poll':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
+        this.callOnlyIfPastCooldown('poll', dispatcher, message, () =>
           pollCommandHandler(dispatcher, message)
         );
         break;
@@ -79,7 +99,7 @@ export class Commands implements OverlayObserver {
         checkInHandler(dispatcher, message, this.busWs);
         break;
       case '%flashbang':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
+        this.callOnlyIfPastCooldown('flashbang', dispatcher, message, () =>
           flashbangHandler(dispatcher, message)
         );
         break;
@@ -106,9 +126,9 @@ export class Commands implements OverlayObserver {
       case '%showimage':
         mediaHandler(dispatcher, message, {
           kind: 'image',
-          cost: Constants.SHOW_IMAGE_COST,
-          karma: Constants.SHOW_IMAGE_KARMA,
-          freeUser: Constants.SHOW_IMAGE_USER
+          cost: getOverlayConfig().showImage.cost,
+          karma: getOverlayConfig().showImage.karma,
+          freeUser: getOverlayConfig().showImage.user
         });
         break;
       case '%pa':
@@ -116,9 +136,9 @@ export class Commands implements OverlayObserver {
       case '%playaudio':
         mediaHandler(dispatcher, message, {
           kind: 'audio',
-          cost: Constants.PLAY_AUDIO_COST,
-          karma: Constants.PLAY_AUDIO_KARMA,
-          freeUser: Constants.PLAY_AUDIO_USER
+          cost: getOverlayConfig().playAudio.cost,
+          karma: getOverlayConfig().playAudio.karma,
+          freeUser: getOverlayConfig().playAudio.user
         });
         break;
       case '%invest':
@@ -134,7 +154,7 @@ export class Commands implements OverlayObserver {
         closeMarketHandler(dispatcher, message);
         break;
       case '%selfthought':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
+        this.callOnlyIfPastCooldown('selfthought', dispatcher, message, () =>
           selfThoughtHandler(dispatcher, message)
         );
         break;
@@ -151,41 +171,34 @@ export class Commands implements OverlayObserver {
         restartHandler(dispatcher, message);
         break;
       case '%undress':
-        this.callOnlyIfPastCooldown(
-          dispatcher,
-          message,
-          () => togglesHandler(dispatcher, message, 'Undress'),
-          1000
+        this.callOnlyIfPastCooldown('undress', dispatcher, message, () =>
+          togglesHandler(dispatcher, message, 'Undress')
         );
         break;
       case '%stars':
-        this.callOnlyIfPastCooldown(
-          dispatcher,
-          message,
-          () => togglesHandler(dispatcher, message, 'Stars'),
-          1000
+        this.callOnlyIfPastCooldown('stars', dispatcher, message, () =>
+          togglesHandler(dispatcher, message, 'Stars')
         );
         break;
       case '%hearts':
-        this.callOnlyIfPastCooldown(
-          dispatcher,
-          message,
-          () => togglesHandler(dispatcher, message, 'Hearts'),
-          1000
+        this.callOnlyIfPastCooldown('hearts', dispatcher, message, () =>
+          togglesHandler(dispatcher, message, 'Hearts')
         );
         break;
       case '%block':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
+        this.callOnlyIfPastCooldown('block', dispatcher, message, () =>
           blockHandler(this, dispatcher, message, 'block')
         );
         break;
       case '%unblock':
-        this.callOnlyIfPastCooldown(dispatcher, message, () =>
+        this.callOnlyIfPastCooldown('unblock', dispatcher, message, () =>
           blockHandler(this, dispatcher, message, 'unblock')
         );
         break;
       case '%kill':
-        this.callOnlyIfPastCooldown(dispatcher, message, () => killHandler(dispatcher, message));
+        this.callOnlyIfPastCooldown('kill', dispatcher, message, () =>
+          killHandler(dispatcher, message)
+        );
         break;
       case '%vote':
       case '%bid':

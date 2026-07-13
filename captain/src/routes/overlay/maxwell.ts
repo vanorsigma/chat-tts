@@ -1,7 +1,7 @@
 import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets, Texture } from 'pixi.js';
 import { fetchAnimatedTextures, makeAnimatedSprite } from '$lib/utils';
 import { properRandom } from './utils';
-import { MAXWELL_LIMITS } from './constants';
+import { getOverlayConfig } from './constants';
 
 const CAT_BREAD_SPIN_GIF = '/catBreadSpin.gif';
 
@@ -57,7 +57,7 @@ export class MaxwellContainer {
   }
 
   async spawnMaxwell(interval: number) {
-    if (this.maxwells.length >= MAXWELL_LIMITS) return;
+    if (this.maxwells.length >= getOverlayConfig().maxwell.limit) return;
 
     const { width, height } = this.app.screen;
 
