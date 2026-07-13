@@ -1,12 +1,10 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
-import { getPointsForUser, setPointsForUser } from '$lib/api/points';
+import { checkCostAddIfEnough } from './commands/middleware';
 import type { ChatMessage } from '@twurple/chat';
 import { karmaStore } from './stores';
+import { CAPTCHA_POINTS, CAPTCHA_KARMA, CAPTCHA_DURATION } from './constants';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const CAPTCHA_POINTS = 500;
-const CAPTCHA_KARMA = 100;
-const CAPTCHA_DURATION = 30 * 1000;
 
 function choose<T>(choices: Array<T>): T {
   const index = Math.floor(Math.random() * choices.length);
@@ -45,8 +43,14 @@ export class CaptchaObserver implements OverlayObserver {
       if (this.alreadyClaimed.has(username)) return;
       this.alreadyClaimed.add(username);
 
-      const points = (await getPointsForUser(username)) ?? 0;
-      setPointsForUser(username, points + CAPTCHA_POINTS);
+      await checkCostAddIfEnough(
+        this.dispatcher,
+        message.channelId!,
+        username,
+        CAPTCHA_POINTS,
+        false,
+        undefined
+      );
       this.dispatcher.sendMessageAsUser(
         message.channelId!,
         `${username} claimed ${CAPTCHA_POINTS}!`

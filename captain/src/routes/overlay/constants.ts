@@ -77,3 +77,7 @@ export const KARMA_MAP = new Map([
   ['%rotate', -100],
   ['%distract', -200]
 ]);
+
+export const CAPTCHA_POINTS = 500;
+export const CAPTCHA_KARMA = 100;
+export const CAPTCHA_DURATION = 30 * 1000;

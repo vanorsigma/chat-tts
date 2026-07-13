@@ -1,6 +1,7 @@
 import { SHOW_IMAGE_COOLDOWN } from '../constants';
 import type { Poll } from '../poll.svelte';
 import type { BidInstance } from '../bid.svelte';
+import { createPubSub, type Unsubscribe } from './pubsub';
 
 export function createBiddingStore() {
   let bidInstance: BidInstance | null = $state(null);
@@ -27,41 +28,29 @@ export function createBiddingStore() {
 
 export function createPlayAudioStore() {
   let audioUrls = $state<Array<string>>([]);
-  let subscribers: Array<(value: string | undefined) => void> = [];
-
-  function updateAllSubscribers() {
-    subscribers.forEach((subscriber) => subscriber(audioUrls.at(0)));
-  }
+  const pub = createPubSub<string | undefined>();
 
   function addUrl(audioUrl: string) {
     audioUrls = [...audioUrls, audioUrl];
-    updateAllSubscribers();
+    pub.notify(audioUrls.at(0));
   }
 
   function dequeue() {
     audioUrls = audioUrls.slice(1);
-    updateAllSubscribers();
+    pub.notify(audioUrls.at(0));
   }
 
   function purge() {
     audioUrls = [];
-    updateAllSubscribers();
-  }
-
-  function subscribe(subscription: (value: string | undefined) => void): () => void {
-    subscribers.push(subscription);
-    subscription(audioUrls.at(0));
-    return () => {
-      subscribers = subscribers.filter((sub) => sub !== subscription);
-    };
+    pub.notify(undefined);
   }
 
   return {
-    get audioUrls() {
-      return audioUrls.slice();
-    },
     dequeue,
-    subscribe,
+    subscribe: (fn: (value: string | undefined) => void): Unsubscribe => {
+      fn(audioUrls.at(0));
+      return pub.subscribe(fn);
+    },
     addUrl,
     purge
   };
@@ -81,15 +70,11 @@ export function createGoodnightKissStore() {
     color: 'black',
     fast_version: false
   });
-  let subscribers: Array<(value: KissProperties) => void> = [];
-
-  function updateAllSubscribers() {
-    subscribers.forEach((subscriber) => subscriber(properties));
-  }
+  const pub = createPubSub<KissProperties>();
 
   function setProperties(property: KissProperties) {
     properties = property;
-    updateAllSubscribers();
+    pub.notify(properties);
   }
 
   function isPopulated(): boolean {
@@ -100,27 +85,20 @@ export function createGoodnightKissStore() {
     const retVal = properties.userid;
     properties = {
       username: '',
+      userid: '',
       color: properties.color,
       fast_version: false
-    } as KissProperties;
-    updateAllSubscribers();
+    };
+    pub.notify(properties);
     return retVal;
   }
 
-  function subscribe(subscription: (value: KissProperties) => void): () => void {
-    subscribers.push(subscription);
-    subscription(properties);
-    return () => {
-      subscribers = subscribers.filter((sub) => sub !== subscription);
-    };
-  }
-
   return {
-    get property() {
-      return properties;
-    },
     isPopulated,
-    subscribe,
+    subscribe: (fn: (value: KissProperties) => void): Unsubscribe => {
+      fn(properties);
+      return pub.subscribe(fn);
+    },
     setProperties,
     reset
   };
@@ -128,11 +106,7 @@ export function createGoodnightKissStore() {
 
 export function createShowImageStore() {
   let imageUrls = $state<Array<[string, NodeJS.Timeout]>>([]);
-  let subscribers: Array<(value: [string, NodeJS.Timeout][]) => void> = [];
-
-  function updateAllSubscribers() {
-    subscribers.forEach((subscriber) => subscriber(imageUrls));
-  }
+  const pub = createPubSub<[string, NodeJS.Timeout][]>();
 
   function addUrl(imageUrl: string) {
     imageUrls = [
@@ -142,22 +116,11 @@ export function createShowImageStore() {
         setTimeout(() => {
           const firstIndex = imageUrls.findIndex(([url]) => url === imageUrl);
           imageUrls = [...imageUrls.slice(0, firstIndex), ...imageUrls.slice(firstIndex + 1)];
-          updateAllSubscribers();
+          pub.notify(imageUrls);
         }, SHOW_IMAGE_COOLDOWN)
       ]
     ];
-    updateAllSubscribers();
-  }
-
-  function removeUrl(imageUrl: string) {
-    while (imageUrls.some(([url]) => url === imageUrl)) {
-      const index = imageUrls.findIndex(([url]) => url === imageUrl);
-      const [, timeout] = imageUrls.at(index)!;
-      clearTimeout(timeout);
-      imageUrls = [...imageUrls.slice(0, index), ...imageUrls.slice(index + 1)];
-    }
-
-    updateAllSubscribers();
+    pub.notify(imageUrls);
   }
 
   function purge() {
@@ -165,24 +128,15 @@ export function createShowImageStore() {
       clearTimeout(timeout);
     });
     imageUrls = [];
-    updateAllSubscribers();
-  }
-
-  function subscribe(subscription: (value: [string, NodeJS.Timeout][]) => void): () => void {
-    subscribers.push(subscription);
-    subscription(imageUrls);
-    return () => {
-      subscribers = subscribers.filter((sub) => sub !== subscription);
-    };
+    pub.notify(imageUrls);
   }
 
   return {
-    get imageUrls() {
-      return imageUrls.map(([url]) => url);
+    subscribe: (fn: (value: [string, NodeJS.Timeout][]) => void): Unsubscribe => {
+      fn(imageUrls);
+      return pub.subscribe(fn);
     },
-    subscribe,
     addUrl,
-    removeUrl,
     purge
   };
 }
@@ -204,18 +158,11 @@ export function createMistakeStore() {
 
 export function createMaxwellStore() {
   let maxwellCount = $state(0);
-  let callbacks: Array<(value: number) => void> = [];
+  const pub = createPubSub<number>();
 
   function increment() {
     maxwellCount++;
-    callbacks.forEach((cb) => cb(maxwellCount));
-  }
-
-  function subscribe(subscription: (value: number) => void): () => void {
-    callbacks.push(subscription);
-    return () => {
-      callbacks = callbacks.filter((cb) => cb !== subscription);
-    };
+    pub.notify(maxwellCount);
   }
 
   return {
@@ -223,7 +170,9 @@ export function createMaxwellStore() {
       return maxwellCount;
     },
     increment,
-    subscribe
+    subscribe: (fn: (value: number) => void): Unsubscribe => {
+      return pub.subscribe(fn);
+    }
   };
 }
 
