@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ChatBulletContainer } from './chatbullet';
+  import { ChatBulletContainer } from './chatbullet/container';
   import { createNewTwitchApiClient, createNewTwitchClientV2 } from '$lib/twitch';
   import {
     PUBLIC_BUS_URL,
