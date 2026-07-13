@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, watch } from 'fs';
 import { join } from 'path';
 import WebSocket from 'ws';
+import { setBroadcastFn } from './logger';
 import type { FakerMessage, ControlMessage } from '$lib/bus/messages';
 
 const BUS_URL = 'ws://localhost:3001';
@@ -17,8 +18,19 @@ let onConfigChange: ConfigChangeHandler | null = null;
 let fakerHandler: ((msg: FakerMessage) => void) | null = null;
 let controlHandler: ((msg: ControlMessage) => void) | null = null;
 
+function wireLogger() {
+  setBroadcastFn((entry) => {
+    if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+      senderWs.send(JSON.stringify(entry));
+    }
+  });
+}
+
 function connectToBus() {
   senderWs = new WebSocket(`${BUS_URL}/senders`);
+  senderWs.on('open', () => {
+    wireLogger();
+  });
   senderWs.on('error', () => {
     setTimeout(connectToBus, 2000);
   });
@@ -39,12 +51,6 @@ function connectToBus() {
   receiverWs.on('error', () => {
     setTimeout(connectToBus, 2000);
   });
-}
-
-function broadcastLog(msg: object) {
-  if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-    senderWs.send(JSON.stringify(msg));
-  }
 }
 
 const CONFIG_PATH = join(process.cwd(), 'config.yml');
@@ -96,4 +102,4 @@ export function setConfigChangeHandler(handler: ConfigChangeHandler) {
   onConfigChange = handler;
 }
 
-export { broadcastLog, BUS_URL as getBusUrl };
+export { BUS_URL as getBusUrl };

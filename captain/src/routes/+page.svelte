@@ -4,8 +4,9 @@
   import { Controller } from '$lib/controllers';
   import Editor from '$lib/Editor.svelte';
   import Faker from '$lib/Faker.svelte';
-  import { onDestroy } from 'svelte';
-  import { readable } from 'svelte/store';
+  import { onDestroy, onMount } from 'svelte';
+  import { readable, writable } from 'svelte/store';
+  import type { LogMessage } from '$lib/bus/messages';
 
   let config: FullConfig | undefined;
   let previousConfigText = '';
@@ -14,8 +15,32 @@
 
   let tail = false;
 
+  const logs = writable<LogMessage[]>([]);
+  let ws: WebSocket | undefined;
+
+  onMount(() => {
+    ws = new WebSocket('ws://localhost:3001/receivers');
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'log') {
+          logs.update((l) => [...l.slice(-500), msg as LogMessage]);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    ws.onclose = () => {
+      // reconnect handled by the browser devtools or user refresh
+    };
+  });
+
+  onDestroy(() => {
+    ws?.close();
+  });
+
   $: chatLogsStore = controller?.getChatLogsStore() ?? readable([]);
-  const scrollToBottom = (node: HTMLElement, _data: string[]) => {
+  const scrollToBottom = (node: HTMLElement, _data: unknown[]) => {
     const scroll = () =>
       node.scroll({
         top: node.scrollHeight,
@@ -120,6 +145,21 @@
   </div>
 </section>
 
+<section>
+  <h2>Logs</h2>
+  <label for="log-tail">
+    <input name="log-tail" type="checkbox" bind:checked={tail} />
+    Tail
+  </label>
+  <div use:scrollToBottom={$logs} class="chatlogs logs">
+    {#each $logs as entry}
+      <p class="log-{entry.level}" title={new Date(entry.ts).toLocaleTimeString()}>
+        [{entry.level.toUpperCase()}] {entry.msg}
+      </p>
+    {/each}
+  </div>
+</section>
+
 <style>
   section {
     display: flex;
@@ -142,5 +182,29 @@
     height: 30em;
     background-color: lightgrey;
     border: black 2px;
+  }
+
+  .logs {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: monospace;
+    font-size: 0.85em;
+    padding: 0.5em;
+  }
+
+  :global(.log-info) {
+    color: #d4d4d4;
+  }
+
+  :global(.log-warn) {
+    color: #cca700;
+  }
+
+  :global(.log-error) {
+    color: #f44747;
+  }
+
+  :global(.log-debug) {
+    color: #808080;
   }
 </style>

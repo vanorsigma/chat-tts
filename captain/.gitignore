@@ -25,6 +25,7 @@ vite.config.ts.timestamp-*
 
 # Data
 data.db
+logs/
 
 # Config
 config.yml
