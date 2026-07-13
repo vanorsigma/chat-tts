@@ -36,6 +36,7 @@ from rich.console import Console
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
+from tools.screenshot import ScreenshotTool
 
 # constant
 SAMPLE_RATE = 16000
@@ -56,6 +57,7 @@ twitch = TwitchTool(config)
 twitch_chat = TwitchChatClient(config["twitch"]["broadcaster_name"])
 evaluator = Evaluator(config)
 search = SearchTool(config)
+screenshot = ScreenshotTool(config)
 communication = Communication(config)
 
 ollama_model = OpenAIChatModel(
@@ -91,6 +93,7 @@ agent = Agent(
     ollama_model,
     tools=twitch.get_twitch_tools()
     + random_tools  # evaluator.get_tools()
+    + screenshot.get_tools()
     + search.get_tools()
     + communication.get_tools()
     + twitch_chat.get_twitch_tools(),
@@ -230,7 +233,9 @@ async def _main():
         try:
             await communication.inform_activated(False)
             console.log("Awaiting wakeword")
-            if not waked:  # this comes from later in the loop body, where the wakeword is uttered during a step
+            if (
+                not waked
+            ):  # this comes from later in the loop body, where the wakeword is uttered during a step
                 await wakeword.run_then_return()
 
             await communication.inform_activated(True)

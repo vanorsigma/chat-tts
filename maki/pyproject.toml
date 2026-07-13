@@ -1,14 +1,14 @@
 [project]
 name = "maki"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "oopid ai cat"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.13.2",
+    "mss>=9.0.1",
     "numpy>=2.3.5",
     "openai>=2.9.0",
-    "openai-whisper>=20250625",
     "openwakeword>=0.4.0",
     "pyaudio>=0.2.14",
     "pydantic>=2.12.5",
