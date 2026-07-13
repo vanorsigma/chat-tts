@@ -16,9 +16,11 @@ export function initDbIfRequired(): Promise<void> {
   return new Promise((resolve, reject) => {
     db.run(initStatement, (_: any, e: Error | null) => {
       if (e) {
+        console.warn('database error', e);
         reject(e);
         return;
       }
+      console.log('Database initialized.');
       resolve();
     });
   });
@@ -33,6 +35,7 @@ export async function setPointsForUser(user: string, points: number): Promise<vo
         return;
       }
 
+      console.log(`Points set for ${user}: ${points}`);
       resolve();
     });
   });
@@ -50,7 +53,9 @@ export async function getPointsForUser(user: string): Promise<number> {
           return;
         }
 
-        resolve((result.at(0) as { points: number })?.points ?? (0 as number));
+        const points = (result.at(0) as { points: number })?.points ?? 0;
+        console.log(`Points retrieved for ${user}: ${points}`);
+        resolve(points);
       }
     );
   });
@@ -65,6 +70,7 @@ export function saveSong(shortname: string, user: string, base64: string): Promi
         return;
       }
 
+      console.log(`Song saved: ${shortname} by ${user}`);
       resolve();
     });
   });
@@ -82,6 +88,7 @@ export function getSong(shortname: string): Promise<Song> {
           return;
         }
 
+        console.log(`Song retrieved: ${shortname}`);
         resolve(result[0] as Song);
       }
     );
@@ -97,6 +104,7 @@ export async function listSongs(): Promise<Song[]> {
         return;
       }
 
+      console.log(`Listed ${result.length} songs.`);
       resolve(result as Song[]);
     });
   });
@@ -111,6 +119,7 @@ export async function deleteSong(shortname: string): Promise<void> {
         return;
       }
 
+      console.log(`Song deleted: ${shortname}`);
       resolve();
     });
   });

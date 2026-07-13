@@ -4,6 +4,7 @@ import { ChatClient } from '@twurple/chat';
 import { ApiClient } from '@twurple/api';
 
 export function createNewTwitchClientV2(channelName: string): ChatClient {
+  console.log(`Creating Twitch client for channel: ${channelName}`);
   return new ChatClient({
     channels: [channelName],
     ssl: true,
@@ -12,6 +13,7 @@ export function createNewTwitchClientV2(channelName: string): ChatClient {
 }
 
 export function createNewTwitchApiClient(client_id: string, client_secret: string): ApiClient {
+  console.log('Creating Twitch API client...');
   const scopes = [
     'user:write:chat',
     'user:bot',

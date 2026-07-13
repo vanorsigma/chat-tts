@@ -7,6 +7,7 @@ import { Controller } from '$lib/controllers';
 import { ParseableConfig } from '$lib/config';
 import { createFakeMessage } from '$lib/bus/fakeMessage';
 import type { FakerMessage, ControlMessage } from '$lib/bus/messages';
+import { isRemoteTTSMessage, type RemoteTTSMessages } from '$lib/remoteTTSMessages';
 
 const BUS_URL = 'ws://localhost:3001';
 const CONFIG_PATH = join(process.cwd(), 'config.yml');
@@ -35,6 +36,14 @@ function handleFaker(msg: FakerMessage) {
   controller.updateWithMessage(fake);
 }
 
+function handleTTS(msg: RemoteTTSMessages) {
+  if (!controller?.remoteChatTTSController) {
+    console.warn('No remote TTS controller active, ignoring TTS message');
+    return;
+  }
+  controller.remoteChatTTSController.handleMessage(msg);
+}
+
 function handleControl(msg: ControlMessage) {
   if (!controller) {
     console.warn('No controller active, ignoring control message');
@@ -54,15 +63,21 @@ function handleControl(msg: ControlMessage) {
 }
 
 function connectToBus() {
+  console.log('Connecting to the bus...');
   senderWs = new WebSocket(`${BUS_URL}/senders`);
   senderWs.on('open', () => {
     wireLogger();
+    console.log('Connected to the sender bus');
   });
   senderWs.on('error', () => {
+    console.error('Unable to connect to the sender bus. We will retry, but this is typically a much more serious issue');
     setTimeout(connectToBus, 2000);
   });
 
   receiverWs = new WebSocket(`${BUS_URL}/receivers`);
+  receiverWs.on('open', () => {
+    console.log('Connected to the receiver bus');
+  });
   receiverWs.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
@@ -70,12 +85,15 @@ function connectToBus() {
         handleFaker(msg as FakerMessage);
       } else if (msg.type === 'control') {
         handleControl(msg as ControlMessage);
+      } else if (msg.type === 'tts' && isRemoteTTSMessage(msg)) {
+        handleTTS(msg as RemoteTTSMessages);
       }
     } catch {
-      // ignore malformed messages
+      console.warn('Received a malformed message, ignoring.');
     }
   });
   receiverWs.on('error', () => {
+    console.error('Unable to connect to the receiver bus. We will retry, but this is typically a much more serious issue');
     setTimeout(connectToBus, 2000);
   });
 }
@@ -94,7 +112,7 @@ function reloadConfig(rawYaml: string) {
       controller.end().catch((e) => console.warn('Error ending controller:', e));
     }
 
-    controller = new Controller(fullConfig);
+    controller = new Controller(fullConfig, senderWs!);
     controller.start();
     console.log('Config reloaded successfully');
   } catch (e) {
@@ -103,6 +121,7 @@ function reloadConfig(rawYaml: string) {
 }
 
 function startConfigWatcher() {
+  console.log('Watching config file for changes...');
   _configWatcher = watch(CONFIG_PATH, () => {
     const raw = readConfig();
     if (raw) reloadConfig(raw);
@@ -113,6 +132,7 @@ export function initializeRuntime() {
   if (_initialized) return;
   _initialized = true;
 
+  console.log('Runtime initializing...');
   connectToBus();
 
   const raw = readConfig();
@@ -123,6 +143,14 @@ export function initializeRuntime() {
 
 export function getController(): Controller | null {
   return controller;
+}
+
+export function getSenderWs(): WebSocket | null {
+  return senderWs;
+}
+
+export function getReceiverWs(): WebSocket | null {
+  return receiverWs;
 }
 
 export { BUS_URL as getBusUrl };

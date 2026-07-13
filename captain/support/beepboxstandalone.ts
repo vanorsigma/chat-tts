@@ -70,11 +70,13 @@ export class LocalSongController {
     // NOTE: legacy code. If I ever switch back to allowing multiple songs
     // at once, at least this'll still be there
     if (this.songsPlaying.includes(songname)) {
+      console.log(`Song ${songname} already playing, skipping.`);
       return false;
     }
 
     try {
       if ((await this.getSongs()).includes(songname)) {
+        console.log(`Playing song: ${songname}`);
         if (this.masterSynth) {
           this.masterSynth.pause();
         }
@@ -102,6 +104,8 @@ export class LocalSongController {
         synth.volume = 0.6;
         synth.play();
         return true;
+      } else {
+        console.warn(`Song ${songname} not found, cannot play.`);
       }
     } catch (e) {
       console.error('Problem with playing beepbox song: ', e);
@@ -116,6 +120,7 @@ let ws: WebSocket | undefined;
 
 function handleWebSocketMessage(event: MessageEvent<string>) {
   const data = JSON.parse(event.data);
+  console.log(`Received WebSocket message: ${data.type}`);
   switch (data.type) {
     case 'play':
       controller.playSong(data.songname);
@@ -146,6 +151,10 @@ function main() {
   };
   ws.onclose = () => {
     console.log('Disconnected from WebSocket');
+  };
+  ws.onerror = () => {
+    console.error('WebSocket error, will retry.');
+    setTimeout(main, 2000);
   };
 }
 

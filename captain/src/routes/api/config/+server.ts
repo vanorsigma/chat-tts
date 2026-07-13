@@ -8,6 +8,7 @@ import { ConfigParsingError, ParseableConfig } from '$lib/config';
 const CONFIG_PATH = join(process.cwd(), 'config.yml');
 
 export function GET() {
+  console.log('Config GET requested.');
   if (!existsSync(CONFIG_PATH)) {
     return json(null);
   }
@@ -25,6 +26,7 @@ export function GET() {
 }
 
 export async function POST({ request }) {
+  console.log('Config POST requested.');
   let body: unknown;
   try {
     body = await request.json();
@@ -41,6 +43,7 @@ export async function POST({ request }) {
     writeFileSync(tmpPath, yamlStr, 'utf-8');
     renameSync(tmpPath, CONFIG_PATH);
 
+    console.log('Config updated successfully.');
     return json({ ok: true });
   } catch (e) {
     if (e instanceof ConfigParsingError) {

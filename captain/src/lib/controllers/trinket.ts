@@ -1,17 +1,11 @@
+import type WebSocket from 'ws';
+
 export class TrinketController {
   private socket: WebSocket;
   private disabled: boolean = false;
 
-  constructor(enabled: boolean, senderUrl: string) {
-    this.socket = new WebSocket(senderUrl);
-    this.socket.onopen = () => {
-      console.log('connected to remote distract controller');
-    };
-
-    this.socket.onclose = () => {
-      console.log('disconnected from remote distract controller');
-    };
-
+  constructor(enabled: boolean, socket: WebSocket) {
+    this.socket = socket;
     this.disabled = !enabled;
   }
 
@@ -29,6 +23,7 @@ export class TrinketController {
       return;
     }
 
+    console.log('Sending distraction...');
     this.socket.send(
       JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: Math.random() } })
     );
@@ -40,6 +35,7 @@ export class TrinketController {
       return;
     }
 
+    console.log('Sending rotation...');
     this.socket.send(
       JSON.stringify({
         type: 'trinket',
@@ -52,6 +48,7 @@ export class TrinketController {
   }
 
   async cancel(): Promise<void> {
+    console.log('Cancelling trinkets.');
     this.socket.send(JSON.stringify({ type: 'trinket', command: { type: 'cancel' } }));
   }
 }

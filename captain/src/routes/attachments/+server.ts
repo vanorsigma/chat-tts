@@ -45,16 +45,20 @@ export const GET: RequestHandler = async ({ url }) => {
   const tag = decodeURIComponent(url.searchParams.get('tag')?.trim() ?? '');
 
   if (!tag) {
+    console.log('Attachments list requested.');
     const possibleTags = await getAllPossibleTags();
     return json(possibleTags);
   }
 
   if (whitespaceRegex.test(tag)) {
+    console.warn(`Attachment GET invalid tag: ${tag}`);
     error(400, 'Tag invalid');
   }
 
+  console.log(`Attachment GET for ${tag}`);
   const attachment = await getParticularAttachment(tag);
   if (!attachment) {
+    console.warn(`Attachment ${tag} not found.`);
     error(404, 'not found');
   }
 
@@ -69,10 +73,12 @@ export const GET: RequestHandler = async ({ url }) => {
 export const POST: RequestHandler = async ({ request }) => {
   const formData = Object.fromEntries(await request.formData());
   if (!(formData.url as string)) {
+    console.warn('Attachment POST missing url.');
     error(400, 'You must provide a file to upload');
   }
 
   if (!(formData.tag as string)) {
+    console.warn('Attachment POST missing tag.');
     error(400, 'You must provide a tag');
   }
 
@@ -82,11 +88,13 @@ export const POST: RequestHandler = async ({ request }) => {
   console.log(`Will save attachment ${url} as ${tag}`);
 
   if (await findMatchingFile(tag)) {
+    console.warn(`Attachment ${tag} already exists.`);
     error(400, 'File already exists');
   }
 
   const attachmentResponse = await fetch(url);
   if (!attachmentResponse.ok) {
+    console.error(`Cannot access attachment URL: ${url}`);
     error(500, 'Cannot access file');
   }
 
@@ -95,6 +103,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     await writeFile(`attachments/${tag}.${ext}`, data);
+    console.log(`Attachment saved: ${tag}.${ext}`);
   } catch {
     console.error('Error while saving attachments');
     error(500, 'File fails to save');

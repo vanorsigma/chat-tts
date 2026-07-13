@@ -9,6 +9,8 @@ const ring: LogMessage[] = [];
 let broadcastFn: BroadcastFn | null = null;
 
 const LOG_DIR = join(process.cwd(), 'logs');
+let _hijacked = false;
+let _logFilePath: string | null = null;
 
 function ensureLogDir() {
   if (!existsSync(LOG_DIR)) {
@@ -17,12 +19,16 @@ function ensureLogDir() {
 }
 
 function getLogFilePath(): string {
-  const date = new Date().toISOString().slice(0, 10);
-  return join(LOG_DIR, `${date}.log`);
+  if (_logFilePath) return _logFilePath;
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '-');
+  _logFilePath = join(LOG_DIR, `${dateStr}T${timeStr}.log`);
+  ensureLogDir();
+  return _logFilePath;
 }
 
 function appendToFile(entry: LogMessage) {
-  ensureLogDir();
   appendFileSync(getLogFilePath(), JSON.stringify(entry) + '\n');
 }
 
@@ -31,6 +37,10 @@ function pushRing(entry: LogMessage) {
   if (ring.length > RING_MAX) {
     ring.shift();
   }
+}
+
+export function getLogFile(): string {
+  return getLogFilePath();
 }
 
 export function getRecentLogs(): LogMessage[] {
@@ -42,6 +52,9 @@ export function setBroadcastFn(fn: BroadcastFn) {
 }
 
 export function installConsoleHijack() {
+  if (_hijacked) return;
+  _hijacked = true;
+
   const levels = {
     log: 'info',
     info: 'info',
@@ -86,4 +99,6 @@ export function installConsoleHijack() {
   console.warn = makeLogger('warn');
   console.error = makeLogger('error');
   console.debug = makeLogger('debug');
+
+  console.log(`Console hijack installed, logging to ${getLogFilePath()}`);
 }

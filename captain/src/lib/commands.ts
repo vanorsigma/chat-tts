@@ -7,7 +7,7 @@ export abstract class Command {
 
 export class RefreshVoice extends Command {
   async processCommandMessage(controller: Controller, message: ChatMessage) {
-    controller.voice.refreshUser(message.userInfo);
+    controller.voice?.refreshUser(message.userInfo);
     console.log(`${message.userInfo.userName}'s voice was refreshed.`);
     return true;
   }
@@ -17,7 +17,7 @@ export class Rotate extends Command {
   lastTimestamp: number = 0;
 
   async processCommandMessage(controller: Controller, message: ChatMessage) {
-    if (controller.trinketController === undefined && controller.trinketController === undefined) {
+    if (controller.trinketController === undefined) {
       return true;
     }
 
@@ -30,10 +30,7 @@ export class Rotate extends Command {
     }
     this.lastTimestamp = Date.now();
 
-    await controller.obsController?.rotateSourcesRandomly(
-      controller.config.obsSettings?.rotationNames ?? []
-    );
-    await controller.trinketController?.sendRotate();
+    await controller.trinketController.sendRotate();
 
     console.log(`${message.userInfo.userName} rotated the screen.`);
     return true;

@@ -77,6 +77,7 @@ async function getAllEmotesListCached(emoteSetId: string): Promise<Emote[]> {
       urls: emote.data.host.files.map((file) => `${emote.data.host.url}/${file.name}`)
     }));
 
+    console.log(`Loaded ${cached_emote_list.length} 7TV emotes.`);
     return cached_emote_list;
   } catch (error) {
     console.error('Error fetching emote set:', error);

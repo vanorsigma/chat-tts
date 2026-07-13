@@ -20,20 +20,10 @@ export interface AlternativePitchControl {
   controlURLs: string[];
 }
 
-export interface ObsSettings {
-  obsURL: string;
-  password: string;
-  sourceName: string;
-  rotationNames: string[];
-}
-
-export interface StandaloneSongConfig {
-  wsUrl: string;
-}
+export interface StandaloneSongConfig {}
 
 export interface DistractConfigOptional {
   enabled?: boolean;
-  wsUrl?: string;
   distractCooldown?: number;
   rotateCooldown?: number;
   distractChance?: number;
@@ -42,7 +32,6 @@ export interface DistractConfigOptional {
 
 export interface DistractConfig {
   enabled: boolean;
-  wsUrl: string;
   distractCooldown: number;
   rotateCooldown: number;
   distractChance: number;
@@ -53,9 +42,7 @@ export interface RemoteVoiceConfig {
   controlURL: string;
 }
 
-export interface RemoteChatTTSControllerConfig {
-  busURL: string;
-}
+export interface RemoteChatTTSControllerConfig {}
 
 // For anything adjustable from the UI
 export interface DynamicConfig {
@@ -67,7 +54,6 @@ export class ConfigParsingError extends Error {}
 export class ParseableConfig {
   channelName?: string;
   commandsDisabled: boolean;
-  obsSettings?: ObsSettings;
   alternativePitchControl?: AlternativePitchControl;
   voices?: string[];
   pitchRange?: RangeConfigOptional;
@@ -91,8 +77,8 @@ export class ParseableConfig {
     }
 
     this.channelName = arbitraryObject['channelName'];
+    console.log(`Config parsed for channel: ${this.channelName}`);
     this.commandsDisabled = arbitraryObject['commandsDisabled'] ?? false;
-    this.obsSettings = this.verifyObsSettings(arbitraryObject);
     this.alternativePitchControl = arbitraryObject['alternativePitchControl'];
     this.voices = arbitraryObject['voices'];
     this.pitchRange = arbitraryObject['pitchRange'];
@@ -106,26 +92,11 @@ export class ParseableConfig {
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private verifyObsSettings(arbitrary: any): ObsSettings | undefined {
-    if (
-      arbitrary['obsSettings'] &&
-      arbitrary['obsSettings']['obsURL'] &&
-      arbitrary['obsSettings']['password'] &&
-      arbitrary['obsSettings']['sourceName'] &&
-      arbitrary['obsSettings']['rotationNames']
-    ) {
-      return arbitrary['obsSettings'] as ObsSettings;
-    }
-    return undefined;
-  }
-
   toFullConfig(): FullConfig {
     return {
       channelName: this.channelName ?? '',
       commandsDisabled: this.commandsDisabled,
       voices: this.voices ?? [],
-      obsSettings: this.obsSettings,
       alternativePitchControl: this.alternativePitchControl,
       pitchRange: {
         maximum: this.pitchRange?.maximum ?? 1.3,
@@ -144,7 +115,6 @@ export class ParseableConfig {
       },
       distractConfig: {
         enabled: false,
-        wsUrl: '',
         distractCooldown: 900,
         rotateCooldown: 300,
         distractChance: 0.001,
@@ -160,7 +130,6 @@ export class ParseableConfig {
 export interface FullConfig {
   channelName: string;
   commandsDisabled: boolean;
-  obsSettings?: ObsSettings;
   alternativePitchControl?: AlternativePitchControl;
   voices: string[];
   pitchRange: RangeConfig;

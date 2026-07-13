@@ -10,6 +10,7 @@
   let saveStatus = '';
 
   let tail = false;
+  let configCollapsed = false;
 
   const logs = writable<LogMessage[]>([]);
   let receiverWs: WebSocket | undefined;
@@ -120,15 +121,19 @@
 </section>
 
 <section>
-  <h2>Config</h2>
-  {#if configData}
-    <ConfigEditor schema={configSchema} data={configData} />
-    <button on:click={onSaveConfig}>Save Config</button>
-    {#if saveStatus}
-      <span class="save-status">{saveStatus}</span>
+  <h2 class="collapsible-header" on:click={() => (configCollapsed = !configCollapsed)}>
+    Config {configCollapsed ? '▶' : '▼'}
+  </h2>
+  {#if !configCollapsed}
+    {#if configData}
+      <ConfigEditor schema={configSchema} data={configData} />
+      <button on:click={onSaveConfig}>Save Config</button>
+      {#if saveStatus}
+        <span class="save-status">{saveStatus}</span>
+      {/if}
+    {:else}
+      <p>No config loaded. Create one or upload a config.yml file.</p>
     {/if}
-  {:else}
-    <p>No config loaded. Create one or upload a config.yml file.</p>
   {/if}
 </section>
 
@@ -201,6 +206,11 @@
 
   :global(.log-debug) {
     color: #808080;
+  }
+
+  .collapsible-header {
+    cursor: pointer;
+    user-select: none;
   }
 
   .save-status {

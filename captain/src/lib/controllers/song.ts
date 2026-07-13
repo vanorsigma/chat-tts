@@ -1,3 +1,5 @@
+import type WebSocket from 'ws';
+
 export interface SongController {
   playSong(songname: string): Promise<boolean>;
   changeSpeed(speed: number): Promise<void>;
@@ -5,29 +7,26 @@ export interface SongController {
 }
 
 export class RemoteSongController implements SongController {
-  private socket: globalThis.WebSocket;
+  private socket: WebSocket;
 
-  constructor(senderUrl: string) {
-    this.socket = new WebSocket(senderUrl);
-    this.socket.onopen = () => {
-      console.log('connected to remote song controller');
-    };
-
-    this.socket.onclose = () => {
-      console.log('disconnected from remote song controller');
-    };
+  constructor(socket: WebSocket) {
+    this.socket = socket;
+    console.log('Remote song controller created.');
   }
 
   async playSong(songname: string): Promise<boolean> {
+    console.log(`Playing song: ${songname}`);
     this.socket.send(JSON.stringify({ type: 'play', songname: songname }));
     return true;
   }
 
   async changeSpeed(speed: number): Promise<void> {
+    console.log(`Song speed changed to: ${speed}`);
     this.socket.send(JSON.stringify({ type: 'speed', speed: speed }));
   }
 
   cancelSong(): void {
+    console.log('Cancelling song.');
     this.socket.send(JSON.stringify({ type: 'cancel' }));
   }
 }

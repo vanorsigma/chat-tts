@@ -1,25 +1,24 @@
 import { createNewTwitchClientV2 } from '../twitch';
 import type { FullConfig } from '../config';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
+import type WebSocket from 'ws';
 import { CommandController } from './command';
 import type { SongController } from './song';
 import { RemoteSongController } from './song';
 import { TrinketController } from './trinket';
 import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatTTS';
 import { RemoteVoiceController, type VoiceController } from './voice';
-import { ObsController } from './obs';
 import { RefreshVoice } from '../commands';
 
 const shortnameMatcher = /<(.*)>/g;
 
-export { TrinketController, ObsController };
+export { TrinketController };
 
 export class Controller implements ChatTTSOrchestrator {
   twitch: ChatClient;
-  voice: VoiceController;
+  voice?: VoiceController;
   commands: CommandController;
-  obsController?: ObsController;
-  songController: SongController;
+  songController?: SongController;
   trinketController?: TrinketController;
   remoteChatTTSController?: RemoteChatTTSController;
 
@@ -36,31 +35,29 @@ export class Controller implements ChatTTSOrchestrator {
     this.ttsEnabled = enable;
   }
 
-  constructor(config: FullConfig) {
-    if (!config.remoteVoiceConfig) {
-      throw new Error('remoteVoiceConfig is required when running on the backend');
-    }
-    if (!config.standaloneSongConfig) {
-      throw new Error('standaloneSongConfig is required when running on the backend');
-    }
-
+  constructor(config: FullConfig, senderWs: WebSocket) {
+    console.log(`Creating controller for channel ${config.channelName}...`);
     this.twitch = createNewTwitchClientV2(config.channelName);
-    this.voice = new RemoteVoiceController(config);
+    if (config.remoteVoiceConfig) {
+      console.log('Initializing voice controller...');
+      this.voice = new RemoteVoiceController(config);
+    } else console.error('No voice controller configuration. Will ignore');
     this.commands = new CommandController();
-    if (config.obsSettings) {
-      this.obsController = new ObsController(config.obsSettings);
-    }
     this.filters = config.filteredExps;
-    this.songController = new RemoteSongController(config.standaloneSongConfig.wsUrl);
+    if (config.standaloneSongConfig) {
+      console.log('Initializing song controller...');
+      this.songController = new RemoteSongController(senderWs);
+    } else console.error('No song controller configuration. Will ignore');
 
     this.trinketController =
       config.distractConfig != null
-        ? new TrinketController(config.distractConfig?.enabled, config.distractConfig?.wsUrl)
+        ? new TrinketController(config.distractConfig?.enabled, senderWs)
         : undefined;
     this.remoteChatTTSController = config.remoteChatTTS
-      ? new RemoteChatTTSController(this, config.remoteChatTTS.busURL)
+      ? new RemoteChatTTSController(this)
       : undefined;
     this.config = config;
+    console.log('Controller created.');
   }
 
   private isFiltered(message: string): boolean {
@@ -81,21 +78,23 @@ export class Controller implements ChatTTSOrchestrator {
     const matches = [...message.matchAll(shortnameMatcher)];
     if (matches && matches[0] && matches[0].length > 0) {
       const songname = matches[0].at(1);
-      this.songController.playSong(songname!);
+      this.songController?.playSong(songname!);
     }
   }
 
   async updateWithMessage(message: ChatMessage) {
     this._matchAndPlaySong(message.text);
 
-    const voice = await this.voice.getVoiceMapForUser(message.userInfo);
+    const voice = this.voice ? await this.voice.getVoiceMapForUser(message.userInfo) : null;
     const filtered =
       (!message.userInfo.isMod && !message.userInfo.isVip
         ? this.isFiltered(message.text)
         : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
-    console.log(
-      `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
-    );
+    if (voice) {
+      console.log(
+        `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
+      );
+    }
 
     const potentialCommand = this.commands.getCommand(message.text);
     if (
@@ -119,34 +118,27 @@ export class Controller implements ChatTTSOrchestrator {
     }
 
     if (
-      Math.random() < (this.config.distractConfig?.rotateChance ?? 0) &&
-      this.obsController &&
-      this.trinketController
-    ) {
-      await this.obsController.rotateSourcesRandomly(this.config.obsSettings?.rotationNames ?? []);
-    }
-
-    if (
       Math.random() < (this.config.distractConfig?.distractChance ?? 0) &&
       this.trinketController
     ) {
       await this.trinketController.sendDistract();
     }
 
-    await this.voice.processMessage(
-      message,
-      async (speed) => {
-        if (this.config.dynamicConfig.songPitchSpeedAffected) {
-          await this.songController.changeSpeed(speed);
-        }
-      },
-      async () => {
-        await this.obsController?.updateSceneWith(message.userInfo, voice);
-      }
-    );
+    if (this.voice && voice) {
+      await this.voice.processMessage(
+        message,
+        async (speed) => {
+          if (this.config.dynamicConfig.songPitchSpeedAffected) {
+            await this.songController?.changeSpeed(speed);
+          }
+        },
+        async () => {}
+      );
+    }
   }
 
   async start() {
+    console.log('Starting Twitch client...');
     this.twitch.onConnect(() => {
       console.log('connected.');
     });
@@ -155,21 +147,21 @@ export class Controller implements ChatTTSOrchestrator {
       await this.updateWithMessage(msg);
     });
 
-    await this.obsController?.connect();
     this.twitch.connect();
+    console.log('Controller started.');
   }
 
   async cancel() {
-    this.voice.cancel();
-    this.songController.cancelSong();
+    console.log('Cancel requested.');
+    this.voice?.cancel();
+    this.songController?.cancelSong();
     this.trinketController?.cancel();
-    this.config.obsSettings?.rotationNames.forEach((source) => {
-      this.obsController?.resetSourceRotation(source);
-    });
   }
 
   async end() {
+    console.log('Controller ending...');
     this.twitch.quit();
     await this.cancel();
+    console.log('Controller ended.');
   }
 }

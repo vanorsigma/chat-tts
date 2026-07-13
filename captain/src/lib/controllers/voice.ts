@@ -24,10 +24,12 @@ export class RemoteVoiceController implements VoiceController {
 
   constructor(config: FullConfig) {
     this.baseurl = config.remoteVoiceConfig?.controlURL ?? 'http://localhost:3123';
+    console.log(`Voice controller configured at ${this.baseurl}`);
     this.sendInitializationMessage(config);
   }
 
   async sendInitializationMessage(config: FullConfig): Promise<void> {
+    console.log('Sending initialization message to voice controller...');
     await axios.post(`${this.baseurl}/init`, {
       pitch_rate_config: {
         pitch_range_low: config.pitchRange.minimum,
@@ -40,6 +42,7 @@ export class RemoteVoiceController implements VoiceController {
         filename: effect.filePath
       }))
     });
+    console.log('Voice controller initialized.');
   }
 
   async processMessage(
@@ -47,6 +50,7 @@ export class RemoteVoiceController implements VoiceController {
     _onSpeedChange: (arg0: number) => void,
     _onSpeechStart: () => void
   ): Promise<void> {
+    console.log(`Processing voice message from ${message.userInfo.userName}`);
     await axios.get(`${this.baseurl}/processMessage`, {
       params: {
         username: message.userInfo.userName ?? '',
@@ -61,10 +65,12 @@ export class RemoteVoiceController implements VoiceController {
         username: user.userName
       }
     });
+    console.log(`Voice map loaded for ${user.userName}`);
     return result.data as NewVoiceSettings;
   }
 
   refreshUser(user: ChatUser): void {
+    console.log(`Refreshing voice for ${user.userName}`);
     axios.get(`${this.baseurl}/refreshUser`, {
       params: {
         username: user.userName
@@ -73,6 +79,7 @@ export class RemoteVoiceController implements VoiceController {
   }
 
   cancel(): void {
+    console.log('Cancelling voice.');
     axios.get(`${this.baseurl}/cancel`);
   }
 }

@@ -67,6 +67,7 @@ export function main() {
   const port = PROD_MODE ? 4173 : 5173;
   const callback_url = `http://localhost:${port}/callback`;
   const server = http.createServer((req, res) => {
+    console.log(`Auth flow request: ${req.url}`);
     if (req.url) {
       const paths = req.url.split('/');
       const afterRoot = paths[1];

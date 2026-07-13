@@ -1,4 +1,4 @@
-import { isRemoteTTSMessage } from '../remoteTTSMessages';
+import { isRemoteTTSMessage, type RemoteTTSMessages } from '../remoteTTSMessages';
 
 export interface ChatTTSOrchestrator {
   cancel(): Promise<void>;
@@ -6,35 +6,23 @@ export interface ChatTTSOrchestrator {
 }
 
 export class RemoteChatTTSController {
-  private socket: WebSocket;
   private parentController: ChatTTSOrchestrator;
 
-  constructor(controller: ChatTTSOrchestrator, busUrl: string) {
-    this.socket = new WebSocket(busUrl);
-    this.socket.onopen = () => {
-      console.log('connected to chat tts controller');
-    };
-
-    this.socket.onclose = () => {
-      console.log('disconnected from chat tts controller');
-    };
-
-    this.socket.onmessage = (ev) => this.onMessage(ev.data);
-
+  constructor(controller: ChatTTSOrchestrator) {
     this.parentController = controller;
   }
 
-  onMessage(message: string) {
-    const data = JSON.parse(message);
-    if (!isRemoteTTSMessage(data)) return;
-
+  handleMessage(data: RemoteTTSMessages) {
     switch (data.command.type) {
       case 'cancel':
+        console.log('Remote TTS cancel requested.');
         this.parentController.cancel();
         break;
       case 'disable':
+        console.log(`Remote TTS disabling for ${data.command.duration} seconds.`);
         this.parentController.setEnabled(false);
         setTimeout(() => {
+          console.log('Remote TTS re-enabled.');
           this.parentController.setEnabled(true);
         }, data.command.duration * 1000);
         break;

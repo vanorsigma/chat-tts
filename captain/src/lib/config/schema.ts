@@ -108,15 +108,7 @@ export const configSchema: FieldSchema[] = [
     kind: 'optional-object',
     label: 'Standalone Song Config',
     required: true,
-    objectFields: [
-      {
-        key: 'wsUrl',
-        kind: 'text',
-        label: 'WebSocket URL',
-        placeholder: 'ws://localhost:3001/senders',
-        required: true
-      }
-    ]
+    objectFields: []
   },
   {
     key: 'distractConfig',
@@ -124,7 +116,6 @@ export const configSchema: FieldSchema[] = [
     label: 'Distract Config',
     objectFields: [
       { key: 'enabled', kind: 'boolean', label: 'Enabled', default: false },
-      { key: 'wsUrl', kind: 'text', label: 'WebSocket URL', placeholder: 'ws://...' },
       {
         key: 'distractCooldown',
         kind: 'number',
@@ -162,22 +153,6 @@ export const configSchema: FieldSchema[] = [
     ]
   },
   {
-    key: 'obsSettings',
-    kind: 'optional-object',
-    label: 'OBS Settings',
-    objectFields: [
-      { key: 'obsURL', kind: 'text', label: 'OBS URL', placeholder: 'ws://localhost:4455' },
-      { key: 'password', kind: 'text', label: 'Password', placeholder: 'obs websocket password' },
-      { key: 'sourceName', kind: 'text', label: 'Source name', placeholder: 'Chat' },
-      {
-        key: 'rotationNames',
-        kind: 'list-of-text',
-        label: 'Rotation names',
-        placeholder: 'source name'
-      }
-    ]
-  },
-  {
     key: 'alternativePitchControl',
     kind: 'optional-object',
     label: 'Alternative Pitch Control',
@@ -189,6 +164,6 @@ export const configSchema: FieldSchema[] = [
     key: 'remoteChatTTS',
     kind: 'optional-object',
     label: 'Remote Chat TTS',
-    objectFields: [{ key: 'busURL', kind: 'text', label: 'Bus URL', placeholder: 'ws://...' }]
+    objectFields: []
   }
 ];
