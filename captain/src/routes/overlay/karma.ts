@@ -15,9 +15,7 @@ import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
 import { DING_THRESHOLD, KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
 import { karmaStore } from './stores';
-
-const ANGLE_MIN = -Math.PI / 16;
-const ANGLE_MAX = Math.PI / 16;
+import { calculateAdjustmentNumbers, scurve, type ScaleSpriteAdjustmentNumbers } from './karmaModel';
 
 interface ScaleSpriteCollection {
   body: Sprite;
@@ -31,17 +29,6 @@ interface ScaleSpriteCollection {
   drawn: boolean;
 }
 
-interface ScaleSpriteAdjustmentNumbers {
-  handleRotation: number;
-  leftBowlPosition: PointData;
-  rightBowlPosition: PointData;
-}
-
-function scurve(x: number, k = 20) {
-  const t = Math.max(0.0, Math.min(x, 1.0));
-  return Math.pow(t, k) / (Math.pow(t, k) + Math.pow(1 - t, k));
-}
-
 export class KarmaContainer {
   private app: Application;
   private currentKarma: number = 0;
@@ -49,9 +36,6 @@ export class KarmaContainer {
   private collection: ScaleSpriteCollection | null = null;
   private showTimeout: NodeJS.Timeout | null = null;
   private clip: Sound | null = null;
-
-  private origLeftBowl = { x: -20, y: 0 };
-  private origRightBowl = { x: 21, y: 0 };
 
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
     sound.disableAutoPause = true;
@@ -108,7 +92,8 @@ export class KarmaContainer {
       clearTimeout(this.showTimeout);
     }
 
-    const adjustmentNumber = this.calculateAdjustmentNumbers(this.currentKarma, this.collection);
+    const currentAngle = this.collection.handle.rotation;
+    const adjustmentNumber = calculateAdjustmentNumbers(this.currentKarma, currentAngle, MIN_KARMA, MAX_KARMA);
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
     const totalKarmaText = new Text();
@@ -135,17 +120,8 @@ export class KarmaContainer {
     newKarmaText.x = totalKarmaText.x;
     newKarmaText.y = totalKarmaText.y + totalKarmaText.height;
 
-    // TODO: too lazy
-    // const messageText = new Text();
-    // messageText.text = message.slice(0, 20);
-    // messageText.style = new TextStyle({
-    //   fontSize: 18,
-    //   fill: 'blue'
-    // });
-
     this.app.stage.addChild(totalKarmaText);
     this.app.stage.addChild(newKarmaText);
-    // this.app.stage.addChild(messageText);
     if (Math.abs(diffKarma) >= DING_THRESHOLD && this.clip) {
       const clampedDiff = Math.min(Math.max(diffKarma, MIN_KARMA), MAX_KARMA);
       const svalue = scurve(((Math.abs(clampedDiff) - MIN_KARMA) / (MAX_KARMA - MIN_KARMA)) * 2);
@@ -159,81 +135,21 @@ export class KarmaContainer {
       this.undrawCollection(this.collection!, true, () => this.resetScale());
     }, 5000);
 
-    // independent timeout for the texts
     setTimeout(() => {
       const tl = gsap.timeline({
         onComplete: () => {
           this.app.stage.removeChild(newKarmaText);
           this.app.stage.removeChild(totalKarmaText);
-          // this.app.stage.removeChild(messageText);
         }
       });
       tl.to(newKarmaText, { opacity: 0 }).to(totalKarmaText, { opacity: 0 }, '<');
-      // .to(messageText, { opacity: 0 }, '<');
     }, 5000);
-  }
-
-  private moveScaleBowlByAngle(sprite: Sprite, angle: number, side: 'LEFT' | 'RIGHT'): PointData {
-    const origX = side === 'LEFT' ? this.origLeftBowl.x : this.origRightBowl.x;
-    const origY = side === 'LEFT' ? this.origLeftBowl.y : this.origRightBowl.y;
-
-    // NOTE: magic adjustment numbers to make it look right
-    const adjustment = (angle / (ANGLE_MAX - ANGLE_MIN)) * 6;
-
-    switch (side) {
-      case 'LEFT':
-        return {
-          x: origX * Math.cos(angle) - origY * Math.sin(angle) - adjustment,
-          y: origY * Math.cos(angle) + origX * Math.sin(angle)
-        };
-      case 'RIGHT':
-        return {
-          x: origX * Math.cos(angle) + origY * Math.sin(angle) + adjustment,
-          y: origY * Math.cos(angle) - origX * Math.sin(angle)
-        };
-    }
-  }
-
-  private calculateAdjustmentNumbers(
-    progress: number,
-    collection: ScaleSpriteCollection,
-    minProgress: number = MIN_KARMA,
-    maxProgress: number = MAX_KARMA
-  ): ScaleSpriteAdjustmentNumbers {
-    minProgress = Math.trunc(minProgress);
-    maxProgress = Math.trunc(maxProgress);
-
-    const clampedProgress = Math.max(Math.min(progress, maxProgress), minProgress);
-
-    const currentAngle = collection.handle.rotation;
-
-    let ratio = (clampedProgress - minProgress) / (maxProgress - minProgress);
-    ratio = scurve(ratio); // put ratio on s-curve
-
-    const targetAngle = ratio * (ANGLE_MAX - ANGLE_MIN) + ANGLE_MIN;
-
-    // move the scale using some trig
-    const leftTargetPosition = this.moveScaleBowlByAngle(
-      collection.leftBowl,
-      targetAngle - currentAngle,
-      'LEFT'
-    );
-    const rightTargetPosition = this.moveScaleBowlByAngle(
-      collection.rightBowl,
-      currentAngle - targetAngle,
-      'RIGHT'
-    );
-
-    return {
-      handleRotation: targetAngle,
-      leftBowlPosition: leftTargetPosition,
-      rightBowlPosition: rightTargetPosition
-    };
   }
 
   private resetScale() {
     if (this.collection === null) return;
-    const positionCalc = this.calculateAdjustmentNumbers(0, this.collection);
+    const currentAngle = this.collection.handle.rotation;
+    const positionCalc = calculateAdjustmentNumbers(0, currentAngle, MIN_KARMA, MAX_KARMA);
     this.moveToAdjustmentNumbers(this.collection!, positionCalc);
   }
 
@@ -242,7 +158,6 @@ export class KarmaContainer {
     target: ScaleSpriteAdjustmentNumbers,
     animated: boolean = false
   ) {
-    // TODO: use animation, but for now we just teleport
     if (animated) {
       const tl = gsap.timeline({ defaults: { ease: 'elastic.out(2)' } });
       tl.to(collection.handle, { rotation: target.handleRotation, delay: 2.273 })
@@ -328,7 +243,6 @@ export class KarmaContainer {
     invertFilter.matrix = [-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0];
     leftFire.filters = [invertFilter];
 
-    // positions the scale in the neutral position
     const container = new Container();
     container.addChild(handle);
     container.addChild(body);
