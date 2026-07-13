@@ -39,6 +39,7 @@ export class KarmaContainer {
   private updateGlobalKarma: (karma: number) => void;
   private collection: ScaleSpriteCollection | null = null;
   private showTimeout: NodeJS.Timeout | null = null;
+  private textTimeout: NodeJS.Timeout | null = null;
   private clip: Sound | null = null;
 
   constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
@@ -79,6 +80,9 @@ export class KarmaContainer {
     if (this.showTimeout) {
       clearTimeout(this.showTimeout);
     }
+    if (this.textTimeout) {
+      clearTimeout(this.textTimeout);
+    }
 
     const currentAngle = this.collection.handle.rotation;
     const adjustmentNumber = calculateAdjustmentNumbers(
@@ -90,7 +94,7 @@ export class KarmaContainer {
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
     const totalKarmaText = new Text();
-    totalKarmaText.text = `${this.currentKarma.toFixed(2)}`;
+    totalKarmaText.text = this.currentKarma.toFixed(2);
     totalKarmaText.style = new TextStyle({
       fontSize: 72,
       stroke: 'black',
@@ -101,9 +105,9 @@ export class KarmaContainer {
       this.collection.container.x + this.collection.container.width / 4 - totalKarmaText.width / 2;
     totalKarmaText.y = this.collection.container.y + this.collection.container.height;
 
-    const isNewKarmaPositive = diffKarma > 0 ? true : false;
+    const isNewKarmaPositive = diffKarma > 0;
     const newKarmaText = new Text();
-    newKarmaText.text = `${isNewKarmaPositive ? '+' : ''} ${diffKarma.toFixed(2)}`;
+    newKarmaText.text = `${isNewKarmaPositive ? '+' : ''}${diffKarma.toFixed(2)}`;
     newKarmaText.style = new TextStyle({
       fontSize: 54,
       stroke: 'black',
@@ -128,7 +132,7 @@ export class KarmaContainer {
       this.undrawCollection(this.collection!, true, () => this.resetScale());
     }, 5000);
 
-    setTimeout(() => {
+    this.textTimeout = setTimeout(() => {
       const tl = gsap.timeline({
         onComplete: () => {
           this.app.stage.removeChild(newKarmaText);

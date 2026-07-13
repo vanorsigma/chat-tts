@@ -150,9 +150,9 @@ export class ChatBulletContainer {
           this.cache.put(url, partGifTextures);
         }
 
-        if (!partGifTextures) return;
+        if (!partGifTextures) continue;
         const partGif = makeAnimatedSprite(partGifTextures);
-        if (!partGif) return;
+        if (!partGif) continue;
 
         partGif.scale.set(0.3);
         partGif.x = PADDING + x;

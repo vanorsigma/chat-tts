@@ -52,14 +52,16 @@ async function sevenSplitMessage(message: string): Promise<BulletPart[]> {
       (async () => {
         const emote = await is7TVEmote(EMOTE_SET_ID, potential);
         if (emote !== null) {
-          return {
-            imgsrc: emote.urls.filter((url) => url.includes('4x.webp'))[0] ?? ''
-          } as ImageBulletPart;
-        } else {
-          return {
-            text: potential
-          } as TextBulletPart;
+          const url4x = emote.urls.filter((url) => url.includes('4x.webp'))[0];
+          if (url4x) {
+            return {
+              imgsrc: url4x
+            } as ImageBulletPart;
+          }
         }
+        return {
+          text: potential
+        } as TextBulletPart;
       })()
     )
   );
