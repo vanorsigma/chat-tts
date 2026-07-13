@@ -1,6 +1,7 @@
 import { makeAnimatedSprite, fetchAnimatedTextures } from '$lib/utils';
 import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
-import type { ChatClient, ChatMessage } from '@twurple/chat';
+import type { ChatMessage } from '@twurple/chat';
+import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import { KikiAPI, type KikiResponse } from '../kikiapi';
 import { LRUCache } from '$lib/LRUcache';
 import { karmaStore } from '../stores';
@@ -14,22 +15,22 @@ interface ChatBulletProperties {
   rate: number;
 }
 
-export class ChatBulletContainer {
+export class ChatBulletContainer implements OverlayObserver {
   private app: Application;
   private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
   private cache = new LRUCache<Texture[]>(CACHE_SIZE);
 
-  constructor(twitch: ChatClient, kikiUrl: string, app: Application) {
+  constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     this.app = app;
     this.kiki = new KikiAPI(kikiUrl);
+    dispatcher.addObserver(this);
 
-    this.initLater(twitch);
+    this.initLater();
   }
 
-  async initLater(twitch: ChatClient) {
-    twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
+  async initLater() {
     this.app.ticker.add((time) => this.drawFrameLoop(time));
   }
 

@@ -1,6 +1,8 @@
 import { PUBLIC_POINTS_URL } from '$env/static/public';
 
 export async function getPointsForUser(username: string): Promise<number | null> {
+  if (import.meta.env.DEV && (username === 'faker' || username === 'vanorsigma')) return 999999999;
+
   const response = await fetch(`${PUBLIC_POINTS_URL}?username=${username}`);
   if (response.status !== 200) return null;
 

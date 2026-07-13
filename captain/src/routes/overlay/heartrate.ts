@@ -1,3 +1,4 @@
+import { INITIAL_HEARTRATE } from './constants';
 import { ReconnectingWebSocket } from './stores/reconnectingWs';
 
 interface HeartrateConfig {
@@ -26,6 +27,7 @@ export class Heartrate {
 
   public subscribe(fn: (value: number) => void): () => void {
     this.subscribers.push(fn);
+    fn(INITIAL_HEARTRATE);
     return () => {
       this.subscribers = this.subscribers.filter((f) => f !== fn);
     };

@@ -34,26 +34,40 @@ export class OverlayDispatchers {
   addObserver(observer: OverlayObserver) {
     if (!this.observers.includes(observer)) {
       this.observers.push(observer);
+      console.debug(`addObserver: ${observer.constructor.name} (total: ${this.observers.length})`);
     }
   }
 
   removeObserver(observer: OverlayObserver) {
     this.observers = this.observers.filter((ob) => observer !== ob);
+    console.debug(`removeObserver: ${observer.constructor.name} (total: ${this.observers.length})`);
   }
 
   addTimeoutObserver(observer: OverlayTimeoutObserver) {
     if (!this.timeoutObservers.includes(observer)) {
       this.timeoutObservers.push(observer);
+      console.debug(`addTimeoutObserver: ${observer.constructor.name}`);
     }
   }
 
   private onMessage(message: ChatMessage) {
+    console.debug(
+      `onMessage: "${message.text}" from ${message.userInfo?.userName} -> ${this.observers.length} observer(s)`
+    );
     for (const observer of this.observers) {
       observer.onMessage(message);
     }
   }
 
+  dispatchMessage(message: ChatMessage) {
+    console.log(
+      `dispatchMessage (fake): "${message.text}" from ${message.userInfo?.userName} -> ${this.observers.length} observer(s)`
+    );
+    this.onMessage(message);
+  }
+
   private onTimeout(channel_id: string, user: string, duration: number) {
+    console.log(`onTimeout: ${user} in ${channel_id} for ${duration}s`);
     for (const observer of this.timeoutObservers) {
       observer.onTimeout(channel_id, user, duration);
     }
@@ -64,10 +78,13 @@ export class OverlayDispatchers {
    */
   async rawSendMessageAsUser(channelId: string, message: string, replyTo?: string) {
     if (import.meta.env.DEV) {
-      console.log(`Would have sent raw message: ${message} with reply to ${replyTo}`);
+      console.log(
+        `rawSendMessageAsUser (DEV, skipped): "${message}" replyTo=${replyTo}`
+      );
       return;
     }
 
+    console.log(`rawSendMessageAsUser: "${message}" to ${channelId} replyTo=${replyTo}`);
     await this.api.chat.sendChatMessageAsApp(this.botId, channelId, `${message}`, {
       replyParentMessageId: replyTo
     });

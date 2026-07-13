@@ -23,21 +23,11 @@ export class Commands implements OverlayObserver {
     this.dispatchers = dispatchers;
   }
 
-  setBusURL(url: string) {
+  setBusSocket(ws: WebSocket) {
     if (this.busWs) {
       this.busWs.close();
     }
-
-    const ws = new WebSocket(url);
-    ws.onopen = (_) => {
-      console.log('ws open');
-      this.busWs = ws;
-    };
-
-    ws.onclose = (_) => {
-      console.log('ws close');
-      this.busWs = undefined;
-    };
+    this.busWs = ws;
   }
 
   callOnlyIfPastCooldown(

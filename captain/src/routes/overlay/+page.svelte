@@ -46,6 +46,7 @@
   import { TimeoutAnimation } from './timeoutanimation';
   import { buildSvgGraphFor } from './heartrateGraph';
   import { AudioPlayer } from './audioPlayer';
+  import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
 
   let chatBulletContainer: HTMLDivElement;
@@ -76,10 +77,14 @@
 
   let audioPlayer: AudioPlayer | undefined = undefined;
 
-  installConsoleHijack(PUBLIC_BUS_URL);
+  const busWs = new WebSocket(PUBLIC_BUS_URL);
+  installConsoleHijack(busWs);
   const ws = new WebSocket(PUBLIC_RECEIVER_URL);
   const checkInStore = createCheckInStore(ws);
   const makiStore = createMakiStore(ws);
+  installFakerReceiver(ws, PUBLIC_TARGET_CHANNEL_ID, (fake) => {
+    dispatchers?.dispatchMessage(fake);
+  });
 
   function onShowImageLoad(event: Event) {
     const target = event.target;
@@ -107,25 +112,33 @@
   let maxwellContainerInstance: MaxwellContainer | undefined = undefined;
 
   onMount(async () => {
+    console.log('Initializing...');
     const modelUpdater = new ModelUpdater();
     client = createNewTwitchClientV2('vanorsigma');
+    console.log('Twitch client created');
     stockMarket.setHeartrateObject(heartrate);
     heartrate.subscribe((hr: number) => {
       modelUpdater.setBlendShape('Blush', hr < BLUSH_HR_THRESHOLD ? 0.0 : 1.0);
       modelUpdater.setBlendShape('Despair', hr < DESPAIR_HR_THRESHOLD ? 1.0 : 0.0);
     });
     let gameApplication = await makeApplication(chatBulletContainer);
+    console.log('Pixi application ready');
     let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
 
-    maxwellContainerInstance = new MaxwellContainer(gameApplication);
-    chatBulletBackend = new ChatBulletContainer(client, PUBLIC_KIKI_API, gameApplication);
-    const _ = new KarmaContainer(client, gameApplication, karmaStore.updateKarma);
     dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
+    console.log('Dispatchers created');
+
+    maxwellContainerInstance = new MaxwellContainer(gameApplication);
+    chatBulletBackend = new ChatBulletContainer(dispatchers, PUBLIC_KIKI_API, gameApplication);
+    console.log('Chat bullet container created');
+    const _ = new KarmaContainer(dispatchers, gameApplication, karmaStore.updateKarma);
+    console.log('Karma container created');
     let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
     let commands = new Commands(dispatchers);
-    commands.setBusURL(PUBLIC_BUS_URL);
+    commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);
     client.connect();
+    console.log('Twitch connected');
 
     audioPlayer = new AudioPlayer(dispatchers);
     audioPlayer.start();

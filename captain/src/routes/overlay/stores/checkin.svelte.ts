@@ -31,7 +31,7 @@ export function createCheckInStore(receiver: WebSocket) {
           break;
 
         default:
-          console.log('unknown message in bus, ignoring...');
+          break;
       }
     }
   });

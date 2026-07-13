@@ -1,15 +1,14 @@
-import type { ChatClient, ChatMessage } from '@twurple/chat';
+import type { ChatMessage } from '@twurple/chat';
+import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import {
   AnimatedSprite,
   Assets,
   ColorMatrixFilter,
   Container,
-  ObservablePoint,
   Sprite,
   Text,
   TextStyle,
   type Application,
-  type PointData
 } from 'pixi.js';
 import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
@@ -33,7 +32,7 @@ interface ScaleSpriteCollection {
   drawn: boolean;
 }
 
-export class KarmaContainer {
+export class KarmaContainer implements OverlayObserver {
   private app: Application;
   private currentKarma: number = 0;
   private updateGlobalKarma: (karma: number) => void;
@@ -42,23 +41,24 @@ export class KarmaContainer {
   private textTimeout: NodeJS.Timeout | null = null;
   private clip: Sound | null = null;
 
-  constructor(twitch: ChatClient, app: Application, updateGlobalKarma: (karma: number) => void) {
+  constructor(dispatcher: OverlayDispatchers, app: Application, updateGlobalKarma: (karma: number) => void) {
     sound.disableAutoPause = true;
     this.app = app;
     this.updateGlobalKarma = updateGlobalKarma;
+    dispatcher.addObserver(this);
     karmaStore.subscribe((karma, oldKarma, message) => {
       this.currentKarma = karma;
       if (message) {
         this.updateScale(karma - oldKarma, message);
       }
     });
-    this.initLater(twitch);
+    this.initLater();
   }
 
-  async initLater(twitch: ChatClient) {
-    twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
+  async initLater() {
     this.collection = await this.loadScaleSprites();
     this.clip = Sound.from('/judgement.m4a');
+    console.log('KarmaContainer initialized');
   }
 
   async onMessage(message: ChatMessage) {
@@ -139,7 +139,7 @@ export class KarmaContainer {
           this.app.stage.removeChild(totalKarmaText);
         }
       });
-      tl.to(newKarmaText, { opacity: 0 }).to(totalKarmaText, { opacity: 0 }, '<');
+      tl.to(newKarmaText, { alpha: 0 }).to(totalKarmaText, { alpha: 0 }, '<');
     }, 5000);
   }
 

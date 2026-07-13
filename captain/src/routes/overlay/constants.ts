@@ -64,6 +64,7 @@ export const DING_THRESHOLD = 250.0;
 export const KARMA_DECAY_RATE = 0.01;
 
 // Model Updates
+export const INITIAL_HEARTRATE = 50;
 export const BLUSH_HR_THRESHOLD = 80;
 export const DESPAIR_HR_THRESHOLD = 50;
 

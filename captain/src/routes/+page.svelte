@@ -6,13 +6,16 @@
   import { writable } from 'svelte/store';
   import type { LogMessage } from '$lib/bus/messages';
 
+  type LogLine = LogMessage & { _id: number };
+  let _nextLogId = 0;
+
   let configData: Record<string, unknown> | null = null;
   let saveStatus = '';
 
   let tail = false;
   let configCollapsed = false;
 
-  const logs = writable<LogMessage[]>([]);
+  const logs = writable<LogLine[]>([]);
   let receiverWs: WebSocket | undefined;
   let senderWs: WebSocket | undefined;
 
@@ -29,7 +32,8 @@
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'log') {
-          logs.update((l) => [...l.slice(-500), msg as LogMessage]);
+          const line: LogLine = { ...msg as LogMessage, _id: _nextLogId++ };
+          logs.update((l) => [...l.slice(-500), line]);
         }
       } catch {
         // ignore
@@ -96,11 +100,10 @@
   }
 
   const scrollToBottom = (node: HTMLElement, _data: unknown[]) => {
-    const scroll = () =>
-      node.scroll({
-        top: node.scrollHeight,
-        behavior: 'smooth'
-      });
+    const scroll = () => {
+      if (!tail) return;
+      node.scrollTop = node.scrollHeight;
+    };
     scroll();
 
     return { update: scroll };
@@ -150,7 +153,7 @@
     Tail
   </label>
   <div use:scrollToBottom={$logs} class="chatlogs logs">
-    {#each $logs as entry}
+    {#each $logs as entry (entry._id)}
       <p class="log-{entry.level}" title={new Date(entry.ts).toLocaleTimeString()}>
         [{entry.level.toUpperCase()}] {entry.msg}
       </p>

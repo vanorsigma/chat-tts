@@ -1,35 +1,15 @@
 import type { LogMessage } from '$lib/bus/messages';
 
-const RECONNECT_DELAY = 2000;
-
 type BroadcastFn = (msg: LogMessage) => void;
 
 let broadcastFn: BroadcastFn | null = null;
 let _hijacked = false;
-let ws: WebSocket | null = null;
 
-function connect(busUrl: string) {
-  console.log(`[Overlay] Connecting to bus at ${busUrl}...`);
-
-  ws = new WebSocket(busUrl);
-  ws.onopen = () => {
-    console.log('[Overlay] Connected to the bus');
-
-    broadcastFn = (entry: LogMessage) => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(entry));
-      }
-    };
-  };
-
-  ws.onclose = () => {
-    console.warn('[Overlay] Disconnected from bus, retrying...');
-    broadcastFn = null;
-    setTimeout(() => connect(busUrl), RECONNECT_DELAY);
-  };
-
-  ws.onerror = () => {
-    console.error('[Overlay] Unable to connect to the bus, retrying...');
+function makeBroadcastFn(ws: WebSocket): BroadcastFn {
+  return (entry: LogMessage) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(entry));
+    }
   };
 }
 
@@ -43,9 +23,21 @@ function safeSend(entry: LogMessage) {
   }
 }
 
-export function installConsoleHijack(busUrl: string) {
+export function installConsoleHijack(busSocket: WebSocket) {
   if (_hijacked) return;
   _hijacked = true;
+
+  if (busSocket.readyState === WebSocket.OPEN) {
+    broadcastFn = makeBroadcastFn(busSocket);
+  }
+
+  busSocket.addEventListener('open', () => {
+    broadcastFn = makeBroadcastFn(busSocket);
+  });
+
+  busSocket.addEventListener('close', () => {
+    broadcastFn = null;
+  });
 
   const levels = {
     log: 'info',
@@ -87,6 +79,5 @@ export function installConsoleHijack(busUrl: string) {
   console.error = makeLogger('error');
   console.debug = makeLogger('debug');
 
-  connect(busUrl);
-  console.log('[Overlay] Console hijack installed');
+  console.log('Console hijack installed');
 }

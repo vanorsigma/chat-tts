@@ -10,7 +10,6 @@ export function createMakiStore(ws: WebSocket) {
   let timer: NodeJS.Timeout | null = null;
 
   ws.addEventListener('message', (message_event) => {
-    console.log('received', message_event);
     const data = JSON.parse(message_event.data);
     switch (data['type']) {
       case 'makioutputmessage': {
