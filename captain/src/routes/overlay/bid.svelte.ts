@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@twurple/chat';
 import { OverlayDispatchers, type OverlayObserver } from './dispatcher';
-import { biddingStore } from './stores.svelte';
+import { biddingStore } from './stores';
 
 export type Bids = Map<string, number>;
 

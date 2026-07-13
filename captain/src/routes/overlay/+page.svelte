@@ -34,7 +34,7 @@
     createMakiStore,
     karmaStore,
     biddingStore
-  } from './stores.svelte';
+  } from './stores';
   import { CaptchaObserver } from './captcha';
   import { Heartrate } from './heartrate';
   import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';

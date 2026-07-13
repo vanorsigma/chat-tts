@@ -1,5 +1,5 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
-import { pollStore } from './stores.svelte';
+import { pollStore } from './stores';
 import type { ChatMessage } from '@twurple/chat';
 
 export let GLOBAL_POLL_LOCK = false;

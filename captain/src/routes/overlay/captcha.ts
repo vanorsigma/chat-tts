@@ -1,7 +1,7 @@
 import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import type { ChatMessage } from '@twurple/chat';
-import { karmaStore } from './stores.svelte';
+import { karmaStore } from './stores';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CAPTCHA_POINTS = 500;

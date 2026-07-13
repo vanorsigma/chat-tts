@@ -10,7 +10,7 @@ import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.j
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import { KikiAPI, type KikiResponse } from './kikiapi';
 import { LRUCache } from '$lib/LRUcache';
-import { karmaStore } from './stores.svelte';
+import { karmaStore } from './stores';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 // const EMOTE_SET_ID = '01JHTZC2NY67T9GHVWYQ40BPP2';

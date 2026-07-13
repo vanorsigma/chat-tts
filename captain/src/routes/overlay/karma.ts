@@ -14,7 +14,7 @@ import {
 import { filters, Sound, sound } from '@pixi/sound';
 import gsap from 'gsap';
 import { DING_THRESHOLD, KARMA_MAP, MAX_KARMA, MIN_KARMA } from './constants';
-import { karmaStore } from './stores.svelte';
+import { karmaStore } from './stores';
 
 const ANGLE_MIN = -Math.PI / 16;
 const ANGLE_MAX = Math.PI / 16;

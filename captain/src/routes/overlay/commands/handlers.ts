@@ -8,7 +8,7 @@ import {
   mistakeStore,
   playAudioStore,
   showImageStore
-} from '../stores.svelte';
+} from '../stores';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import { GLOBAL_HEART_STOCK_MARKET } from '../heartstockmarket.svelte';
