@@ -1,20 +1,19 @@
 import { writable, type Readable, type Writable } from 'svelte/store';
 import { createNewTwitchClientV2 } from '../twitch';
-import { getVoicesList } from '../speech';
 import type { FullConfig } from '../config';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
 import { CommandController } from './command';
 import type { SongController } from './song';
-import { RemoteSongController, LocalSongController } from './song';
+import { RemoteSongController } from './song';
 import { TrinketController } from './trinket';
 import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatTTS';
-import { RemoteVoiceController, LocalVoiceController, type VoiceController } from './voice';
+import { RemoteVoiceController, type VoiceController } from './voice';
 import { ObsController } from './obs';
 import { RefreshVoice } from '../commands';
 
 const shortnameMatcher = /<(.*)>/g;
 
-export { LocalSongController, TrinketController, ObsController };
+export { TrinketController, ObsController };
 
 export class Controller implements ChatTTSOrchestrator {
   chat_logs: Writable<string[]>;
@@ -40,19 +39,22 @@ export class Controller implements ChatTTSOrchestrator {
   }
 
   constructor(config: FullConfig) {
+    if (!config.remoteVoiceConfig) {
+      throw new Error('remoteVoiceConfig is required when running on the backend');
+    }
+    if (!config.standaloneSongConfig) {
+      throw new Error('standaloneSongConfig is required when running on the backend');
+    }
+
     this.chat_logs = writable([]);
     this.twitch = createNewTwitchClientV2(config.channelName);
-    this.voice = config.remoteVoiceConfig
-      ? new RemoteVoiceController(config)
-      : new LocalVoiceController(config);
+    this.voice = new RemoteVoiceController(config);
     this.commands = new CommandController();
     if (config.obsSettings) {
       this.obsController = new ObsController(config.obsSettings);
     }
     this.filters = config.filteredExps;
-    this.songController = config.standaloneSongConfig
-      ? new RemoteSongController(config.standaloneSongConfig.wsUrl)
-      : new LocalSongController();
+    this.songController = new RemoteSongController(config.standaloneSongConfig.wsUrl);
 
     this.trinketController =
       config.distractConfig != null
@@ -182,9 +184,5 @@ export class Controller implements ChatTTSOrchestrator {
 
   getChatLogsStore(): Readable<string[]> {
     return this.chat_logs;
-  }
-
-  getVoicesList(): SpeechSynthesisVoice[] {
-    return getVoicesList();
   }
 }
