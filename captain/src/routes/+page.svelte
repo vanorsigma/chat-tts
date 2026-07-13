@@ -1,19 +1,19 @@
 <script lang="ts">
   import ConfigEditor from '$lib/ConfigEditor.svelte';
-  import { Controller } from '$lib/controllers';
   import Faker from '$lib/Faker.svelte';
   import { configSchema } from '$lib/config/schema';
   import { onDestroy, onMount } from 'svelte';
-  import { readable, writable } from 'svelte/store';
+  import { writable } from 'svelte/store';
   import type { LogMessage } from '$lib/bus/messages';
+
   let configData: Record<string, unknown> | null = null;
-  let controller: Controller | undefined;
   let saveStatus = '';
 
   let tail = false;
 
   const logs = writable<LogMessage[]>([]);
-  let ws: WebSocket | undefined;
+  let receiverWs: WebSocket | undefined;
+  let senderWs: WebSocket | undefined;
 
   onMount(() => {
     fetch('/api/config')
@@ -23,8 +23,8 @@
       })
       .catch(() => {});
 
-    ws = new WebSocket('ws://localhost:3001/receivers');
-    ws.onmessage = (event) => {
+    receiverWs = new WebSocket('ws://localhost:3001/receivers');
+    receiverWs.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'log') {
@@ -34,11 +34,44 @@
         // ignore
       }
     };
+
+    senderWs = new WebSocket('ws://localhost:3001/senders');
+
+    function ensureOpen(cb: () => void) {
+      if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+        cb();
+      } else if (senderWs) {
+        senderWs.addEventListener('open', cb, { once: true });
+      }
+    }
+
+    (window as unknown as Record<string, unknown>)._sendBus = (msg: object) => {
+      ensureOpen(() => senderWs!.send(JSON.stringify(msg)));
+    };
   });
 
   onDestroy(() => {
-    ws?.close();
+    receiverWs?.close();
+    senderWs?.close();
   });
+
+  function sendBus(msg: object) {
+    if (senderWs?.readyState === WebSocket.OPEN) {
+      senderWs.send(JSON.stringify(msg));
+    }
+  }
+
+  function onFaker(text: string) {
+    sendBus({ type: 'faker', text });
+  }
+
+  function onCancelSpeech() {
+    sendBus({ type: 'control', op: 'cancel' });
+  }
+
+  function onBlackSilence() {
+    sendBus({ type: 'control', op: 'blackSilence' });
+  }
 
   async function onSaveConfig() {
     if (!configData) return;
@@ -61,7 +94,6 @@
     setTimeout(() => (saveStatus = ''), 3000);
   }
 
-  $: chatLogsStore = controller?.getChatLogsStore() ?? readable([]);
   const scrollToBottom = (node: HTMLElement, _data: unknown[]) => {
     const scroll = () =>
       node.scroll({
@@ -72,18 +104,6 @@
 
     return { update: scroll };
   };
-
-  function onCancelSpeech() {
-    controller?.cancel();
-  }
-
-  function onBlackSilence() {
-    controller?.trinketController?.enable(controller?.trinketController.enabled);
-  }
-
-  onDestroy(() => {
-    controller?.end();
-  });
 </script>
 
 <svelte:head>
@@ -95,8 +115,8 @@
 
 <section>
   <h2>Faker</h2>
-  <p>Sends a mock message to the chat logs</p>
-  <Faker onSend={(state, msg) => controller?.updateWithMessage(state, msg)} />
+  <p>Sends a mock message to test TTS</p>
+  <Faker onSend={onFaker} />
 </section>
 
 <section>
@@ -108,27 +128,14 @@
       <span class="save-status">{saveStatus}</span>
     {/if}
   {:else}
-    <p>No config loaded. Create one below or upload a config.yml file.</p>
+    <p>No config loaded. Create one or upload a config.yml file.</p>
   {/if}
 </section>
 
 <section>
-  <h2>Chat logs</h2>
-  <label for="tail">
-    <input name="tail" type="checkbox" bind:checked={tail} />
-    Tail
-  </label>
-  <label for="cancel">
-    <button name="cancel" on:click={onCancelSpeech}>Cancel Speech</button>
-  </label>
-  <label for="black-silence">
-    <button name="black-silence" on:click={onBlackSilence}>Black Silence</button>
-  </label>
-  <div use:scrollToBottom={$chatLogsStore} class="chatlogs">
-    {#each $chatLogsStore as message}
-      <p>{message}</p>
-    {/each}
-  </div>
+  <h2>Controls</h2>
+  <button on:click={onCancelSpeech}>Cancel Speech</button>
+  <button on:click={onBlackSilence}>Black Silence</button>
 </section>
 
 <section>
@@ -150,6 +157,8 @@
   section {
     display: flex;
     flex-direction: column;
+    gap: 0.3em;
+    margin-bottom: 1em;
   }
 
   button {

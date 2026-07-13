@@ -5,6 +5,7 @@ import { parse } from 'yaml';
 import { setBroadcastFn } from './logger';
 import { Controller } from '$lib/controllers';
 import { ParseableConfig } from '$lib/config';
+import { createFakeMessage } from '$lib/bus/fakeMessage';
 import type { FakerMessage, ControlMessage } from '$lib/bus/messages';
 
 const BUS_URL = 'ws://localhost:3001';
@@ -16,8 +17,6 @@ let _initialized = false;
 let senderWs: WebSocket | null = null;
 let receiverWs: WebSocket | null = null;
 let _configWatcher: ReturnType<typeof watch> | null = null;
-let fakerHandler: ((msg: FakerMessage) => void) | null = null;
-let controlHandler: ((msg: ControlMessage) => void) | null = null;
 
 function wireLogger() {
   setBroadcastFn((entry) => {
@@ -25,6 +24,33 @@ function wireLogger() {
       senderWs.send(JSON.stringify(entry));
     }
   });
+}
+
+function handleFaker(msg: FakerMessage) {
+  if (!controller) {
+    console.warn('No controller active, ignoring faker message');
+    return;
+  }
+  const fake = createFakeMessage(msg.text, msg.displayName);
+  controller.updateWithMessage(fake);
+}
+
+function handleControl(msg: ControlMessage) {
+  if (!controller) {
+    console.warn('No controller active, ignoring control message');
+    return;
+  }
+  switch (msg.op) {
+    case 'cancel':
+      controller.cancel();
+      break;
+    case 'blackSilence':
+      controller.trinketController?.enable(controller.trinketController?.enabled);
+      break;
+    case 'setEnabled':
+      controller.setEnabled(msg.enabled ?? !controller.enabled);
+      break;
+  }
 }
 
 function connectToBus() {
@@ -40,10 +66,10 @@ function connectToBus() {
   receiverWs.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      if (msg.type === 'faker' && fakerHandler) {
-        fakerHandler(msg as FakerMessage);
-      } else if (msg.type === 'control' && controlHandler) {
-        controlHandler(msg as ControlMessage);
+      if (msg.type === 'faker') {
+        handleFaker(msg as FakerMessage);
+      } else if (msg.type === 'control') {
+        handleControl(msg as ControlMessage);
       }
     } catch {
       // ignore malformed messages
@@ -97,14 +123,6 @@ export function initializeRuntime() {
 
 export function getController(): Controller | null {
   return controller;
-}
-
-export function setFakerHandler(handler: (msg: FakerMessage) => void) {
-  fakerHandler = handler;
-}
-
-export function setControlHandler(handler: (msg: ControlMessage) => void) {
-  controlHandler = handler;
 }
 
 export { BUS_URL as getBusUrl };

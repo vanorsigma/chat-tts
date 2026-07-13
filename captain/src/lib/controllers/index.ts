@@ -1,4 +1,3 @@
-import { writable, type Readable, type Writable } from 'svelte/store';
 import { createNewTwitchClientV2 } from '../twitch';
 import type { FullConfig } from '../config';
 import type { ChatClient, ChatMessage } from '@twurple/chat';
@@ -16,7 +15,6 @@ const shortnameMatcher = /<(.*)>/g;
 export { TrinketController, ObsController };
 
 export class Controller implements ChatTTSOrchestrator {
-  chat_logs: Writable<string[]>;
   twitch: ChatClient;
   voice: VoiceController;
   commands: CommandController;
@@ -46,7 +44,6 @@ export class Controller implements ChatTTSOrchestrator {
       throw new Error('standaloneSongConfig is required when running on the backend');
     }
 
-    this.chat_logs = writable([]);
     this.twitch = createNewTwitchClientV2(config.channelName);
     this.voice = new RemoteVoiceController(config);
     this.commands = new CommandController();
@@ -80,12 +77,6 @@ export class Controller implements ChatTTSOrchestrator {
     return message.trim().startsWith(ignore_prefix);
   }
 
-  updateChatLog(entry: string) {
-    this.chat_logs.update((val) => {
-      return [...val, entry];
-    });
-  }
-
   private async _matchAndPlaySong(message: string) {
     const matches = [...message.matchAll(shortnameMatcher)];
     if (matches && matches[0] && matches[0].length > 0) {
@@ -102,7 +93,7 @@ export class Controller implements ChatTTSOrchestrator {
       (!message.userInfo.isMod && !message.userInfo.isVip
         ? this.isFiltered(message.text)
         : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
-    this.updateChatLog(
+    console.log(
       `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
     );
 
@@ -180,9 +171,5 @@ export class Controller implements ChatTTSOrchestrator {
   async end() {
     this.twitch.quit();
     await this.cancel();
-  }
-
-  getChatLogsStore(): Readable<string[]> {
-    return this.chat_logs;
   }
 }

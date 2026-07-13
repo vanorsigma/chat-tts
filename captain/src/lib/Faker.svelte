@@ -1,20 +1,9 @@
 <script lang="ts">
-  import type { ChatMessage, ChatUser } from '@twurple/chat';
-
   let message = '';
-  export let onSend: (arg0: ChatMessage) => void;
+  export let onSend: (text: string) => void;
 
   function handleSend() {
-    onSend({
-      userInfo: {
-        id: '12345678',
-        displayName: 'Faker',
-        userName: 'faker',
-        color: '#000000',
-        emotes: new Map()
-      } as any as ChatUser,
-      text: message
-    } as any as ChatMessage);
+    onSend(message);
     message = '';
   }
 </script>

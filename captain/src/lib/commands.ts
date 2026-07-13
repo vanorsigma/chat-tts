@@ -8,7 +8,7 @@ export abstract class Command {
 export class RefreshVoice extends Command {
   async processCommandMessage(controller: Controller, message: ChatMessage) {
     controller.voice.refreshUser(message.userInfo);
-    controller.updateChatLog(`${message.userInfo.userName}'s voice was refreshed.`);
+    console.log(`${message.userInfo.userName}'s voice was refreshed.`);
     return true;
   }
 }
@@ -25,9 +25,7 @@ export class Rotate extends Command {
       this.lastTimestamp + (controller.config.distractConfig?.rotateCooldown ?? 0) * 1000 >
       Date.now()
     ) {
-      controller.updateChatLog(
-        `${message.userInfo.userName} tried to rotate, but it was under cooldown.`
-      );
+      console.log(`${message.userInfo.userName} tried to rotate, but it was under cooldown.`);
       return true;
     }
     this.lastTimestamp = Date.now();
@@ -37,7 +35,7 @@ export class Rotate extends Command {
     );
     await controller.trinketController?.sendRotate();
 
-    controller.updateChatLog(`${message.userInfo.userName} rotated the screen.`);
+    console.log(`${message.userInfo.userName} rotated the screen.`);
     return true;
   }
 }
@@ -54,7 +52,7 @@ export class Distract extends Command {
       this.lastTimestamp + (controller.config.distractConfig?.distractCooldown ?? 0) * 1000 >
       Date.now()
     ) {
-      controller.updateChatLog(
+      console.log(
         `${message.userInfo.userName} tried to send a distraction, but it was under cooldown.`
       );
       return true;
@@ -63,7 +61,7 @@ export class Distract extends Command {
     this.lastTimestamp = Date.now();
     await controller.trinketController.sendDistract();
 
-    controller.updateChatLog(`${message.userInfo.userName} sent a distraction.`);
+    console.log(`${message.userInfo.userName} sent a distraction.`);
     return true;
   }
 }
