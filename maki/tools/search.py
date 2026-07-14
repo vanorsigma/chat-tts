@@ -4,12 +4,14 @@ Search Tool
 
 import aiohttp
 
-from pydantic_ai import RunContext, Tool
+from pydantic_ai import Tool
+
+from config import MakiConfig
 
 
 class SearchTool:
-    def __init__(self, config: dict[str, dict[str, str]]) -> None:
-        self.api_key = config["search"]["api_key"]
+    def __init__(self, config: MakiConfig) -> None:
+        self.api_key = config.search_api_key
 
     async def search(self, query: str) -> str:
         """Searches the internet for a particular query
@@ -21,7 +23,7 @@ class SearchTool:
             str: JSON response (in string format)
         """
         url = "https://api.search.brave.com/res/v1/web/search"
-        print("[SEARCH] Search tool called")
+        print(f'[SEARCH] Search tool called: query="{query}"')
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(
@@ -35,14 +37,19 @@ class SearchTool:
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    print(f"[SEARCH] Returned {data}")
+                    result_count = len(data.get("web", {}).get("results", []))
+                    print(
+                        f'[SEARCH] Returned {result_count} results for query="{query}"'
+                    )
                     return str(data)
 
             except aiohttp.ClientResponseError as e:
-                print(f"[SEARCH] HTTP Error: {e.status} - {e.message}")
+                print(
+                    f'[SEARCH] HTTP Error: {e.status} - {e.message} (query="{query}")'
+                )
                 return "search error"
             except Exception as e:
-                print(f"[SEARCH] An error occurred: {str(e)}")
+                print(f'[SEARCH] An error occurred: {str(e)} (query="{query}")')
                 return "search error"
 
     def get_tools(self) -> list[Tool]:

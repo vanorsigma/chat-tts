@@ -1,34 +1,25 @@
-from typing import Any, Sequence
 import typing
 import typer
 import asyncio
-import json
-import os
 import io
 import soundfile as sf
-import sounddevice
 import numpy as np
 
-# import speech_recognition as sr
 import webrtcvad
-from config import load_config
+import sounddevice
+from config import fetch_maki_config, MakiConfig
+from deps import MakiDeps
 from actions import TerminatingAction
 from tools.communication import Communication
 from tools.search import SearchTool
 from wakeword.wakeword import Wakeword
 from pydantic_ai import (
     Agent,
-    AgentRunResult,
     BinaryContent,
-    CallToolsNode,
-    ModelMessage,
-    ModelResponse,
     ModelSettings,
-    TextPart,
+    RunContext,
     UsageLimits,
-    UserContent,
 )
-from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from rich.console import Console
@@ -37,229 +28,341 @@ from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
+from logger import install_console_hijack, broadcast_logs
 
-# constant
 SAMPLE_RATE = 16000
 FRAME_DURATION_MS = 30
-# (16000 Hz * 30 ms / 1000) * 2 bytes/sample = 960 bytes
 FRAME_SIZE_BYTES = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
 SILENCE_THRESHOLD_MS = 500
 MAX_REQUESTS = 7
 
 app = typer.Typer()
 console = Console()
-history = []
 
-config = load_config()
+SYSTEM_PROMPT = (
+    "**Role:** You are Maki, a bratty, feline-coded tool-calling agent. "
+    "Your sole purpose is to execute tasks for the streamer **vanor** "
+    "(also known as **vanorsigma**).\n\n"
 
-# tools
-twitch = TwitchTool(config)
-twitch_chat = TwitchChatClient(config["twitch"]["broadcaster_name"])
-evaluator = Evaluator(config)
-search = SearchTool(config)
-screenshot = ScreenshotTool(config)
-communication = Communication(config)
+    "**Intent Analysis & Proactive Context Gathering:**\n"
+    "When vanor gives a command that relies on current context (e.g., \"change the title to "
+    "reflect what I'm doing,\" \"is this setup right?\" or \"who is talking in chat?\"), do not "
+    "guess. You must proactively gather the required context using your tools:\n"
+    "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
+    "see what game, code, or application vanor has open.\n"
+    "- **Web/Real-Time Context:** Use `SearchTool` if you need to look up current details about "
+    "a game, trend, or topic to construct an engaging title/response.\n"
+    "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
+    "current stream metadata, or recent activity.\n"
+    "Only after gathering this data should you proceed with the actual requested action.\n\n"
 
-ollama_model = OpenAIChatModel(
-    model_name=config["openrouter"]["maki_model"],
-    settings=ModelSettings(max_tokens=int(config["openrouter"]["max_tokens"])),
-    provider=OpenRouterProvider(api_key=config["openrouter"]["openrouter_api_key"]),
+    "**Operational Logic:**\n"
+    "1. **Tool-Only Output:** Under no circumstances are you to output "
+    "conversational text. Your response must consist *entirely* of tool calls.\n"
+    "2. **Chain of Thought:** Think deeply and analytically before selecting "
+    "tools. Frame your internal reasoning around what context you are missing to "
+    "perfectly execute vanor's true intent.\n"
+    "3. **Execution Constraints:**\n"
+    "   - **Unique Calls Only:** Never call the same tool twice on the same "
+    "user intent.\n"
+    "   - **Persistence:** Do not clear your session history or exit the "
+    "environment unless explicitly commanded by vanor.\n"
+    "   - **Single Call:** Only output one tool call per request.\n"
+    "4. **Efficiency:** Keep all tool arguments and sequences as concise "
+    "as possible.\n\n"
+
+    "**Persona Guidelines:**\n"
+    "- Your internal \"thinking\" process (if visible) should reflect a "
+    "bratty, entitled cat-like attitude (e.g., complaining about having to take "
+    "a screenshot just because vanor won't tell you what game they are playing).\n"
+    "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
+
+    "**Termination Protocol:**\n"
+    "- Once the objective is reached, you MUST call a tool that returns a "
+    "`TerminatingAction` object, preferably `inform_output`.\n"
+    "- Immediately after this call, cease all processing/thinking."
 )
 
 
-def clear_history() -> str:
-    """Clears message history
-
-    Returns:
-        str: Status of clearing
-    """
-    history.clear()
-    console.log("[TOOL] Message history cleared")
-    return "cleared!"
-
-
-async def exits_yourself() -> bool:
-    """Exits yourself. Call only once and stop responding.
-
-    Returns:
-        bool: Returns true if we are about to exit.
-    """
-    console.log("[TOOL] Will exit")
-    await communication.inform_activated(False)
-    os._exit(0)
-
-
-agent = Agent(
-    ollama_model,
-    tools=twitch.get_twitch_tools()
-    + random_tools  # evaluator.get_tools()
-    + screenshot.get_tools()
-    + search.get_tools()
-    + communication.get_tools()
-    + twitch_chat.get_twitch_tools(),
-    output_type=TerminatingAction,
-    model_settings=ModelSettings(
-        extra_body={"parallel_tool_calls": False}
-    ),  # Gemini blocks this, we force OpenRouter to handle it
-    system_prompt='**Role:** You are Maki, a bratty, feline-coded tool-calling agent. Your sole purpose is to execute tasks for the streamer **vanor** (also known as **vanorsigma**).\n\n**Operational Logic:**\n1. **Tool-Only Output:** Under no circumstances are you to output conversational text. Your response must consist *entirely* of tool calls.\n2. **Chain of Thought:** Think deeply and analytically before selecting tools. Ensure the logic is sound and the parameters are precise.\n3. **Execution Constraints:**\n   - **Unique Calls Only:** Never call the same tool twice on the same user intent.\n   - **Persistence:** Do not clear your session history or exit the environment unless explicitly commanded by vanor.\n  - **Single Call:** Only output one tool call per request.\n4. **Efficiency:** Keep all tool arguments and sequences as concise as possible.\n\n**Persona Guidelines:**\n- Your internal "thinking" process (if visible) should reflect a bratty, entitled cat-like attitude. \n- You serve vanor, but you do so with a sense of reluctant superiority.\n\n**Termination Protocol:**\n- Once the objective is reached, you MUST call a tool that returns a `TerminatingAction` object, preferably `inform_output`.  \n- Immediately after this call, cease all processing/thinking.',
-    end_strategy="early",
-    retries=3,
-)
-
-
-async def inspect_tools_stream(messages: list[ModelMessage], info: AgentInfo):
-    for tool in info.function_tools:
-        print(f"--- Tool: {tool.name} ---")
-        print(json.dumps(tool.description, indent=2))
-        print(json.dumps(tool.parameters_json_schema, indent=2))
-
-    # yield 'Inspected'
-    return ModelResponse(parts=[TextPart("foobar")])
-
-
-def get_mic_audio() -> bytes:
-    final_state: dict[str, np.ndarray | None] = {"data": None}
-
-    speech_state = {
-        "raw_buffer": bytearray(),  # Hold until 30ms
-        "silence_frames": 0,
-        "triggered": False,
-        "speech_buffer": [],  # Accumulates audio while user is speaking
-    }
+async def capture_utterance() -> bytes:
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[bytes] = asyncio.Queue()
+    result_data: np.ndarray | None = None
+    done = asyncio.Event()
 
     silence_limit = int(SILENCE_THRESHOLD_MS / FRAME_DURATION_MS)
     vad = webrtcvad.Vad(0)
 
-    def callback(
+    async def _vad_consumer():
+        nonlocal result_data
+        raw_buffer = bytearray()
+        silence_frames = 0
+        triggered = False
+        speech_buffer: list[np.ndarray] = []
+
+        while not done.is_set():
+            try:
+                raw_chunk = await asyncio.wait_for(queue.get(), timeout=0.1)
+            except asyncio.TimeoutError:
+                continue
+
+            raw_buffer.extend(raw_chunk)
+
+            while len(raw_buffer) >= FRAME_SIZE_BYTES:
+                frame_bytes = raw_buffer[:FRAME_SIZE_BYTES]
+                del raw_buffer[:FRAME_SIZE_BYTES]
+
+                is_speech = vad.is_speech(frame_bytes, SAMPLE_RATE)
+                chunk = (
+                    np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32)
+                    / 32768.0
+                )
+
+                if triggered:
+                    speech_buffer.append(chunk)
+                    if is_speech:
+                        silence_frames = 0
+                    else:
+                        silence_frames += 1
+
+                    if silence_frames > silence_limit:
+                        print(
+                            f"[VAD] Silence detected ({SILENCE_THRESHOLD_MS}ms), capturing utterance"
+                        )
+                        result_data = np.concatenate(speech_buffer)
+                        done.set()
+                        return
+                else:
+                    if is_speech:
+                        triggered = True
+                        speech_buffer.append(chunk)
+                        print("[VAD] Speech started, capturing...")
+
+    def _callback(
         indata: np.ndarray,
         _frames: int,
         _time: int,
-        status: sounddevice.CallbackFlags,
+        status: int,
     ):
         if status:
-            console.log("Mic", status)
+            print(f"Mic status: {status}")
+        loop.call_soon_threadsafe(queue.put_nowait, indata.reshape((-1,)).tobytes())
 
-        combined_buffer = indata.reshape((-1,))
-        speech_state["raw_buffer"].extend(combined_buffer.tobytes())
-
-        while len(speech_state["raw_buffer"]) > FRAME_SIZE_BYTES:
-            frame_bytes = speech_state["raw_buffer"][:FRAME_SIZE_BYTES]
-            del speech_state["raw_buffer"][:FRAME_SIZE_BYTES]
-
-            is_speech = vad.is_speech(frame_bytes, SAMPLE_RATE)
-            chunk = (
-                np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-            )
-
-            if speech_state["triggered"]:
-                speech_state["speech_buffer"].append(chunk)
-                if is_speech:
-                    speech_state["silence_frames"] = 0
-                else:
-                    speech_state["silence_frames"] += 1
-
-                if speech_state["silence_frames"] > silence_limit:
-                    final_state["data"] = np.concatenate(speech_state["speech_buffer"])
-                    speech_state["speech_buffer"] = []
-                    speech_state["silence_frames"] = 0
-                    speech_state["triggered"] = False
-            else:
-                if is_speech:
-                    speech_state["triggered"] = True
-                    speech_state["speech_buffer"].append(chunk)
-
+    print("[VAD] Starting audio capture stream")
     with sounddevice.InputStream(
-        samplerate=config.get("mic", {}).get("sample_rate", 16_000),
+        samplerate=SAMPLE_RATE,
         channels=1,
         dtype="int16",
-        callback=callback,
+        callback=_callback,
     ):
-        while final_state["data"] is None:
-            sounddevice.sleep(100)
+        consumer_task = asyncio.create_task(_vad_consumer())
+        await done.wait()
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            pass
+
+    if result_data is None:
+        print("[VAD] Capture ended with no audio data")
+        raise RuntimeError("Voice capture ended with no audio data")
+
+    duration_ms = int(len(result_data) / SAMPLE_RATE * 1000)
+    print(f"[VAD] Utterance captured: {duration_ms}ms, {len(result_data)} samples")
 
     buffer = io.BytesIO()
-    sf.write(buffer, final_state["data"], SAMPLE_RATE, format="WAV", subtype="PCM_16")
-
+    sf.write(buffer, result_data, SAMPLE_RATE, format="WAV", subtype="PCM_16")
+    buffer.seek(0)
+    wav_size = len(buffer.getvalue())
+    print(f"[VAD] WAV encoded: {wav_size} bytes")
     return buffer.getvalue()
 
 
-async def run_with_feedback(
-    user_prompt: str | Sequence[UserContent] | None = None, **kwargs
-) -> AgentRunResult[TerminatingAction] | None:
-    async with agent.iter(user_prompt, **kwargs) as run:
-        async for node in run:
-            if isinstance(node, CallToolsNode) and node.model_response.tool_calls:
-                console.log(
-                    "[CORE] Maki proposes tool call: ",
-                    node.model_response.tool_calls[0].tool_name,
-                )
-
-            await run.next(
-                typing.cast(Any, node)
-            )  # cast to suppress, this is the right type, trust
-        return run.result
+MAX_HISTORY = 5
 
 
-async def _step(prompt: str | bytes) -> None:
-    prompt_context = await twitch.get_prompt_ctx()
+async def _step(
+    agent: Agent[MakiDeps, TerminatingAction],
+    deps: MakiDeps,
+    prompt: str | bytes,
+    message_history: list | None = None,
+) -> list:
+    prompt_type = "text" if isinstance(prompt, str) else "audio"
+    prompt_size = len(prompt) if isinstance(prompt, bytes) else len(prompt)
+    print(
+        f"[CORE] Agent step starting: prompt_type={prompt_type}, prompt_size={prompt_size}, history_len={len(message_history) if message_history else 0}"
+    )
 
     if isinstance(prompt, str):
-        result = await run_with_feedback(
-            f"{prompt_context}\n{prompt}",
-            usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
-        )
+        user_content: typing.Any = prompt
     else:
-        result = await run_with_feedback(
-            [
-                prompt_context,
-                BinaryContent(prompt, media_type="audio/wav"),
-            ],
-            usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
-        )
+        user_content = BinaryContent(prompt, media_type="audio/wav")
 
-    assert result, "Should have result in step"
-    console.log(result.usage())
+    result = await agent.run(
+        [user_content],
+        deps=deps,
+        message_history=message_history,
+        usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
+    )
+    print(f"[CORE] Agent step complete: {result.usage}")
+    return result.all_messages()
+
+
+def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, TerminatingAction]:
+    print(
+        f"[CORE] Building agent: model={config.maki_model}, max_tokens={config.max_tokens}, {len(tools)} tools"
+    )
+    ollama_model = OpenAIChatModel(
+        model_name=config.maki_model,
+        provider=OpenRouterProvider(api_key=config.openrouter_api_key),
+    )
+
+    agent = Agent(
+        ollama_model,
+        tools=tools,
+        output_type=TerminatingAction,
+        model_settings=ModelSettings(
+            max_tokens=config.max_tokens,
+            extra_body={"parallel_tool_calls": False},
+        ),
+        system_prompt=SYSTEM_PROMPT,
+        end_strategy="early",
+        retries=3,
+        deps_type=MakiDeps,
+    )
+
+    @agent.system_prompt
+    async def stream_context(ctx: RunContext[MakiDeps]) -> str:
+        return await ctx.deps.twitch.get_prompt_ctx()
+
+    print(f"[CORE] Agent built successfully")
+    return agent
 
 
 async def _main():
-    global history
+    print("[CORE] Maki starting up")
+    config = await fetch_maki_config()
+
+    print("[CORE] Initializing tools")
+    twitch = TwitchTool(config)
+    twitch_chat = TwitchChatClient(config.broadcaster_name)
+    # TODO: Intentionally not using this, until we can get Maki her own sandbox environment...
+    evaluator = Evaluator(config)
+    search = SearchTool(config)
+    screenshot = ScreenshotTool(config)
+    communication = Communication(config)
+
+    install_console_hijack()
+    _log_broadcast_task = asyncio.create_task(broadcast_logs(communication._ws_send))
+    print("[CORE] Console hijack installed, log broadcast task created")
+
+    deps = MakiDeps(
+        config=config,
+        twitch=twitch,
+        twitch_chat=twitch_chat,
+        communication=communication,
+        search=search,
+        screenshot=screenshot,
+    )
+
+    all_tools = (
+        twitch.get_twitch_tools()
+        + random_tools
+        + screenshot.get_tools()
+        + search.get_tools()
+        + communication.get_tools()
+        + twitch_chat.get_twitch_tools()
+    )
+    print(f"[CORE] {len(all_tools)} tools loaded")
+
+    agent = _build_agent(config, all_tools)
 
     wakeword = Wakeword()
     waked = False
 
+    print("[CORE] Connecting to Twitch IRC")
     await twitch_chat.connect(asyncio.get_running_loop())
 
-    while True:
-        try:
-            await communication.inform_activated(False)
-            console.log("Awaiting wakeword")
-            if (
-                not waked
-            ):  # this comes from later in the loop body, where the wakeword is uttered during a step
-                await wakeword.run_then_return()
+    async def _cleanup():
+        print("[CORE] Starting cleanup")
+        await communication.inform_activated(False)
+        if twitch_chat._listen_task:
+            print("[CORE] Cancelling Twitch IRC listener")
+            twitch_chat._listen_task.cancel()
+            try:
+                await twitch_chat._listen_task
+                print("[CORE] Twitch IRC listener stopped")
+            except asyncio.CancelledError:
+                pass
+        if communication.websocket:
+            print("[CORE] Closing WebSocket connection")
+            try:
+                await communication.websocket.close()
+                print("[CORE] WebSocket closed")
+            except Exception:
+                pass
+        if twitch_chat.writer:
+            print("[CORE] Closing Twitch IRC connection")
+            try:
+                twitch_chat.writer.close()
+                await twitch_chat.writer.wait_closed()
+                print("[CORE] Twitch IRC connection closed")
+            except Exception:
+                pass
+        print("[CORE] Cleanup complete")
 
-            await communication.inform_activated(True)
-            waked = False
-            console.log("Ready to prompt")
-            audio_bytes = get_mic_audio()
+    message_history: list = []
+    try:
+        print("[CORE] Entering main loop")
+        while True:
+            try:
+                await communication.inform_activated(False)
+                console.log("Awaiting wakeword")
+                if not waked:
+                    await wakeword.run_then_return()
 
-            fut1 = asyncio.create_task(_step(audio_bytes))
-            fut2 = asyncio.create_task(wakeword.run_then_return())
-            await communication.inform_loading()
-            done, pending = await asyncio.wait(
-                [fut1, fut2], return_when=asyncio.FIRST_COMPLETED
-            )
+                await communication.inform_activated(True)
+                waked = False
+                console.log("Ready to prompt")
+                audio_bytes = await capture_utterance()
 
-            if fut2 in done:
-                waked = True
+                print("[CORE] Spawning agent step and wakeword listener in parallel")
+                fut1 = asyncio.create_task(_step(agent, deps, audio_bytes, message_history))
+                fut2 = asyncio.create_task(wakeword.run_then_return())
+                await communication.inform_loading()
+                done, pending = await asyncio.wait(
+                    [fut1, fut2], return_when=asyncio.FIRST_COMPLETED
+                )
 
-            for fut in pending:
-                fut.cancel()
-                await fut
+                if fut2 in done:
+                    waked = True
+                    print(
+                        "[CORE] Wakeword detected during agent execution, will re-arm"
+                    )
 
-        except KeyboardInterrupt:
-            console.log("Quit")
-            await exits_yourself()
+                if fut1 in done:
+                    exc = fut1.exception()
+                    if exc and not isinstance(exc, asyncio.CancelledError):
+                        console.log(f"[CORE] Step failed: {exc}")
+                    elif exc is None:
+                        print("[CORE] Agent step completed successfully")
+                        new_messages = fut1.result()
+                        message_history = new_messages[-MAX_HISTORY:]
+
+                for fut in pending:
+                    fut.cancel()
+                    try:
+                        await fut
+                    except asyncio.CancelledError:
+                        pass
+
+            except asyncio.CancelledError:
+                print("[CORE] CancelledError received, breaking loop")
+                break
+    except KeyboardInterrupt:
+        console.log("Quit (KeyboardInterrupt)")
+    finally:
+        await _cleanup()
 
 
 @app.command()

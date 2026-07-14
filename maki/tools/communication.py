@@ -2,12 +2,12 @@
 Communication tool
 """
 
-from pydantic_ai.agent import NoneType
 import websockets
 from typing import Literal
 from pydantic import BaseModel
-from pydantic_ai import RunContext, Tool
+from pydantic_ai import Tool
 
+from config import MakiConfig
 from actions import TerminatingAction
 
 
@@ -27,24 +27,22 @@ class MakiOutputMessage(BaseModel):
 
 
 class Communication:
-    def __init__(self, config: dict[str, dict[str, str]]) -> None:
-        try:
-            self.sender_url = config["communication"]["sender_bus_url"]
-            self.websocket = None
-        except:
-            self.sender_url = None
-            self.websocket = None
+    def __init__(self, config: MakiConfig) -> None:
+        self.sender_url = config.communication_bus_url
+        self.websocket = None
 
     async def _lazy_init(self) -> bool:
-        assert self.sender_url
         if self.websocket:
             return True
 
         try:
             self.websocket = await websockets.connect(self.sender_url)
+            print(f"[COMMUNICATION] Connected to WebSocket at {self.sender_url}")
             return True
         except Exception as e:
-            print(f"[COMMUNICATION] Cannot connect to websocket due to {e}")
+            print(
+                f"[COMMUNICATION] Cannot connect to websocket at {self.sender_url}: {e}"
+            )
             self.websocket = None
         return False
 
@@ -61,11 +59,12 @@ class Communication:
         try:
             assert self.websocket
             await self.websocket.send(message)
+            print(f"[COMMUNICATION] Sent {len(message)} bytes over WebSocket")
         except websockets.exceptions.ConnectionClosed:
             print(f"[COMMUNICATION] Websocket closed, resetting for resiliency")
             self.websocket = None
         except AssertionError:
-            print(f"[COMMNICATION] No websocket, would have sent {message}")
+            print(f"[COMMNICATION] No websocket, would have sent {len(message)} bytes")
 
     async def inform_loading(self) -> None:
         """
@@ -101,7 +100,7 @@ class Communication:
                 message=message, dismiss_after=max(0, min(60, dismiss_after))
             ).model_dump_json()
         )
-        return TerminatingAction(answer_to_the_universe="42")
+        return TerminatingAction()
 
     def get_tools(self) -> list[Tool]:
         return [Tool(self.inform_output, takes_ctx=False)]

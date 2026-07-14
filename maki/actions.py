@@ -3,8 +3,6 @@ from typing import Literal
 
 
 class TerminatingAction(BaseModel):
-    """
-    Empty action representing the terminating action
-    """
+    """Returned by a tool to indicate the agent run is complete."""
 
-    answer_to_the_universe: Literal["42"]
+    done: Literal[True] = True

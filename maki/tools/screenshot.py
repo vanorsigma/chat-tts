@@ -7,11 +7,12 @@ import mss.tools
 from pydantic_ai import BinaryContent, Tool
 from pydantic_ai.exceptions import ModelRetry
 
+from config import MakiConfig
+
 
 class ScreenshotTool:
-    def __init__(self, config: dict[str, dict[str, str]]) -> None:
-        section = config.get("screenshot", {})
-        self.default_display = int(section.get("display", "1"))
+    def __init__(self, config: MakiConfig) -> None:
+        self.default_display = config.screenshot_display
 
     async def screenshot(
         self,
@@ -72,6 +73,9 @@ class ScreenshotTool:
                 png = mss.tools.to_png(shot.rgb, shot.size)
                 if png is None:
                     raise RuntimeError("mss.tools.to_png returned None")
+                print(
+                    f"[SCREENSHOT] Captured display {idx}: {crop_w}x{crop_h} at ({crop_left},{crop_top}), PNG size={len(png)} bytes"
+                )
                 return png
 
         try:
@@ -79,6 +83,7 @@ class ScreenshotTool:
         except ModelRetry:
             raise
         except Exception as e:
+            print(f"[SCREENSHOT] Capture failed: {e}")
             raise ModelRetry(f"Screenshot failed: {e}") from e
 
         return BinaryContent(png_bytes, media_type="image/png")

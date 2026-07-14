@@ -154,6 +154,32 @@ export interface RemoteVoiceConfig {
 
 export interface RemoteChatTTSControllerConfig {}
 
+export interface MakiConfigOptional {
+  twitchClientId?: string;
+  twitchClientSecret?: string;
+  broadcasterName?: string;
+  openrouterApiKey?: string;
+  makiModel?: string;
+  evaluatorModel?: string;
+  maxTokens?: number;
+  searchApiKey?: string;
+  communicationBusUrl?: string;
+  screenshotDisplay?: number;
+}
+
+export interface MakiConfig {
+  twitchClientId: string;
+  twitchClientSecret: string;
+  broadcasterName: string;
+  openrouterApiKey: string;
+  makiModel: string;
+  evaluatorModel: string;
+  maxTokens: number;
+  searchApiKey: string;
+  communicationBusUrl: string;
+  screenshotDisplay: number;
+}
+
 // For anything adjustable from the UI
 export interface DynamicConfig {
   songPitchSpeedAffected: boolean;
@@ -175,6 +201,7 @@ export class ParseableConfig {
   distractConfig?: DistractConfigOptional;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix?: string;
+  makiConfig?: MakiConfigOptional;
 
   overlayModerationConfig?: OverlayModerationConfig;
   overlayBlackSilenceConfig?: OverlayBlackSilenceConfig;
@@ -216,6 +243,7 @@ export class ParseableConfig {
     this.distractConfig = arbitraryObject['distractConfig'];
     this.remoteChatTTS = arbitraryObject['remoteChatTTS'];
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
+    this.makiConfig = arbitraryObject['makiConfig'];
 
     this.overlayModerationConfig = arbitraryObject['moderationConfig'];
     this.overlayBlackSilenceConfig = arbitraryObject['blackSilenceConfig'];
@@ -359,7 +387,19 @@ export class ParseableConfig {
         ...this.overlayCommandCooldownsConfig
       },
       remoteChatTTS: this.remoteChatTTS,
-      ignorePrefix: this.ignorePrefix ?? '~'
+      ignorePrefix: this.ignorePrefix ?? '~',
+      makiConfig: {
+        twitchClientId: this.makiConfig?.twitchClientId ?? '',
+        twitchClientSecret: this.makiConfig?.twitchClientSecret ?? '',
+        broadcasterName: this.makiConfig?.broadcasterName ?? '',
+        openrouterApiKey: this.makiConfig?.openrouterApiKey ?? '',
+        makiModel: this.makiConfig?.makiModel ?? 'google/gemini-2.5-flash-lite',
+        evaluatorModel: this.makiConfig?.evaluatorModel ?? 'qwen/qwen3-coder-30b-a3b-instruct',
+        maxTokens: this.makiConfig?.maxTokens ?? 1024,
+        searchApiKey: this.makiConfig?.searchApiKey ?? '',
+        communicationBusUrl: this.makiConfig?.communicationBusUrl ?? 'ws://localhost:3001/senders',
+        screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1
+      }
     };
   }
 }
@@ -394,6 +434,7 @@ export interface FullConfig {
   dynamicConfig: DynamicConfig;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix: string;
+  makiConfig: MakiConfig;
 }
 
 export function parseYaml(input: string): ParseableConfig {

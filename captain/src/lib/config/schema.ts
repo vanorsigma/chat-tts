@@ -2,6 +2,7 @@ export interface FieldSchema {
   key: string;
   kind:
     | 'text'
+    | 'secret'
     | 'number'
     | 'boolean'
     | 'list-of-text'
@@ -34,6 +35,24 @@ export const configSchema: FieldSchema[] = [
     label: 'Ignore prefix',
     default: '~',
     placeholder: '~'
+  },
+  {
+    key: 'makiConfig',
+    kind: 'optional-object',
+    label: 'Maki',
+    required: true,
+    objectFields: [
+      { key: 'twitchClientId', kind: 'secret', label: 'Twitch Client ID', placeholder: 'your twitch app client id' },
+      { key: 'twitchClientSecret', kind: 'secret', label: 'Twitch Client Secret', placeholder: 'your twitch app secret' },
+      { key: 'broadcasterName', kind: 'text', label: 'Broadcaster Name', default: 'vanorsigma' },
+      { key: 'openrouterApiKey', kind: 'secret', label: 'OpenRouter API Key', placeholder: 'sk-or-v1-...' },
+      { key: 'makiModel', kind: 'text', label: 'Maki Model', default: 'google/gemini-2.5-flash-lite' },
+      { key: 'evaluatorModel', kind: 'text', label: 'Evaluator Model', default: 'qwen/qwen3-coder-30b-a3b-instruct' },
+      { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
+      { key: 'searchApiKey', kind: 'secret', label: 'Brave Search API Key', placeholder: 'BSA...' },
+      { key: 'communicationBusUrl', kind: 'text', label: 'Communication Bus URL', default: 'ws://localhost:3001/senders' },
+      { key: 'screenshotDisplay', kind: 'number', label: 'Screenshot Display', default: 1, min: 0, step: 1 }
+    ]
   },
   {
     key: 'commandsDisabled',

@@ -4,6 +4,8 @@
   export let schema: FieldSchema[];
   export let data: Record<string, unknown>;
 
+  let showSecrets = false;
+
   function getNested(data: Record<string, unknown>, key: string): unknown {
     return data[key];
   }
@@ -45,6 +47,12 @@
 </script>
 
 <div class="config-editor">
+  <div class="secrets-toggle">
+    <label class="bool-label">
+      <input type="checkbox" bind:checked={showSecrets} />
+      Show secrets
+    </label>
+  </div>
   {#each schema as field}
     <div class="field">
       {#if field.kind === 'object'}
@@ -233,6 +241,24 @@
                   />
                   {child.label}
                 </label>
+              {:else if child.kind === 'secret'}
+                <label>
+                  {child.label}
+                  {child.required ? '*' : ''}
+                  <div class="secret-row">
+                    <input
+                      type={showSecrets ? 'text' : 'password'}
+                      placeholder={child.placeholder}
+                      value={((data[field.key] as Record)[child.key] as string) ?? ''}
+                      on:input={(e) => {
+                        const parent = data[field.key] as Record;
+                        parent[child.key] = e.currentTarget.value;
+                        data[field.key] = parent;
+                        data = data;
+                      }}
+                    />
+                  </div>
+                </label>
               {:else}
                 <label>
                   {child.label}
@@ -333,6 +359,17 @@
           />
           {field.label}
         </label>
+      {:else if field.kind === 'secret'}
+        <label>
+          {field.label}
+          {field.required ? '*' : ''}
+          <input
+            type={showSecrets ? 'text' : 'password'}
+            placeholder={field.placeholder}
+            value={(data[field.key] as string) ?? ''}
+            on:input={(e) => setNested(data, field.key, e.currentTarget.value)}
+          />
+        </label>
       {:else}
         <label>
           {field.label}
@@ -354,6 +391,16 @@
     display: flex;
     flex-direction: column;
     gap: 0.5em;
+  }
+
+  .secrets-toggle {
+    margin-bottom: 0.3em;
+  }
+
+  .secret-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
   }
 
   .field {

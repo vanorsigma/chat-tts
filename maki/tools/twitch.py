@@ -11,6 +11,8 @@ from twitchAPI.twitch import Twitch
 from twitchAPI.type import AuthScope
 from pydantic_ai import ModelRetry, Tool
 
+from config import MakiConfig
+
 
 class ChatterCommand(TypedDict):
     name: str
@@ -28,9 +30,13 @@ class TwitchChatClient:
         self.buffer = collections.deque(maxlen=50)
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
+        self._listen_task: asyncio.Task[None] | None = None
 
     async def connect(self, loop: asyncio.AbstractEventLoop):
         """Establishes connection and joins the channel."""
+        print(
+            f"[TWITCH-IRC] Connecting to irc.chat.twitch.tv:6697 as {self.nick} for {self.channel}"
+        )
         self.reader, self.writer = await asyncio.open_connection(
             "irc.chat.twitch.tv", 6697, ssl=True
         )
@@ -38,8 +44,9 @@ class TwitchChatClient:
         self.writer.write(f"NICK {self.nick}\r\n".encode())
         self.writer.write(f"JOIN {self.channel}\r\n".encode())
         await self.writer.drain()
+        print(f"[TWITCH-IRC] Connected and joined {self.channel}")
 
-        loop.create_task(self._listen())
+        self._listen_task = loop.create_task(self._listen())
 
     async def _listen(self):
         if self.reader is None or self.writer is None:
@@ -82,11 +89,10 @@ class TwitchChatClient:
 
 
 class TwitchTool:
-    def __init__(self, config: dict[str, dict[str, str]]) -> None:
-        self.config = config
-        self.app_id = config["twitch"]["client_id"]
-        self.app_secret = config["twitch"]["client_secret"]
-        self.target_channel = config["twitch"]["broadcaster_name"]
+    def __init__(self, config: MakiConfig) -> None:
+        self.app_id = config.twitch_client_id
+        self.app_secret = config.twitch_client_secret
+        self.target_channel = config.broadcaster_name
         self.twitch: Twitch | None = None
         self.broadcaster_id = ""
         self.moderator_id = ""
@@ -107,7 +113,7 @@ class TwitchTool:
                 tokens = f.readlines()
                 self.refresh_token = tokens[0].strip()
                 self.user_token = tokens[1].strip()
-        except:
+        except Exception:
             raise RuntimeError(
                 "create a file called twitch_tokens.txt and put the refresh token there"
             )
@@ -116,6 +122,7 @@ class TwitchTool:
         if self.twitch is not None:
             return
 
+        print(f"[TWITCH-API] Initializing Twitch API client")
         self.twitch = Twitch(self.app_id, self.app_secret)
         target_scopes = [
             AuthScope.MODERATOR_READ_CHATTERS,
@@ -128,7 +135,7 @@ class TwitchTool:
         )
 
         user_info_gen = self.twitch.get_users(logins=[self.target_channel])
-        target_user_info = await anext(user_info_gen)  # Get first result
+        target_user_info = await anext(user_info_gen)
         self.broadcaster_id = target_user_info.id
 
         my_info = await anext(self.twitch.get_users())
@@ -137,15 +144,16 @@ class TwitchTool:
         self.twitch.user_auth_refresh_callback = self._save_token
 
         print(
-            f"[TOOL] Connected as {my_info.display_name} moderating {target_user_info.display_name}"
+            f"[TWITCH-API] Connected as {my_info.display_name} (id={self.moderator_id}) moderating {target_user_info.display_name} (id={self.broadcaster_id})"
         )
 
     async def _save_token(self, auth_token: str, refresh_token: str):
-        print("[TOOL] Twitch token saving")
+        print("[TWITCH-API] Saving refreshed tokens to twitch_tokens.txt")
         with open("twitch_tokens.txt", "w") as f:
             self.refresh_token = refresh_token
             self.user_token = auth_token
             f.write(f"{self.refresh_token}\n{self.user_token}")
+        print("[TWITCH-API] Tokens saved")
 
     async def _get_chatter_list(self) -> dict[str, str]:
         await self._lazy_init()
@@ -203,7 +211,7 @@ class TwitchTool:
                 reason=f"[MAKI] {reason}",
                 duration=30,
             )
-        except:
+        except Exception:
             print(f"[TOOL] Could not timeout {username}")
             return False
 
@@ -243,7 +251,7 @@ class TwitchTool:
             await self.twitch.send_chat_message(
                 self.broadcaster_id, self.moderator_id, command
             )
-        except:
+        except Exception:
             print(f"[TOOL] Could not send chat message {command}")
             return
 
@@ -270,7 +278,7 @@ class TwitchTool:
             await self.twitch.send_chat_message(
                 self.broadcaster_id, self.moderator_id, f"!settitle {title}"
             )
-        except:
+        except Exception:
             print(f'[TOOL] Could not set the title to "{title}"')
             return
 
@@ -289,7 +297,7 @@ class TwitchTool:
             await self.twitch.send_chat_message(
                 self.broadcaster_id, self.moderator_id, f"%selfthought {thoughts}"
             )
-        except:
+        except Exception:
             print(f"[TOOL] Could not send self thought")
             return
 
@@ -312,7 +320,7 @@ class TwitchTool:
                 self.moderator_id,
                 f"%poll {question};{duration};{';'.join([option.replace(';', ' ') for option in options])}",
             )
-        except:
+        except Exception:
             print(f"[TOOL] Could not start poll")
             return
 
@@ -328,18 +336,3 @@ class TwitchTool:
             Tool(self.pretend_to_be_vanor, takes_ctx=False),
             Tool(self.make_poll, takes_ctx=False),
         ]
-
-
-if __name__ == "__main__":
-    import tomllib
-    import asyncio
-
-    with open("config.toml", "rb") as f:
-        config = tomllib.load(f)
-
-    async def bruh():
-        print(await twitch.get_chatter_list())
-        await twitch.timeout("MrTinus", "testing smile")
-
-    twitch = TwitchTool(config)
-    asyncio.run(bruh())
