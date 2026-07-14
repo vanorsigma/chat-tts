@@ -15,7 +15,6 @@ class MakiConfig(BaseModel):
     maki_model: str
     evaluator_model: str
     max_tokens: int
-    search_api_key: str
     communication_bus_url: str
     screenshot_display: int
 

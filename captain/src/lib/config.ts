@@ -162,7 +162,6 @@ export interface MakiConfigOptional {
   makiModel?: string;
   evaluatorModel?: string;
   maxTokens?: number;
-  searchApiKey?: string;
   communicationBusUrl?: string;
   screenshotDisplay?: number;
 }
@@ -175,7 +174,6 @@ export interface MakiConfig {
   makiModel: string;
   evaluatorModel: string;
   maxTokens: number;
-  searchApiKey: string;
   communicationBusUrl: string;
   screenshotDisplay: number;
 }
@@ -396,7 +394,6 @@ export class ParseableConfig {
         makiModel: this.makiConfig?.makiModel ?? 'google/gemini-2.5-flash-lite',
         evaluatorModel: this.makiConfig?.evaluatorModel ?? 'qwen/qwen3-coder-30b-a3b-instruct',
         maxTokens: this.makiConfig?.maxTokens ?? 1024,
-        searchApiKey: this.makiConfig?.searchApiKey ?? '',
         communicationBusUrl: this.makiConfig?.communicationBusUrl ?? 'ws://localhost:3001/senders',
         screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1
       }

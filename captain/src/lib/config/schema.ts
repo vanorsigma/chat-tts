@@ -49,7 +49,6 @@ export const configSchema: FieldSchema[] = [
       { key: 'makiModel', kind: 'text', label: 'Maki Model', default: 'google/gemini-2.5-flash-lite' },
       { key: 'evaluatorModel', kind: 'text', label: 'Evaluator Model', default: 'qwen/qwen3-coder-30b-a3b-instruct' },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
-      { key: 'searchApiKey', kind: 'secret', label: 'Brave Search API Key', placeholder: 'BSA...' },
       { key: 'communicationBusUrl', kind: 'text', label: 'Communication Bus URL', default: 'ws://localhost:3001/senders' },
       { key: 'screenshotDisplay', kind: 'number', label: 'Screenshot Display', default: 1, min: 0, step: 1 }
     ]

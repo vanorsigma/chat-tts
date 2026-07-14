@@ -59,7 +59,6 @@ class Communication:
         try:
             assert self.websocket
             await self.websocket.send(message)
-            print(f"[COMMUNICATION] Sent {len(message)} bytes over WebSocket")
         except websockets.exceptions.ConnectionClosed:
             print(f"[COMMUNICATION] Websocket closed, resetting for resiliency")
             self.websocket = None

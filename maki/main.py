@@ -11,7 +11,6 @@ from config import fetch_maki_config, MakiConfig
 from deps import MakiDeps
 from actions import TerminatingAction
 from tools.communication import Communication
-from tools.search import SearchTool
 from wakeword.wakeword import Wakeword
 from pydantic_ai import (
     Agent,
@@ -20,7 +19,9 @@ from pydantic_ai import (
     RunContext,
     UsageLimits,
 )
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.messages import ModelResponse
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.native_tools import WebFetchTool, WebSearchTool
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from rich.console import Console
 
@@ -50,7 +51,7 @@ SYSTEM_PROMPT = (
     "guess. You must proactively gather the required context using your tools:\n"
     "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
     "see what game, code, or application vanor has open.\n"
-    "- **Web/Real-Time Context:** Use `SearchTool` if you need to look up current details about "
+    "- **Web/Real-Time Context:** Use `web_search` and `web_fetch` if you need to look up current details about "
     "a game, trend, or topic to construct an engaging title/response.\n"
     "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
     "current stream metadata, or recent activity.\n"
@@ -204,7 +205,13 @@ async def _step(
         message_history=message_history,
         usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
     )
-    print(f"[CORE] Agent step complete: {result.usage}")
+    tool_names = set()
+    for msg in result.all_messages():
+        if isinstance(msg, ModelResponse):
+            for tc in msg.tool_calls:
+                tool_names.add(tc.tool_name)
+    tools_str = f", tools={sorted(tool_names)}" if tool_names else ""
+    print(f"[CORE] Agent step complete: {result.usage}{tools_str}")
     return result.all_messages()
 
 
@@ -212,7 +219,7 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
     print(
         f"[CORE] Building agent: model={config.maki_model}, max_tokens={config.max_tokens}, {len(tools)} tools"
     )
-    ollama_model = OpenAIChatModel(
+    ollama_model = OpenRouterModel(
         model_name=config.maki_model,
         provider=OpenRouterProvider(api_key=config.openrouter_api_key),
     )
@@ -223,7 +230,7 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
         output_type=TerminatingAction,
         model_settings=ModelSettings(
             max_tokens=config.max_tokens,
-            extra_body={"parallel_tool_calls": False},
+            parallel_tool_calls=False,
         ),
         system_prompt=SYSTEM_PROMPT,
         end_strategy="early",
@@ -248,7 +255,6 @@ async def _main():
     twitch_chat = TwitchChatClient(config.broadcaster_name)
     # TODO: Intentionally not using this, until we can get Maki her own sandbox environment...
     evaluator = Evaluator(config)
-    search = SearchTool(config)
     screenshot = ScreenshotTool(config)
     communication = Communication(config)
 
@@ -261,7 +267,6 @@ async def _main():
         twitch=twitch,
         twitch_chat=twitch_chat,
         communication=communication,
-        search=search,
         screenshot=screenshot,
     )
 
@@ -269,9 +274,9 @@ async def _main():
         twitch.get_twitch_tools()
         + random_tools
         + screenshot.get_tools()
-        + search.get_tools()
         + communication.get_tools()
         + twitch_chat.get_twitch_tools()
+        + [WebSearchTool, WebFetchTool]
     )
     print(f"[CORE] {len(all_tools)} tools loaded")
 
