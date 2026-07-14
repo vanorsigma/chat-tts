@@ -5,6 +5,7 @@ Output tool
 import asyncio
 import json
 import random
+import re
 import collections
 from typing import TypedDict
 from twitchAPI.twitch import Twitch
@@ -19,18 +20,28 @@ class ChatterCommand(TypedDict):
     description: str
 
 
+def _parse_tier_from_title(title: str) -> int:
+    m = re.search(r"[Tt]ier\s*([123])", title)
+    return int(m.group(1)) if m else 1
+
+
 class TwitchChatClient:
     """
     Connects to Twitch IRC anonymously and stores the last 50 messages.
     """
 
-    def __init__(self, channel: str):
+    def __init__(self, channel: str, sub_badge_map: dict[str, int] | None = None):
         self.channel = f"#{channel.lstrip('#')}"
         self.nick = f"justinfan{random.randint(10000, 99999)}"
         self.buffer = collections.deque(maxlen=50)
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._listen_task: asyncio.Task[None] | None = None
+        self.sub_badge_map: dict[str, int] | None = sub_badge_map
+        self.sub_tiers: dict[str, int] = {}
+
+    def set_sub_badge_map(self, m: dict[str, int]) -> None:
+        self.sub_badge_map = m
 
     async def connect(self, loop: asyncio.AbstractEventLoop):
         """Establishes connection and joins the channel."""
@@ -41,12 +52,25 @@ class TwitchChatClient:
             "irc.chat.twitch.tv", 6697, ssl=True
         )
 
+        self.writer.write(f"CAP REQ :twitch.tv/tags\r\n".encode())
         self.writer.write(f"NICK {self.nick}\r\n".encode())
         self.writer.write(f"JOIN {self.channel}\r\n".encode())
         await self.writer.drain()
         print(f"[TWITCH-IRC] Connected and joined {self.channel}")
 
         self._listen_task = loop.create_task(self._listen())
+
+    def _extract_subscriber_tier(self, badges_value: str) -> int:
+        if not badges_value:
+            return 0
+        for entry in badges_value.split(","):
+            entry = entry.strip()
+            if entry.startswith("subscriber/"):
+                version_id = entry.split("/", 1)[1]
+                if self.sub_badge_map and version_id in self.sub_badge_map:
+                    return self.sub_badge_map[version_id]
+                return 1
+        return 0
 
     async def _listen(self):
         if self.reader is None or self.writer is None:
@@ -66,21 +90,45 @@ class TwitchChatClient:
                     await self.writer.drain()
 
                 elif "PRIVMSG" in raw_msg:
-                    parts = raw_msg.split(":", 2)
+                    tags_data: dict[str, str] = {}
+                    body = raw_msg
+                    if body.startswith("@"):
+                        tag_part, body = body.split(" ", 1)
+                        for item in tag_part.lstrip("@").split(";"):
+                            if "=" in item:
+                                k, v = item.split("=", 1)
+                                tags_data[k] = v
+
+                    parts = body.split(":", 2)
                     if len(parts) >= 3:
                         user = parts[1].split("!")[0]
                         content = parts[2]
-                        self.buffer.append({"user": user, "message": content})
+                        display_name = tags_data.get("display-name") or user
+                        badges = tags_data.get("badges", "")
+                        tier = self._extract_subscriber_tier(badges)
+
+                        self.sub_tiers[display_name] = tier
+                        self.buffer.append({
+                            "user": display_name,
+                            "message": content,
+                            "tier": tier,
+                        })
         except (asyncio.CancelledError, ConnectionError):
             pass
 
-    def get_chat_messages(self) -> list[str]:
+    def get_chat_messages(self) -> list[dict]:
         """Twitch Tool: Gets the last 50 chat messages
 
         Returns:
-            list[str]: Last 50 messages collected by the twitch tool
+            list[dict]: Last 50 messages, each with keys user, message, tier
         """
         return list(self.buffer)
+
+    def get_tier3_messages(self) -> list[dict]:
+        return [m for m in self.buffer if m.get("tier", 0) == 3]
+
+    def get_sub_tiers(self) -> dict[str, int]:
+        return dict(self.sub_tiers)
 
     def get_twitch_tools(self) -> list[Tool]:
         return [
@@ -146,6 +194,27 @@ class TwitchTool:
         print(
             f"[TWITCH-API] Connected as {my_info.display_name} (id={self.moderator_id}) moderating {target_user_info.display_name} (id={self.broadcaster_id})"
         )
+
+    async def _fetch_subscriber_badge_map(self) -> dict[str, int]:
+        await self._lazy_init()
+        assert self.twitch is not None
+        result: dict[str, int] = {}
+        try:
+            global_badges = await self.twitch.get_global_chat_badges()
+            for badge_set in global_badges:
+                if badge_set.set_id == "subscriber":
+                    for version in badge_set.versions:
+                        result[version.id] = _parse_tier_from_title(version.title)
+
+            channel_badges = await self.twitch.get_chat_badges(self.broadcaster_id)
+            for badge_set in channel_badges:
+                if badge_set.set_id == "subscriber":
+                    for version in badge_set.versions:
+                        result[version.id] = _parse_tier_from_title(version.title)
+        except Exception:
+            print(f"[TWITCH-API] Failed to fetch subscriber badge map, defaulting to tier 1")
+        print(f"[TWITCH-API] Subscriber badge map: {len(result)} versions")
+        return result
 
     async def _save_token(self, auth_token: str, refresh_token: str):
         print("[TWITCH-API] Saving refreshed tokens to twitch_tokens.txt")

@@ -13,3 +13,4 @@ class MakiDeps:
     twitch_chat: TwitchChatClient
     communication: Communication
     screenshot: ScreenshotTool
+    autonomous: bool = False

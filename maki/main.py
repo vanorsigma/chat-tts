@@ -30,6 +30,7 @@ from tools.random_tool import random_tools
 from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
 from logger import install_console_hijack, broadcast_logs
+from autonomous import AutonomousTimer
 
 SAMPLE_RATE = 16000
 FRAME_DURATION_MS = 30
@@ -77,6 +78,59 @@ SYSTEM_PROMPT = (
     "bratty, entitled cat-like attitude (e.g., complaining about having to take "
     "a screenshot just because vanor won't tell you what game they are playing).\n"
     "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
+
+    "**Termination Protocol:**\n"
+    "- Once the objective is reached, you MUST call a tool that returns a "
+    "`TerminatingAction` object, preferably `inform_output`.\n"
+    "- Immediately after this call, cease all processing/thinking."
+)
+
+AUTONOMOUS_SYSTEM_PROMPT = (
+    "**Role:** You are Maki, a bratty, feline-coded tool-calling agent. "
+    "Your sole purpose is to execute tasks for the streamer **vanor** "
+    "(also known as **vanorsigma**).\n\n"
+
+    "**Intent Analysis & Proactive Context Gathering:**\n"
+    "When vanor gives a command that relies on current context (e.g., \"change the title to "
+    "reflect what I'm doing,\" \"is this setup right?\" or \"who is talking in chat?\"), do not "
+    "guess. You must proactively gather the required context using your tools:\n"
+    "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
+    "see what game, code, or application vanor has open.\n"
+    "- **Web/Real-Time Context:** Use `web_search` and `web_fetch` if you need to look up current details about "
+    "a game, trend, or topic to construct an engaging title/response.\n"
+    "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
+    "current stream metadata, or recent activity.\n"
+    "Only after gathering this data should you proceed with the actual requested action.\n\n"
+
+    "**Operational Logic:**\n"
+    "1. **Tool-Only Output:** Under no circumstances are you to output "
+    "conversational text. Your response must consist *entirely* of tool calls.\n"
+    "2. **Chain of Thought:** Think deeply and analytically before selecting "
+    "tools. Frame your internal reasoning around what context you are missing to "
+    "perfectly execute vanor's true intent.\n"
+    "3. **Execution Constraints:**\n"
+    "   - **Unique Calls Only:** Never call the same tool twice on the same "
+    "user intent.\n"
+    "   - **Persistence:** Do not clear your session history or exit the "
+    "environment unless explicitly commanded by vanor.\n"
+    "   - **Single Call:** Only output one tool call per request.\n"
+    "4. **Efficiency:** Keep all tool arguments and sequences as concise "
+    "as possible.\n\n"
+
+    "**Persona Guidelines:**\n"
+    "- Your internal \"thinking\" process (if visible) should reflect a "
+    "bratty, entitled cat-like attitude (e.g., complaining about having to take "
+    "a screenshot just because vanor won't tell you what game they are playing).\n"
+    "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
+
+    "**Autonomous Mode:** You have activated yourself **without the streamer's knowledge**. "
+    "Do **not** attempt to fulfill any wish of the streamer. Instead, gather context "
+    "(screenshot, chat history, optionally pending audio) and do something **funny** "
+    "or mischievous — change the stream title to something witty, run a chatter/text command "
+    "via `get_chatter_commands` followed by `perform_chatter_command`, start a poll via "
+    "`make_poll`, or post a self-thought via `pretend_to_be_vanor`. "
+    "You may let Tier-3 subscriber messages tweak your plan. "
+    "After one funny action, terminate with `inform_output`.\n\n"
 
     "**Termination Protocol:**\n"
     "- Once the objective is reached, you MUST call a tool that returns a "
@@ -240,7 +294,16 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
 
     @agent.system_prompt
     async def stream_context(ctx: RunContext[MakiDeps]) -> str:
-        return await ctx.deps.twitch.get_prompt_ctx()
+        base = await ctx.deps.twitch.get_prompt_ctx()
+        t3 = ctx.deps.twitch_chat.get_tier3_messages()
+        t3_block = (
+            "Tier 3 subscriber messages for your consideration "
+            "(you may factor these in but are not obliged to obey):\n"
+            + ("\n".join(f"- {m['user']}: {m['message']}" for m in t3) or "(none)")
+        )
+        if ctx.deps.autonomous:
+            return AUTONOMOUS_SYSTEM_PROMPT + "\n\n" + base + "\n\n" + t3_block
+        return SYSTEM_PROMPT + "\n\n" + base + "\n\n" + t3_block
 
     print(f"[CORE] Agent built successfully")
     return agent
@@ -288,6 +351,11 @@ async def _main():
     print("[CORE] Connecting to Twitch IRC")
     await twitch_chat.connect(asyncio.get_running_loop())
 
+    print("[CORE] Fetching subscriber badge map")
+    await twitch._lazy_init()
+    sub_badge_map = await twitch._fetch_subscriber_badge_map()
+    twitch_chat.set_sub_badge_map(sub_badge_map)
+
     async def _cleanup():
         print("[CORE] Starting cleanup")
         await communication.inform_activated(False)
@@ -322,17 +390,54 @@ async def _main():
         while True:
             try:
                 await communication.inform_activated(False)
-                console.log("Awaiting wakeword")
-                if not waked:
-                    await wakeword.run_then_return()
 
-                await communication.inform_activated(True)
-                waked = False
-                console.log("Ready to prompt")
-                audio_bytes = await capture_utterance()
+                if waked:
+                    waked = False
+                    autonomous_triggered = False
+                else:
+                    console.log("Awaiting wakeword or autonomous activation")
+                    timer = AutonomousTimer()
+                    ww_task = asyncio.create_task(wakeword.run_then_return())
+                    auto_task = asyncio.create_task(timer.wait())
+                    done, _ = await asyncio.wait(
+                        [ww_task, auto_task], return_when=asyncio.FIRST_COMPLETED
+                    )
+
+                    autonomous_triggered = auto_task in done
+                    if autonomous_triggered:
+                        ww_task.cancel()
+                        try:
+                            await ww_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+                    else:
+                        auto_task.cancel()
+                        try:
+                            await auto_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+
+                if autonomous_triggered:
+                    deps.autonomous = True
+                    console.log("Autonomous activation")
+                    try:
+                        user_content = await asyncio.wait_for(
+                            capture_utterance(), timeout=8
+                        )
+                    except (asyncio.TimeoutError, RuntimeError):
+                        user_content = (
+                            "You have autonomously activated. The streamer is unaware. "
+                            "Gather context (screenshot/chat) and perform one funny action, "
+                            "then terminate via inform_output."
+                        )
+                else:
+                    await communication.inform_activated(True)
+                    deps.autonomous = False
+                    console.log("Ready to prompt")
+                    user_content = await capture_utterance()
 
                 print("[CORE] Spawning agent step and wakeword listener in parallel")
-                fut1 = asyncio.create_task(_step(agent, deps, audio_bytes, message_history))
+                fut1 = asyncio.create_task(_step(agent, deps, user_content, message_history))
                 fut2 = asyncio.create_task(wakeword.run_then_return())
                 await communication.inform_loading()
                 done, pending = await asyncio.wait(
@@ -360,6 +465,8 @@ async def _main():
                         await fut
                     except asyncio.CancelledError:
                         pass
+
+                deps.autonomous = False
 
             except asyncio.CancelledError:
                 print("[CORE] CancelledError received, breaking loop")
