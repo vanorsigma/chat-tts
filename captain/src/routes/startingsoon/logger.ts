@@ -1,0 +1,82 @@
+import { stripAnsi, type LogMessage } from '$lib/bus/messages';
+import { ReconnectingWebSocket } from '$lib/reconnectingWs';
+
+type BroadcastFn = (msg: LogMessage) => void;
+
+let broadcastFn: BroadcastFn | null = null;
+let _hijacked = false;
+
+function makeBroadcastFn(socket: ReconnectingWebSocket): BroadcastFn {
+  return (entry: LogMessage) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(entry));
+    }
+  };
+}
+
+function safeSend(entry: LogMessage) {
+  if (broadcastFn) {
+    try {
+      broadcastFn(entry);
+    } catch {
+      // silently drop if send fails
+    }
+  }
+}
+
+export function installConsoleHijack(busSocket: ReconnectingWebSocket) {
+  if (_hijacked) return;
+  _hijacked = true;
+
+  if (busSocket.readyState === WebSocket.OPEN) {
+    broadcastFn = makeBroadcastFn(busSocket);
+  }
+
+  busSocket.onopen = () => {
+    broadcastFn = makeBroadcastFn(busSocket);
+  };
+
+  const levels = {
+    log: 'info',
+    info: 'info',
+    warn: 'warn',
+    error: 'error',
+    debug: 'debug'
+  } as const;
+
+  const orig = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: console.debug.bind(console)
+  };
+
+  function makeLogger(level: keyof typeof levels) {
+    return (...args: unknown[]) => {
+      orig[level](...args);
+
+      const msg = stripAnsi(
+        `[StartingSoon] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
+      );
+
+      const entry: LogMessage = {
+        type: 'log',
+        level: levels[level],
+        ts: Date.now(),
+        msg,
+        args: args.length > 1 ? args.slice(1) : undefined
+      };
+
+      safeSend(entry);
+    };
+  }
+
+  console.log = makeLogger('log');
+  console.info = makeLogger('info');
+  console.warn = makeLogger('warn');
+  console.error = makeLogger('error');
+  console.debug = makeLogger('debug');
+
+  console.log('Console hijack installed');
+}

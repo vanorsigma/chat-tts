@@ -36,7 +36,12 @@ class Wakeword:
     def _get_all_onnx(self) -> list[Path]:
         return [p for p in self._directory.iterdir() if p.suffix == ".onnx"]
 
-    def _thread_target(self, stop_event: threading.Event):
+    def _thread_target(
+        self,
+        stop_event: threading.Event,
+        loop: asyncio.AbstractEventLoop,
+        wake_event: asyncio.Event,
+    ):
         audio = pyaudio.PyAudio()
         mic = audio.open(
             format=pyaudio.paInt16,
@@ -55,10 +60,13 @@ class Wakeword:
                 if self.model is None:
                     continue
                 prediction = self.model.predict(audio_data)
-                summed_score = float(np.sum(list(prediction.values())))
-                if summed_score > self._threshold:
-                    print(f"[WAKEWORD] Detected wakeword (score={summed_score:.3f})")
+                if not prediction:
+                    continue
+                max_model, max_score = max(prediction.items(), key=lambda kv: kv[1])
+                if max_score > self._threshold:
+                    print(f"[WAKEWORD] Detected '{max_model}' (score={max_score:.3f})")
                     self.model.reset()
+                    loop.call_soon_threadsafe(wake_event.set)
                     mic.close()
                     return
         finally:
@@ -71,14 +79,17 @@ class Wakeword:
         if self.model:
             self.model.reset()
 
+        loop = asyncio.get_running_loop()
+        wake_event = asyncio.Event()
         stop_event = threading.Event()
-        thread = threading.Thread(target=self._thread_target, args=(stop_event,))
+        thread = threading.Thread(
+            target=self._thread_target, args=(stop_event, loop, wake_event)
+        )
         thread.start()
         print("[WAKEWORD] Detection thread started")
 
         try:
-            while thread.is_alive():
-                await asyncio.sleep(0.25)
+            await wake_event.wait()
             thread.join()
             print("[WAKEWORD] Detection thread joined — wakeword triggered")
         except CancelledError:

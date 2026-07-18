@@ -4,7 +4,8 @@ import type { ChatMessage } from '@twurple/chat';
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import { KikiAPI, type KikiResponse } from '../kikiapi';
 import { LRUCache } from '$lib/LRUcache';
-import { karmaStore } from '../stores';
+import { karmaStore, pinStore } from '../stores';
+import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
 
 const PADDING = 5;
@@ -17,6 +18,7 @@ interface ChatBulletProperties {
 
 export class ChatBulletContainer implements OverlayObserver {
   private app: Application;
+  private dispatcher: OverlayDispatchers;
   private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
@@ -24,6 +26,7 @@ export class ChatBulletContainer implements OverlayObserver {
 
   constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     this.app = app;
+    this.dispatcher = dispatcher;
     this.kiki = new KikiAPI(kikiUrl);
     dispatcher.addObserver(this);
 
@@ -74,22 +77,35 @@ export class ChatBulletContainer implements OverlayObserver {
 
   async onMessage(message: ChatMessage) {
     if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
-    if (this.isEnabled) {
-      this.spawnBullet(
-        message.userInfo.displayName ?? message.userInfo.userName,
-        await splitMessage(message.emoteOffsets, message.text),
-        this.willKikiReadMessage(message)
-          ? this.kiki.fetchKikiResponse(message.text)
-          : null,
-        message.userInfo.color
-      );
+    if (!this.isEnabled) return;
+
+    const parts = await splitMessage(message.emoteOffsets, message.text);
+    const displayName = message.userInfo.displayName ?? message.userInfo.userName;
+    const color = message.userInfo.color;
+
+    if (this.willKikiReadMessage(message)) {
+      const kikiResponse = await this.kiki.fetchKikiResponse(displayName ?? 'anonymous', message.text);
+      this.spawnBullet(displayName, parts, kikiResponse, color);
+
+      if (kikiResponse?.pin_worthy) {
+        pinStore.set({
+          username: displayName ?? 'anonymous',
+          text: message.text,
+          kamoji: kikiResponse.kamoji,
+          emoji: kikiResponse.emoji,
+          expiresAt: Date.now() + 60_000
+        });
+        this.dispatcher.pinChatMessage(PUBLIC_TARGET_CHANNEL_ID, message.id, 60);
+      }
+    } else {
+      this.spawnBullet(displayName, parts, null, color);
     }
   }
 
   async spawnBullet(
     displayName: string | null,
     parts: BulletPart[],
-    kiki_response: Promise<KikiResponse | null> | null,
+    kikiResponse: KikiResponse | null,
     color: string = '#D3D3D3'
   ) {
     const { width, height } = this.app.screen;
@@ -115,9 +131,9 @@ export class ChatBulletContainer implements OverlayObserver {
       container.addChild(displayNameText);
     }
 
-    if (kiki_response) {
+    if (kikiResponse) {
       const kikiText = new Text({
-        text: 'Kiki is thinking...',
+        text: `${kikiResponse.kamoji} ${kikiResponse.emoji}`,
         style: new TextStyle({
           fontFamily: 'Arial',
           fontSize: 24,
@@ -129,17 +145,21 @@ export class ChatBulletContainer implements OverlayObserver {
       kikiText.y = y + 40;
       container.addChild(kikiText);
 
-      (async () => {
-        const res = await kiki_response;
-        if (res) {
-          kikiText.text = `${res.kamoji} ${res.emoji}`;
-          if (res.rating > 0.1 || res.rating < -0.1) karmaStore.updateKarma(res.rating, 'Kiki');
-          kikiText.style.update();
-        } else {
-          kikiText.text = 'Kiki was unable to respond :(';
-          kikiText.style.update();
-        }
-      })();
+      if (kikiResponse.rating > 0.1 || kikiResponse.rating < -0.1)
+        karmaStore.updateKarma(kikiResponse.rating, 'Kiki');
+    } else {
+      const overloadText = new Text({
+        text: 'you overloaded kiki!',
+        style: new TextStyle({
+          fontFamily: 'Arial',
+          fontSize: 24,
+          fill: 'pink'
+        })
+      });
+
+      overloadText.x = 0;
+      overloadText.y = y + 40;
+      container.addChild(overloadText);
     }
 
     for (const part of parts) {

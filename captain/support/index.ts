@@ -10,13 +10,7 @@ import {
   InteractionUpdateOptions
 } from 'discord.js';
 import { Synth } from 'beepbox/esm/synth/synth';
-import {
-  deleteSong,
-  getSong,
-  initDbIfRequired,
-  listSongs,
-  saveSong
-} from '../src/lib/server/db';
+import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from '../src/lib/server/db';
 import { startWebsocketServer } from './websocket';
 
 import dotenv from 'dotenv';
@@ -40,7 +34,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
   if (interaction.commandName !== 'song') return;
 
-  console.log(`Processing song command: ${interaction.options.getSubcommand(true)} from ${interaction.user.username}`);
+  console.log(
+    `Processing song command: ${interaction.options.getSubcommand(true)} from ${interaction.user.username}`
+  );
 
   if (interaction.options.getSubcommand(true) === 'save') {
     const shortname = interaction.options.getString('shortname', true);
@@ -148,7 +144,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (song.user !== interaction.user.username && interaction.user.username !== adminUser) {
-      console.warn(`${interaction.user.username} tried to delete ${shortname} (owned by ${song.user})`);
+      console.warn(
+        `${interaction.user.username} tried to delete ${shortname} (owned by ${song.user})`
+      );
       await interaction.reply({ content: `You can't delete ${shortname}`, ephemeral: true });
       return;
     }

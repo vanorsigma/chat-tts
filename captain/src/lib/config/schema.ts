@@ -42,15 +42,60 @@ export const configSchema: FieldSchema[] = [
     label: 'Maki',
     required: true,
     objectFields: [
-      { key: 'twitchClientId', kind: 'secret', label: 'Twitch Client ID', placeholder: 'your twitch app client id' },
-      { key: 'twitchClientSecret', kind: 'secret', label: 'Twitch Client Secret', placeholder: 'your twitch app secret' },
+      {
+        key: 'twitchClientId',
+        kind: 'secret',
+        label: 'Twitch Client ID',
+        placeholder: 'your twitch app client id'
+      },
+      {
+        key: 'twitchClientSecret',
+        kind: 'secret',
+        label: 'Twitch Client Secret',
+        placeholder: 'your twitch app secret'
+      },
       { key: 'broadcasterName', kind: 'text', label: 'Broadcaster Name', default: 'vanorsigma' },
-      { key: 'openrouterApiKey', kind: 'secret', label: 'OpenRouter API Key', placeholder: 'sk-or-v1-...' },
-      { key: 'makiModel', kind: 'text', label: 'Maki Model', default: 'google/gemini-2.5-flash-lite' },
-      { key: 'evaluatorModel', kind: 'text', label: 'Evaluator Model', default: 'qwen/qwen3-coder-30b-a3b-instruct' },
+      {
+        key: 'openrouterApiKey',
+        kind: 'secret',
+        label: 'OpenRouter API Key',
+        placeholder: 'sk-or-v1-...'
+      },
+      {
+        key: 'makiModel',
+        kind: 'text',
+        label: 'Maki Model',
+        default: 'google/gemini-2.5-flash-lite'
+      },
+      {
+        key: 'evaluatorModel',
+        kind: 'text',
+        label: 'Evaluator Model',
+        default: 'qwen/qwen3-coder-30b-a3b-instruct'
+      },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
-      { key: 'communicationBusUrl', kind: 'text', label: 'Communication Bus URL', default: 'ws://localhost:3001/senders' },
-      { key: 'screenshotDisplay', kind: 'number', label: 'Screenshot Display', default: 1, min: 0, step: 1 }
+      {
+        key: 'communicationBusUrl',
+        kind: 'text',
+        label: 'Communication Bus URL',
+        default: 'ws://localhost:3001/senders'
+      },
+      {
+        key: 'screenshotDisplay',
+        kind: 'number',
+        label: 'Screenshot Display',
+        default: 1,
+        min: 0,
+        step: 1
+      },
+      {
+        key: 'textSpeed',
+        kind: 'number',
+        label: 'Text Speed (chars/sec)',
+        default: 30,
+        min: 1,
+        step: 1
+      }
     ]
   },
   {
@@ -258,6 +303,24 @@ export const configSchema: FieldSchema[] = [
     ]
   },
   {
+    key: 'grayscaleConfig',
+    kind: 'optional-object',
+    label: 'Grayscale',
+    objectFields: [
+      { key: 'cost', kind: 'number', label: 'Cost', default: 1000, min: 0, step: 1 },
+      { key: 'karma', kind: 'number', label: 'Karma', default: -100, step: 1 },
+      { key: 'shader', kind: 'text', label: 'Shader name', default: 'grayscale' },
+      {
+        key: 'durationMs',
+        kind: 'number',
+        label: 'Duration (ms)',
+        default: 10000,
+        min: 0,
+        step: 100
+      }
+    ]
+  },
+  {
     key: 'mistakeConfig',
     kind: 'optional-object',
     label: 'Mistake',
@@ -441,11 +504,101 @@ export const configSchema: FieldSchema[] = [
     ]
   },
   {
+    key: 'stockMarketConfig',
+    kind: 'optional-object',
+    label: 'Stock Market',
+    objectFields: [
+      {
+        key: 'cycleIntervalMs',
+        kind: 'number',
+        label: 'Cycle interval (ms)',
+        default: 15000,
+        min: 1000,
+        step: 1000
+      },
+      {
+        key: 'instantSuccessChance',
+        kind: 'number',
+        label: 'Instant success chance',
+        default: 0.05,
+        min: 0,
+        max: 1,
+        step: 0.01
+      },
+      {
+        key: 'checkinShares',
+        kind: 'number',
+        label: 'Check-in shares',
+        default: 100,
+        min: 0,
+        step: 1
+      },
+      {
+        key: 'endstreamDefaultPrice',
+        kind: 'number',
+        label: 'Endstream default price',
+        default: 1,
+        min: 0,
+        step: 0.01
+      }
+    ]
+  },
+  {
+    key: 'pollConfig',
+    kind: 'optional-object',
+    label: 'Poll',
+    objectFields: []
+  },
+  {
+    key: 'predictionConfig',
+    kind: 'optional-object',
+    label: 'Prediction',
+    objectFields: []
+  },
+  {
+    key: 'economyConfig',
+    kind: 'optional-object',
+    label: 'Economy',
+    objectFields: []
+  },
+  {
+    key: 'endstreamConfig',
+    kind: 'optional-object',
+    label: 'End Stream',
+    objectFields: []
+  },
+  {
+    key: 'bidConfig',
+    kind: 'optional-object',
+    label: 'Bid',
+    objectFields: []
+  },
+  {
+    key: 'voiceConfig',
+    kind: 'optional-object',
+    label: 'Voice',
+    objectFields: []
+  },
+  {
+    key: 'restartConfig',
+    kind: 'optional-object',
+    label: 'Restart',
+    objectFields: []
+  },
+  {
     key: 'commandCooldownsConfig',
     kind: 'optional-object',
     label: 'Command cooldowns (ms)',
     objectFields: [
       { key: 'poll', kind: 'number', label: '%poll', default: 10000, min: 0, step: 100 },
+      {
+        key: 'prediction',
+        kind: 'number',
+        label: '%prediction',
+        default: 10000,
+        min: 0,
+        step: 100
+      },
       { key: 'flashbang', kind: 'number', label: '%flashbang', default: 10000, min: 0, step: 100 },
       {
         key: 'selfthought',
@@ -460,7 +613,109 @@ export const configSchema: FieldSchema[] = [
       { key: 'hearts', kind: 'number', label: '%hearts', default: 1000, min: 0, step: 100 },
       { key: 'block', kind: 'number', label: '%block', default: 10000, min: 0, step: 100 },
       { key: 'unblock', kind: 'number', label: '%unblock', default: 10000, min: 0, step: 100 },
-      { key: 'kill', kind: 'number', label: '%kill', default: 10000, min: 0, step: 100 }
+      { key: 'kill', kind: 'number', label: '%kill', default: 10000, min: 0, step: 100 },
+      { key: 'gamba', kind: 'number', label: '%gamba', default: 60000, min: 0, step: 100 },
+      { key: 'buy', kind: 'number', label: '%buy', default: 2000, min: 0, step: 100 },
+      { key: 'sell', kind: 'number', label: '%sell', default: 2000, min: 0, step: 100 }
+    ]
+  },
+  {
+    key: 'overlayPositionsConfig',
+    kind: 'optional-object',
+    label: 'Overlay widget positions',
+    objectFields: [
+      {
+        key: 'artistWidgetX',
+        kind: 'number',
+        label: 'Artist widget X',
+        default: 20,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'artistWidgetY',
+        kind: 'number',
+        label: 'Artist widget Y',
+        default: 20,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'rightPanelX',
+        kind: 'number',
+        label: 'Right panel X',
+        default: 1520,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'rightPanelY',
+        kind: 'number',
+        label: 'Right panel Y',
+        default: 0,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'pinX',
+        kind: 'number',
+        label: 'Pinned message X',
+        default: 760,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'pinY',
+        kind: 'number',
+        label: 'Pinned message Y',
+        default: 40,
+        min: 0,
+        max: 1080,
+        step: 1
+      }
+    ]
+  },
+  {
+    key: 'startingSoonConfig',
+    kind: 'optional-object',
+    label: 'Starting Soon images',
+    objectFields: [
+      {
+        key: 'images',
+        kind: 'list-of-objects',
+        label: 'Image artwork entries',
+        listObjectFields: [
+          { key: 'file', kind: 'text', label: 'Image filename' },
+          { key: 'artist', kind: 'text', label: 'Artist attribution' }
+        ]
+      }
+    ]
+  },
+  {
+    key: 'redeemConfig',
+    kind: 'optional-object',
+    label: 'Channel Point Redeems',
+    objectFields: [
+      {
+        key: 'redeems',
+        kind: 'list-of-objects',
+        label: 'Redeem entries',
+        listObjectFields: [
+          { key: 'id', kind: 'text', label: 'Reward ID', placeholder: 'twitch reward id' },
+          {
+            key: 'kind',
+            kind: 'text',
+            label: 'Handler kind',
+            placeholder: 'addPoints | addKarma'
+          },
+          { key: 'amount', kind: 'number', label: 'Amount', default: 0, min: 0, step: 1 }
+        ]
+      }
     ]
   }
 ];

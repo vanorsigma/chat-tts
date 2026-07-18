@@ -1,2 +1,4 @@
 config.toml
 twitch_tokens.txt
+.maki_memories/
+models/

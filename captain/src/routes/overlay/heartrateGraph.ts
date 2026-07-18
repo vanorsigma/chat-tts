@@ -10,16 +10,10 @@ export function buildSvgGraphFor(numbers: number[]): SVGSVGElement | null {
 
   const dataset: [number, number][] = numbers.map((val, ind) => [val, ind]);
 
-  const x = d3.scaleLinear(
-    [0, d3.max(dataset, (d) => d[1])!],
-    [marginLeft, width - marginRight]
-  );
+  const x = d3.scaleLinear([0, d3.max(dataset, (d) => d[1])!], [marginLeft, width - marginRight]);
 
   const y = d3.scaleLinear(
-    [
-      d3.min(dataset, (d) => d[0])!,
-      d3.max(dataset, (d) => d[0])!
-    ],
+    [d3.min(dataset, (d) => d[0])!, d3.max(dataset, (d) => d[0])!],
     [height - marginBottom, marginTop]
   );
 

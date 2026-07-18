@@ -1,5 +1,4 @@
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
-import { GLOBAL_HEART_STOCK_MARKET } from '../heartstockmarket.svelte';
 import type { OverlayDispatchers } from '../dispatcher';
 
 export const COOLDOWN = 10 * 1000;
@@ -13,7 +12,6 @@ export async function checkCostAddIfEnough(
   broadcaster_id: string,
   username: string,
   difference: number,
-  use_stock_market: boolean = true,
   message_id: string | undefined = undefined,
   check_only: boolean = false
 ): Promise<boolean> {
@@ -25,14 +23,9 @@ export async function checkCostAddIfEnough(
         if (check_only) return true;
         await setPointsForUser(username, points + difference);
         return true;
-      } else if (check_only) return false;
-
-      if (use_stock_market) {
-        try {
-          GLOBAL_HEART_STOCK_MARKET.uninvest(username, -difference);
-          return true;
-        } catch {}
       }
+
+      if (check_only) return false;
 
       dispatcher.sendMessageAsUser(broadcaster_id, `you can't afford this PoorVanor`, message_id);
       return false;

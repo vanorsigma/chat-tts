@@ -63,6 +63,13 @@ export interface OverlayMaxwellConfig {
   limit: number;
 }
 
+export interface OverlayGrayscaleConfig {
+  cost: number;
+  karma: number;
+  shader: string;
+  durationMs: number;
+}
+
 export interface OverlayMistakeConfig {
   cost: number;
   user: string;
@@ -136,8 +143,30 @@ export interface OverlayCheckInConfig {
   points: number;
 }
 
+export interface OverlayPollConfig {}
+
+export interface OverlayPredictionConfig {}
+
+export interface OverlayEconomyConfig {}
+
+export interface OverlayEndstreamConfig {}
+
+export interface OverlayBidConfig {}
+
+export interface OverlayVoiceConfig {}
+
+export interface OverlayRestartConfig {}
+
+export interface OverlayStockMarketConfig {
+  cycleIntervalMs: number;
+  instantSuccessChance: number;
+  checkinShares: number;
+  endstreamDefaultPrice: number;
+}
+
 export interface OverlayCommandCooldownsConfig {
   poll?: number;
+  prediction?: number;
   flashbang?: number;
   selfthought?: number;
   undress?: number;
@@ -146,6 +175,31 @@ export interface OverlayCommandCooldownsConfig {
   block?: number;
   unblock?: number;
   kill?: number;
+  gamba?: number;
+  buy?: number;
+  sell?: number;
+}
+
+export interface OverlayCommandChancesConfig {
+  [command: string]: number;
+}
+
+export interface OverlayPositionsConfig {
+  artistWidgetX: number;
+  artistWidgetY: number;
+  rightPanelX: number;
+  rightPanelY: number;
+  pinX: number;
+  pinY: number;
+}
+
+export interface StartingSoonArtEntry {
+  file: string;
+  artist: string;
+}
+
+export interface StartingSoonConfig {
+  images: StartingSoonArtEntry[];
 }
 
 export interface RemoteVoiceConfig {
@@ -164,6 +218,7 @@ export interface MakiConfigOptional {
   maxTokens?: number;
   communicationBusUrl?: string;
   screenshotDisplay?: number;
+  textSpeed?: number;
 }
 
 export interface MakiConfig {
@@ -176,6 +231,17 @@ export interface MakiConfig {
   maxTokens: number;
   communicationBusUrl: string;
   screenshotDisplay: number;
+  textSpeed: number;
+}
+
+export interface RedeemEntry {
+  id: string;
+  kind: string;
+  amount: number;
+}
+
+export interface RedeemConfig {
+  redeems: RedeemEntry[];
 }
 
 // For anything adjustable from the UI
@@ -188,6 +254,7 @@ export class ConfigParsingError extends Error {}
 export class ParseableConfig {
   channelName?: string;
   commandsDisabled: boolean;
+  startingSoonConfig?: StartingSoonConfig;
   alternativePitchControl?: AlternativePitchControl;
   voices?: string[];
   pitchRange?: RangeConfigOptional;
@@ -205,6 +272,7 @@ export class ParseableConfig {
   overlayBlackSilenceConfig?: OverlayBlackSilenceConfig;
   overlayFlashbangConfig?: OverlayFlashbangConfig;
   overlayMaxwellConfig?: OverlayMaxwellConfig;
+  overlayGrayscaleConfig?: OverlayGrayscaleConfig;
   overlayMistakeConfig?: OverlayMistakeConfig;
   overlayShowImageConfig?: OverlayShowImageConfig;
   overlayPlayAudioConfig?: OverlayPlayAudioConfig;
@@ -215,7 +283,18 @@ export class ParseableConfig {
   overlayModelConfig?: OverlayModelConfig;
   overlayCaptchaConfig?: OverlayCaptchaConfig;
   overlayCheckInConfig?: OverlayCheckInConfig;
+  overlayPollConfig?: OverlayPollConfig;
+  overlayPredictionConfig?: OverlayPredictionConfig;
+  overlayEconomyConfig?: OverlayEconomyConfig;
+  overlayEndstreamConfig?: OverlayEndstreamConfig;
+  overlayBidConfig?: OverlayBidConfig;
+  overlayVoiceConfig?: OverlayVoiceConfig;
+  overlayRestartConfig?: OverlayRestartConfig;
   overlayCommandCooldownsConfig?: OverlayCommandCooldownsConfig;
+  overlayCommandChancesConfig?: OverlayCommandChancesConfig;
+  overlayStockMarketConfig?: OverlayStockMarketConfig;
+  overlayPositionsConfig?: OverlayPositionsConfig;
+  overlayRedeemConfig?: RedeemConfig;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(arbitraryObject: any) {
@@ -230,6 +309,7 @@ export class ParseableConfig {
     this.channelName = arbitraryObject['channelName'];
     console.log(`Config parsed for channel: ${this.channelName}`);
     this.commandsDisabled = arbitraryObject['commandsDisabled'] ?? false;
+    this.startingSoonConfig = arbitraryObject['startingSoonConfig'];
     this.alternativePitchControl = arbitraryObject['alternativePitchControl'];
     this.voices = arbitraryObject['voices'];
     this.pitchRange = arbitraryObject['pitchRange'];
@@ -247,6 +327,7 @@ export class ParseableConfig {
     this.overlayBlackSilenceConfig = arbitraryObject['blackSilenceConfig'];
     this.overlayFlashbangConfig = arbitraryObject['flashbangConfig'];
     this.overlayMaxwellConfig = arbitraryObject['maxwellConfig'];
+    this.overlayGrayscaleConfig = arbitraryObject['grayscaleConfig'];
     this.overlayMistakeConfig = arbitraryObject['mistakeConfig'];
     this.overlayShowImageConfig = arbitraryObject['showImageConfig'];
     this.overlayPlayAudioConfig = arbitraryObject['playAudioConfig'];
@@ -257,13 +338,27 @@ export class ParseableConfig {
     this.overlayModelConfig = arbitraryObject['modelConfig'];
     this.overlayCaptchaConfig = arbitraryObject['captchaConfig'];
     this.overlayCheckInConfig = arbitraryObject['checkInConfig'];
+    this.overlayPollConfig = arbitraryObject['pollConfig'];
+    this.overlayPredictionConfig = arbitraryObject['predictionConfig'];
+    this.overlayEconomyConfig = arbitraryObject['economyConfig'];
+    this.overlayEndstreamConfig = arbitraryObject['endstreamConfig'];
+    this.overlayBidConfig = arbitraryObject['bidConfig'];
+    this.overlayVoiceConfig = arbitraryObject['voiceConfig'];
+    this.overlayRestartConfig = arbitraryObject['restartConfig'];
     this.overlayCommandCooldownsConfig = arbitraryObject['commandCooldownsConfig'];
+    this.overlayCommandChancesConfig = arbitraryObject['commandChancesConfig'];
+    this.overlayStockMarketConfig = arbitraryObject['stockMarketConfig'];
+    this.overlayPositionsConfig = arbitraryObject['overlayPositionsConfig'];
+    this.overlayRedeemConfig = arbitraryObject['redeemConfig'];
   }
 
   toFullConfig(): FullConfig {
     return {
       channelName: this.channelName ?? '',
       commandsDisabled: this.commandsDisabled,
+      startingSoonConfig: {
+        images: this.startingSoonConfig?.images ?? []
+      },
       voices: this.voices ?? [],
       alternativePitchControl: this.alternativePitchControl,
       pitchRange: {
@@ -281,21 +376,21 @@ export class ParseableConfig {
       dynamicConfig: {
         songPitchSpeedAffected: false
       },
-      distractConfig: {
+      distractConfig: this.distractConfig ? {
         enabled: false,
         distractCooldown: 900,
         rotateCooldown: 300,
         distractChance: 0.001,
         rotateChance: 0.01,
         ...this.distractConfig
-      },
-      moderationConfig: {
+      } : undefined,
+      moderationConfig: this.overlayModerationConfig ? {
         moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
         unblockableCommands: [
           '%restart',
           '%block',
           '%unblock',
-          '%closemarket',
+          '%endstream',
           '%refreshVoice',
           '%rotate',
           '%distract'
@@ -303,52 +398,53 @@ export class ParseableConfig {
         blockMinimumBid: 1000,
         killCost: 2000,
         ...this.overlayModerationConfig
-      },
-      blackSilenceConfig: {
+      } : undefined,
+      blackSilenceConfig: this.overlayBlackSilenceConfig ? {
         user: 'nikitakik228',
         durationMs: 10000,
         cost: 500,
         karma: 50,
         ...this.overlayBlackSilenceConfig
-      },
-      flashbangConfig: { cost: 500, karma: -100, ...this.overlayFlashbangConfig },
-      maxwellConfig: {
+      } : undefined,
+      flashbangConfig: this.overlayFlashbangConfig ? { cost: 500, karma: -100, ...this.overlayFlashbangConfig } : undefined,
+      maxwellConfig: this.overlayMaxwellConfig ? {
         cost: 100,
         user: '5kuli',
         cooldownMs: 30000,
         limit: 100,
         ...this.overlayMaxwellConfig
-      },
-      mistakeConfig: { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig },
-      showImageConfig: {
+      } : undefined,
+      grayscaleConfig: this.overlayGrayscaleConfig ? { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 10000, ...this.overlayGrayscaleConfig } : undefined,
+      mistakeConfig: this.overlayMistakeConfig ? { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig } : undefined,
+      showImageConfig: this.overlayShowImageConfig ? {
         cost: 10000,
         user: 'mayoigo_qwq',
         cooldownMs: 60000,
         karma: -200,
         ...this.overlayShowImageConfig
-      },
-      playAudioConfig: {
+      } : undefined,
+      playAudioConfig: this.overlayPlayAudioConfig ? {
         cost: 10000,
         user: 'SpookiestSpooks',
         karma: -100,
         ...this.overlayPlayAudioConfig
-      },
-      selfThoughtConfig: { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig },
-      goodNightKissConfig: {
+      } : undefined,
+      selfThoughtConfig: this.overlaySelfThoughtConfig ? { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig } : undefined,
+      goodNightKissConfig: this.overlayGoodNightKissConfig ? {
         cost: 5000,
         user: 'pastel8844',
         karma: -300,
         timeoutDurationSec: 1800,
         ...this.overlayGoodNightKissConfig
-      },
-      setTitleConfig: {
+      } : undefined,
+      setTitleConfig: this.overlaySetTitleConfig ? {
         cost: 1000,
         karmaRequirement: 100,
         karmaModifier: -0.3,
         user: 'sekatsu1',
         ...this.overlaySetTitleConfig
-      },
-      karmaConfig: {
+      } : undefined,
+      karmaConfig: this.overlayKarmaConfig ? {
         min: -5000,
         max: 5000,
         dingThreshold: 250,
@@ -363,17 +459,32 @@ export class ParseableConfig {
           { name: 'Undress', karma: 50.0 }
         ],
         ...this.overlayKarmaConfig
-      },
-      modelConfig: {
+      } : undefined,
+      modelConfig: this.overlayModelConfig ? {
         initialHeartrate: 50,
         blushHrThreshold: 80,
         despairHrThreshold: 50,
         ...this.overlayModelConfig
-      },
-      captchaConfig: { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig },
-      checkInConfig: { points: 999.99, ...this.overlayCheckInConfig },
+      } : undefined,
+      captchaConfig: this.overlayCaptchaConfig ? { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig } : undefined,
+      checkInConfig: this.overlayCheckInConfig ? { points: 999.99, ...this.overlayCheckInConfig } : undefined,
+      pollConfig: this.overlayPollConfig,
+      predictionConfig: this.overlayPredictionConfig,
+      economyConfig: this.overlayEconomyConfig,
+      endstreamConfig: this.overlayEndstreamConfig,
+      bidConfig: this.overlayBidConfig,
+      voiceConfig: this.overlayVoiceConfig,
+      restartConfig: this.overlayRestartConfig,
+      stockMarketConfig: this.overlayStockMarketConfig ? {
+        cycleIntervalMs: 15000,
+        instantSuccessChance: 0.05,
+        checkinShares: 100,
+        endstreamDefaultPrice: 1,
+        ...this.overlayStockMarketConfig
+      } : undefined,
       commandCooldownsConfig: {
         poll: 10000,
+        prediction: 10000,
         flashbang: 10000,
         selfthought: 10000,
         undress: 1000,
@@ -382,8 +493,26 @@ export class ParseableConfig {
         block: 10000,
         unblock: 10000,
         kill: 10000,
+        gamba: 60000,
+        buy: 2000,
+        sell: 2000,
         ...this.overlayCommandCooldownsConfig
       },
+      commandChancesConfig: {
+        default: 90,
+        flashbang: 40,
+        ...this.overlayCommandChancesConfig
+      },
+      overlayPositionsConfig: {
+        artistWidgetX: 20,
+        artistWidgetY: 20,
+        rightPanelX: 1520,
+        rightPanelY: 0,
+        pinX: 760,
+        pinY: 40,
+        ...this.overlayPositionsConfig
+      },
+      redeemConfig: this.overlayRedeemConfig ?? { redeems: [] },
       remoteChatTTS: this.remoteChatTTS,
       ignorePrefix: this.ignorePrefix ?? '~',
       makiConfig: {
@@ -395,7 +524,8 @@ export class ParseableConfig {
         evaluatorModel: this.makiConfig?.evaluatorModel ?? 'qwen/qwen3-coder-30b-a3b-instruct',
         maxTokens: this.makiConfig?.maxTokens ?? 1024,
         communicationBusUrl: this.makiConfig?.communicationBusUrl ?? 'ws://localhost:3001/senders',
-        screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1
+        screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1,
+        textSpeed: this.makiConfig?.textSpeed ?? 30
       }
     };
   }
@@ -404,6 +534,7 @@ export class ParseableConfig {
 export interface FullConfig {
   channelName: string;
   commandsDisabled: boolean;
+  startingSoonConfig?: StartingSoonConfig;
   alternativePitchControl?: AlternativePitchControl;
   voices: string[];
   pitchRange: RangeConfig;
@@ -418,6 +549,7 @@ export interface FullConfig {
   flashbangConfig?: OverlayFlashbangConfig;
   maxwellConfig?: OverlayMaxwellConfig;
   mistakeConfig?: OverlayMistakeConfig;
+  grayscaleConfig?: OverlayGrayscaleConfig;
   showImageConfig?: OverlayShowImageConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
@@ -427,11 +559,22 @@ export interface FullConfig {
   modelConfig?: OverlayModelConfig;
   captchaConfig?: OverlayCaptchaConfig;
   checkInConfig?: OverlayCheckInConfig;
+  pollConfig?: OverlayPollConfig;
+  predictionConfig?: OverlayPredictionConfig;
+  economyConfig?: OverlayEconomyConfig;
+  endstreamConfig?: OverlayEndstreamConfig;
+  bidConfig?: OverlayBidConfig;
+  voiceConfig?: OverlayVoiceConfig;
+  restartConfig?: OverlayRestartConfig;
+  stockMarketConfig?: OverlayStockMarketConfig;
   commandCooldownsConfig?: OverlayCommandCooldownsConfig;
+  commandChancesConfig?: OverlayCommandChancesConfig;
+  overlayPositionsConfig: OverlayPositionsConfig;
   dynamicConfig: DynamicConfig;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   ignorePrefix: string;
   makiConfig: MakiConfig;
+  redeemConfig: RedeemConfig;
 }
 
 export function parseYaml(input: string): ParseableConfig {

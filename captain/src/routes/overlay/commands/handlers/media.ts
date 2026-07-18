@@ -77,7 +77,6 @@ export async function mediaHandler(
       message.channelId!,
       username,
       -config.cost,
-      undefined,
       message.id
     ))
   )

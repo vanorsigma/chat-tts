@@ -45,6 +45,11 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 export function startWebsocketServer() {
-  console.log("Starting WebSocket server at localhost:3001");
-  server.listen(3001);
+  console.log('Starting WebSocket server at localhost:3001');
+  server.listen(3001, () => {
+    console.log('WebSocket server listening on port 3001');
+  });
+  server.on('error', (err) => {
+    console.error('WebSocket server error:', err);
+  });
 }

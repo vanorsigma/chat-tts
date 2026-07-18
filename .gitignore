@@ -14,3 +14,6 @@ uv.lock
 
 # Backup files
 *.backup
+
+# Kiki new ChromaDB vector memory store
+kikimaki-rs/kiki-new/.kiki_memories/

@@ -1,22 +1,44 @@
-/**
- * Quick offline auth flow to get the access token and refresh tokens.
- * Put the result into .env.
- */
-
 import http from 'http';
 import dotenv from 'dotenv';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 
 dotenv.config();
 
 const CLIENT_ID = process.env.PUBLIC_TWITCH_APP_ID;
-const CLIENT_SECRET = process.env.PUBLIC_TWITCH_APP_SECRET;
-const PROD_MODE = false; // set this to true to prime the server
+const CLIENT_SECRET = process.env.TWITCH_APP_SECRET;
+const PROD_MODE = false;
 
-if (!CLIENT_ID) throw new Error('Need to set PUBLIC_TWITCH_APP_ID in .venv');
-if (!CLIENT_SECRET) throw new Error('Need to set PUBLIC_TWITCH_APP_SECRET in .env');
+const ACCOUNT = process.argv[2] ?? 'broadcaster';
+
+if (!CLIENT_ID) throw new Error('Missing PUBLIC_TWITCH_APP_ID in .env');
+if (!CLIENT_SECRET) throw new Error('Missing TWITCH_APP_SECRET in .env');
+if (ACCOUNT !== 'broadcaster' && ACCOUNT !== 'bot') {
+  throw new Error(`Usage: bun run authflow.ts <broadcaster|bot>`);
+}
+
+const BROADCASTER_SCOPES = [
+  'channel:read:subscriptions',
+  'channel:manage:polls',
+  'channel:read:polls',
+  'channel:manage:predictions',
+  'channel:read:predictions',
+  'channel:read:redemptions',
+  'channel:manage:redemptions'
+];
+const BOT_SCOPES = [
+  'user:write:chat',
+  'user:bot',
+  'moderator:read:chatters',
+  'moderator:manage:banned_users',
+  'moderator:manage:chat_messages',
+  'channel:read:subscriptions'
+];
+const SCOPES = ACCOUNT === 'broadcaster' ? BROADCASTER_SCOPES : BOT_SCOPES;
+const TOKEN_FILE = join(process.cwd(), `tokens.${ACCOUNT}.json`);
 
 export function getAuthUrl(client_id: string, redirect_uri: string): string {
-  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=moderator:read:chatters+user:bot+user:read:chat+moderator:manage:banned_users+user:write:chat+user:read:chat`;
+  return `https://id.twitch.tv/oauth2/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=${SCOPES.join('+')}`;
 }
 
 export function getFollowUpUrl(
@@ -45,19 +67,35 @@ export async function callback(
   });
   if (result.status !== 200)
     throw new Error(
-      'Fatal error, cannot get acceess token and/or refresh token to continue. Error: ' +
-        (await result.text())
+      'Fatal error, cannot get access token and/or refresh token. Error: ' + (await result.text())
     );
 
   const data: {
     readonly access_token: string;
     readonly refresh_token: string;
+    readonly scope: string;
+    readonly expires_in: number;
   } = await result.json();
 
-  response.writeHead(200, {
-    'Set-Cookie': [`access_token=${data.access_token}`, `refresh_token=${data.refresh_token};`]
+  const validateRes = await fetch('https://id.twitch.tv/oauth2/validate', {
+    headers: { Authorization: `Bearer ${data.access_token}` }
   });
-  response.write('Authorised, u can now close this tab');
+  const validateData: { user_id: string; login: string } = await validateRes.json();
+
+  const tokenData = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    scope: typeof data.scope === 'string' ? data.scope.split(' ') : SCOPES,
+    expiresIn: data.expires_in,
+    obtainmentTimestamp: Date.now(),
+    userId: validateData.user_id
+  };
+
+  writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
+  console.log(`Tokens written to ${TOKEN_FILE}`);
+  console.log(`Account: ${validateData.login} (${validateData.user_id})`);
+  response.writeHead(200);
+  response.write(`Authorised as ${ACCOUNT} (${validateData.login}). Token saved to ${TOKEN_FILE}`);
   response.end();
 
   process.exit(0);
@@ -81,9 +119,9 @@ export function main() {
     res.end();
   });
 
-  // Make the server listen on the specified port
   server.listen(port, () => {
-    console.log(`Callback server running on http://localhost:${port}/`);
+    console.log(`Auth flow for "${ACCOUNT}" starting on http://localhost:${port}/`);
+    console.log(`Scopes: ${SCOPES.join(', ')}`);
   });
 }
 

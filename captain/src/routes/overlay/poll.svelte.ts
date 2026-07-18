@@ -1,125 +1,112 @@
-import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
-import { pollStore } from './stores';
+import { COMMAND_HELP } from './commands/registry';
+import type { OverlayDispatchers } from './dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 
-let GLOBAL_POLL_LOCK = false;
-
 export interface PollOption {
+  id?: string;
   name: string;
   votes: number;
+  channelPoints?: number;
 }
 
 export interface Poll {
-  title: string | undefined;
+  id?: string;
+  title: string;
   options: PollOption[] | undefined;
-  expiryTime: number | undefined;
+  totalVotes?: number;
+  status?: 'active' | 'completed' | 'terminated';
+  startDate?: string;
+  endDate?: string;
 }
 
-class PollObserver implements OverlayObserver {
-  /**
-   * Poll starts the moment it is created
-   */
-  private alreadyVoted: Set<string>;
-  private poll: Poll;
-  private timeout;
-  private dispatcher: OverlayDispatchers;
-
-  constructor(dispatcher: OverlayDispatchers, poll: Poll, broadcaster_id: string) {
-    GLOBAL_POLL_LOCK = true;
-    console.log('Poll soon: ', poll);
-    this.poll = poll;
-    this.alreadyVoted = new Set();
-    this.timeout = setTimeout(
-      this.timeUp.bind(this, broadcaster_id),
-      (poll.expiryTime ?? 0) - new Date().getTime()
-    );
-    this.dispatcher = dispatcher;
-
-    pollStore?.set(this.poll);
-  }
-
-  onMessage(message: ChatMessage): void {
-    if (this.alreadyVoted.has(message.userInfo.userName ?? '')) return;
-
-    const splits = message.text.split(' ');
-    switch (splits[0]) {
-      case '%endpoll':
-        if (message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster) {
-          clearTimeout(this.timeout);
-          this.timeUp(message.channelId!);
-          return;
-        }
-        break;
-
-      default: {
-        const votedFor = Number(message.text.replace('%vote', '').trim());
-        if (!this.poll.options) return;
-        if (!votedFor || votedFor > this.poll.options.length) return;
-
-        this.poll.options[votedFor - 1].votes += 1;
-
-        pollStore?.set(this.poll);
-
-        this.alreadyVoted.add(message.userInfo.userName ?? '');
-        return;
-      }
-    }
-  }
-
-  timeUp(broadcaster_id: string): void {
-    if (!this.poll.options || this.poll.options.length === 0) {
-      this.dispatcher.removeObserver(this);
-      pollStore?.set(null);
-      GLOBAL_POLL_LOCK = false;
-      return;
-    }
-
-    this.dispatcher.removeObserver(this);
-    this.dispatcher.sendMessageAsUser(
-      broadcaster_id,
-      `Poll over! Winner: ${
-        this.poll.options.reduce((prev, curr) => {
-          if (curr.votes > prev.votes) return curr;
-          if (curr.votes === prev.votes)
-            return {
-              name: `${curr.name} & ${prev.name}`,
-              votes: curr.votes
-            };
-          return prev;
-        }).name
-      }`
-    );
-    pollStore?.set(null);
-    GLOBAL_POLL_LOCK = false;
-  }
-
-  get getPoll(): Poll {
-    return this.poll;
-  }
-}
-
-function getPollParameters(message: string): Poll {
+function getPollParameters(
+  message: string
+): { title: string; duration: number; choices: string[] } | null {
   const rest = message.replace('%poll', '').trim();
   const splits = rest.split(';');
+  if (splits.length < 3) return null;
 
-  return {
-    title: splits[0],
-    expiryTime: new Date().getTime() + Number(splits[1]) * 1000,
-    options: splits.slice(2).map((message) => ({
-      name: message,
-      votes: 0
-    }))
-  };
+  const title = splits[0];
+  const duration = Number(splits[1]);
+  const choices = splits.slice(2).filter(Boolean);
+
+  if (
+    !title ||
+    isNaN(duration) ||
+    duration < 15 ||
+    duration > 1800 ||
+    choices.length < 2 ||
+    choices.length > 5
+  ) {
+    return null;
+  }
+  if (choices.some((c) => c.length < 1 || c.length > 25)) return null;
+
+  return { title, duration, choices };
 }
 
-export function pollCommandHandler(dispatcher: OverlayDispatchers, message: ChatMessage): void {
-  if (GLOBAL_POLL_LOCK) return;
-  if (message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster) {
-    const observer = new PollObserver(
-      dispatcher,
-      getPollParameters(message.text),
-      message.channelId!
+export async function pollCommandHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage
+): Promise<void> {
+  if (!(message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster)) {
+    return;
+  }
+
+  const params = getPollParameters(message.text);
+  if (!params) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      COMMAND_HELP['%poll'] ?? 'Invalid format',
+      message.id
     );
-    dispatcher.addObserver(observer);
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/twitch/poll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `Failed to create poll: ${err.error ?? 'unknown error'}`,
+        message.id
+      );
+      return;
+    }
+    dispatcher.sendMessageAsUser(message.channelId!, 'Poll created!', message.id);
+  } catch (e) {
+    console.error('Failed to call poll endpoint:', e);
+    dispatcher.sendMessageAsUser(message.channelId!, 'Poll creation failed', message.id);
+  }
+}
+
+export async function endPollCommandHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage
+): Promise<void> {
+  if (!(message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/twitch/poll/end', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `Failed to end poll: ${err.error ?? 'unknown'}`,
+        message.id
+      );
+      return;
+    }
+    dispatcher.sendMessageAsUser(message.channelId!, 'Poll ended!', message.id);
+  } catch (e) {
+    console.error('Failed to call poll/end endpoint:', e);
+    dispatcher.sendMessageAsUser(message.channelId!, 'Failed to end poll', message.id);
   }
 }

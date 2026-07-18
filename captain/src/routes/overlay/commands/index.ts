@@ -1,8 +1,14 @@
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
-import { asChatCommand, type ChatCommand } from './registry';
+import {
+  asChatCommand,
+  COMMAND_HELP,
+  COMMAND_SECTION,
+  REQUIRES_ARGS,
+  type ChatCommand
+} from './registry';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import type { ChatMessage } from '@twurple/chat';
-import { getOverlayConfig } from '../constants';
+import { getOverlayConfig, isSectionDisabled } from '../constants';
 import {
   transferHandler,
   givePointsHandler,
@@ -14,10 +20,18 @@ import {
   flashbangHandler,
   blackSilenceHandler,
   mistakeHandler,
-  selfThoughtHandler
+  selfThoughtHandler,
+  grayscaleHandler
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
-import { investHandler, stockHandler, closeMarketHandler } from './handlers/stockmarket';
+import {
+  buyHandler,
+  sellHandler,
+  stocksHandler,
+  buyOrdersHandler,
+  sellOrdersHandler,
+  endStreamHandler as stockEndStreamHandler
+} from './handlers/stockmarket';
 import {
   goodnightkissHandler,
   settitleHandler,
@@ -25,12 +39,80 @@ import {
   togglesHandler
 } from './handlers/interactive';
 import { blockHandler, killHandler, restartHandler } from './handlers/moderation';
-import { pollCommandHandler } from '../poll.svelte';
+import { gambaHandler } from './handlers/gamba';
+import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
+import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
+import {
+  computeSuccessChance,
+  getBaseChance,
+  rollSuccess,
+  timeoutSecondsForFailChance
+} from './chance';
+import { addBitBoost, flushBitBoosts } from '$lib/api/bits';
+import { karmaStore } from '../stores';
+
+const PASS_THROUGH_COMMANDS = new Set(['%bid', '%endbid', '%distract', '%rotate', '%refreshVoice']);
+
+const OVERLAY_HANDLED_COMMANDS = new Set([
+  '%poll',
+  '%endpoll',
+  '%prediction',
+  '%endprediction',
+  '%chicken',
+  '%checkin',
+  '%flashbang',
+  '%blacksilence',
+  '%points',
+  '%givepoints',
+  '%transfer',
+  '%maxwell',
+  '%mistake',
+  '%si',
+  '%showimage',
+  '%pa',
+  '%playsound',
+  '%playaudio',
+  '%buy',
+  '%sell',
+  '%stocks',
+  '%buyorders',
+  '%sellorders',
+  '%endstream',
+  '%gamba',
+  '%selfthought',
+  '%goodnightkiss',
+  '%settitle',
+  '%givekarma',
+  '%restart',
+  '%undress',
+  '%stars',
+  '%hearts',
+  '%block',
+  '%unblock',
+  '%kill',
+  '%grayscale'
+]);
+
+// Command name → key for commandChances lookup
+function chanceKey(commandIndicator: ChatCommand): string {
+  const map: Record<string, string> = {
+    '%si': 'showimage',
+    '%showimage': 'showimage',
+    '%pa': 'playaudio',
+    '%playsound': 'playaudio',
+    '%playaudio': 'playaudio',
+    '%chicken': 'checkin',
+    '%checkin': 'checkin'
+  };
+  return map[commandIndicator] ?? commandIndicator.slice(1);
+}
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   cooldowns: Map<string, number> = new Map();
+  gambaUserCooldowns: Map<string, number> = new Map();
   blacklist: Array<ChatCommand> = [];
+  bitsBoosts: Map<string, number> = new Map();
 
   private busWs?: WebSocket = undefined;
 
@@ -70,6 +152,13 @@ export class Commands implements OverlayObserver {
     }
 
     const dispatcher = this.dispatchers;
+    const username = message.userInfo.userName;
+    if (!username) return;
+
+    if (message.bits > 0 && username) {
+      void this.handleBits(message, username);
+    }
+
     const firstSplit = message.text.split(' ')[0];
     if (!firstSplit.startsWith('%')) return;
 
@@ -88,11 +177,123 @@ export class Commands implements OverlayObserver {
       return;
     }
 
+    const rest = message.text.slice(firstSplit.length).trim();
+    if (REQUIRES_ARGS.has(commandIndicator) && !rest) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        COMMAND_HELP[commandIndicator] ?? 'invalid syntax',
+        message.id
+      );
+      return;
+    }
+
+    const sectionKey = COMMAND_SECTION[commandIndicator];
+    if (sectionKey && isSectionDisabled(sectionKey)) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `vanor 1984'd ${commandIndicator}, call him stinky!`,
+        message.id
+      );
+      return;
+    }
+
+    if (
+      OVERLAY_HANDLED_COMMANDS.has(commandIndicator) &&
+      !PASS_THROUGH_COMMANDS.has(commandIndicator)
+    ) {
+      void this.gateCommand(commandIndicator, dispatcher, message, commandIndicator);
+      return;
+    }
+
+    this.dispatchCommand(commandIndicator, dispatcher, message);
+  }
+
+  private async handleBits(message: ChatMessage, username: string) {
+    const bits = message.bits;
+    karmaStore.updateKarma(bits * 10, 'Bits', false);
+    const current = this.bitsBoosts.get(username) ?? 0;
+    this.bitsBoosts.set(username, current + bits);
+    console.log(`${username} cheered ${bits} bits (total boost: ${current + bits})`);
+    await addBitBoost(username, bits);
+  }
+
+  getUserBitsBoost(username: string): number {
+    return this.bitsBoosts.get(username) ?? 0;
+  }
+
+  addUserBitBoost(username: string, bits: number): void {
+    const current = this.bitsBoosts.get(username) ?? 0;
+    this.bitsBoosts.set(username, current + bits);
+  }
+
+  private async gateCommand(
+    commandIndicator: ChatCommand,
+    dispatcher: OverlayDispatchers,
+    message: ChatMessage,
+    _commandName: ChatCommand
+  ) {
+    if (message.userInfo.isBroadcaster) {
+      this.dispatchCommand(commandIndicator, dispatcher, message);
+      return;
+    }
+
+    const bitsBonus = this.getUserBitsBoost(message.userInfo.userName ?? '');
+    const ck = chanceKey(commandIndicator);
+    const channelId = message.channelId ?? PUBLIC_TARGET_CHANNEL_ID;
+    const userId = message.userInfo.userId;
+
+    let chance = 100;
+    try {
+      const base = getBaseChance(ck);
+      chance = await computeSuccessChance(ck, userId, channelId, bitsBonus);
+      if (base !== chance) {
+        console.log(
+          `${message.userInfo.userName} ${commandIndicator}: adjusted chance=${chance}% (base=${base}%, bitsBonus=${bitsBonus}%)`
+        );
+      }
+    } catch (e) {
+      console.warn('chance computation failed, defaulting to 100%', e);
+    }
+
+    if (rollSuccess(chance)) {
+      this.dispatchCommand(commandIndicator, dispatcher, message);
+    } else {
+      const failChance = 100 - Math.min(chance, 100);
+      const timeoutSec = timeoutSecondsForFailChance(failChance);
+      dispatcher.sendMessageAsUser(
+        channelId,
+        `@${message.userInfo.userName} fumbled ${commandIndicator} (${failChance}% fail chance) -> timeout ${timeoutSec}s`,
+        message.id
+      );
+      try {
+        await dispatcher.timeoutUser(channelId, userId, 'command failed', timeoutSec);
+      } catch (e) {
+        console.warn(`failed to timeout ${message.userInfo.userName}:`, e);
+      }
+    }
+  }
+
+  private dispatchCommand(
+    commandIndicator: ChatCommand,
+    dispatcher: OverlayDispatchers,
+    message: ChatMessage
+  ) {
     switch (commandIndicator) {
       case '%poll':
         this.callOnlyIfPastCooldown('poll', dispatcher, message, () =>
           pollCommandHandler(dispatcher, message)
         );
+        break;
+      case '%endpoll':
+        endPollCommandHandler(dispatcher, message);
+        break;
+      case '%prediction':
+        this.callOnlyIfPastCooldown('prediction', dispatcher, message, () =>
+          predictionCommandHandler(dispatcher, message)
+        );
+        break;
+      case '%endprediction':
+        endPredictionCommandHandler(dispatcher, message);
         break;
       case '%chicken':
       case '%checkin':
@@ -141,17 +342,29 @@ export class Commands implements OverlayObserver {
           freeUser: getOverlayConfig().playAudio.user
         });
         break;
-      case '%invest':
-        investHandler(dispatcher, message, 'invest');
+      case '%buy':
+        buyHandler(dispatcher, message);
         break;
-      case '%uninvest':
-        investHandler(dispatcher, message, 'uninvest');
+      case '%sell':
+        sellHandler(dispatcher, message);
         break;
-      case '%stock':
-        stockHandler(dispatcher, message);
+      case '%stocks':
+        stocksHandler(dispatcher, message);
         break;
-      case '%closemarket':
-        closeMarketHandler(dispatcher, message);
+      case '%buyorders':
+        buyOrdersHandler(dispatcher, message);
+        break;
+      case '%sellorders':
+        sellOrdersHandler(dispatcher, message);
+        break;
+      case '%endstream':
+        stockEndStreamHandler(dispatcher, message);
+        if (message.userInfo.isBroadcaster) {
+          void this.flushBits(dispatcher, message);
+        }
+        break;
+      case '%gamba':
+        gambaHandler(this, dispatcher, message);
         break;
       case '%selfthought':
         this.callOnlyIfPastCooldown('selfthought', dispatcher, message, () =>
@@ -200,15 +413,34 @@ export class Commands implements OverlayObserver {
           killHandler(dispatcher, message)
         );
         break;
-      case '%vote':
+      case '%grayscale':
+        this.callOnlyIfPastCooldown('grayscale', dispatcher, message, () => {
+          if (this.busWs) grayscaleHandler(dispatcher, message, this.busWs);
+          else
+            dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
+        });
+        break;
+      // Pass-through commands (handled elsewhere)
       case '%bid':
       case '%endbid':
-        break;
       case '%distract':
       case '%rotate':
       case '%refreshVoice':
         break;
     }
-    return;
+  }
+
+  private async flushBits(dispatcher: OverlayDispatchers, message: ChatMessage) {
+    try {
+      await flushBitBoosts();
+    } catch (e) {
+      console.warn('Failed to flush bit boosts:', e);
+    }
+    this.bitsBoosts.clear();
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'all bit boosts flushed for the stream',
+      message.id
+    );
   }
 }

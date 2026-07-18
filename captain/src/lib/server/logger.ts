@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import type { LogMessage } from '$lib/bus/messages';
+import { stripAnsi, type LogMessage } from '$lib/bus/messages';
 
 type BroadcastFn = (msg: LogMessage) => void;
 
@@ -75,7 +75,9 @@ export function installConsoleHijack() {
     return (...args: unknown[]) => {
       orig[level](...args);
 
-      const msg = `[Captain] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`;
+      const msg = stripAnsi(
+        `[Captain] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
+      );
 
       const entry: LogMessage = {
         type: 'log',

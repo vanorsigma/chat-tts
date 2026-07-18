@@ -1,0 +1,1 @@
+export const SONG_PROGRESS_INTERVAL_MS = 250;

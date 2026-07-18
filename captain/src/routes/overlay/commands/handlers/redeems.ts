@@ -32,31 +32,26 @@ export async function flashbangHandler(dispatcher: OverlayDispatchers, message: 
   const username = requireUsername(message);
   if (!username) return;
 
-  if (Math.random() < 0.5 || message.userInfo.isBroadcaster) {
-    if (
-      await checkCostAddIfEnough(
-        dispatcher,
-        message.channelId!,
-        username,
-        -getOverlayConfig().flashbang.cost,
-        undefined,
-        message.id
-      )
-    ) {
-      flashbangStore.increment();
-      karmaStore.updateKarma(getOverlayConfig().flashbang.karma, 'Flashbang');
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        `throwing a flashbang, -${getOverlayConfig().flashbang.cost}`,
-        message.id
-      );
-    }
-  } else {
-    dispatcher.sendMessageAsUser(message.channelId!, 'NO xdHAH', message.id);
+  if (
+    await checkCostAddIfEnough(
+      dispatcher,
+      message.channelId!,
+      username,
+      -getOverlayConfig().flashbang.cost,
+      message.id
+    )
+  ) {
+    flashbangStore.increment();
+    karmaStore.updateKarma(getOverlayConfig().flashbang.karma, 'Flashbang');
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `throwing a flashbang, -${getOverlayConfig().flashbang.cost}`,
+      message.id
+    );
   }
 }
 
-export function blackSilenceHandler(
+export async function blackSilenceHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
   ws: WebSocket
@@ -64,35 +59,33 @@ export function blackSilenceHandler(
   const username = requireUsername(message);
   if (!username) return;
 
-  (async () => {
-    await withCostOrFreeUser(
-      dispatcher,
-      message,
-      getOverlayConfig().blackSilence.user,
-      getOverlayConfig().blackSilence.cost,
-      () => {
-        blackSilenceStore.increment();
-        karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
+  await withCostOrFreeUser(
+    dispatcher,
+    message,
+    getOverlayConfig().blackSilence.user,
+    getOverlayConfig().blackSilence.cost,
+    () => {
+      blackSilenceStore.increment();
+      karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
 
-        ws.send(
-          JSON.stringify({
-            type: 'tts',
-            command: { type: 'cancel' }
-          } as CancelTTS)
-        );
+      ws.send(
+        JSON.stringify({
+          type: 'tts',
+          command: { type: 'cancel' }
+        } as CancelTTS)
+      );
 
-        ws.send(
-          JSON.stringify({
-            type: 'tts',
-            command: {
-              type: 'disable',
-              duration: getOverlayConfig().blackSilence.durationMs / 1000
-            }
-          } as DisableTTS)
-        );
-      }
-    );
-  })();
+      ws.send(
+        JSON.stringify({
+          type: 'tts',
+          command: {
+            type: 'disable',
+            duration: getOverlayConfig().blackSilence.durationMs / 1000
+          }
+        } as DisableTTS)
+      );
+    }
+  );
 }
 
 export async function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -123,7 +116,6 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
       message.channelId!,
       username,
       -getOverlayConfig().selfThought.cost,
-      undefined,
       message.id
     )
   ) {
@@ -141,7 +133,6 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
         message.channelId!,
         username,
         getOverlayConfig().selfThought.cost,
-        undefined,
         message.id
       ))!;
     } else {
@@ -152,5 +143,39 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
         message.id
       );
     }
+  }
+}
+
+export async function grayscaleHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  ws: WebSocket
+) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  if (
+    await checkCostAddIfEnough(
+      dispatcher,
+      message.channelId!,
+      username,
+      -getOverlayConfig().grayscale.cost,
+      message.id
+    )
+  ) {
+    karmaStore.updateKarma(getOverlayConfig().grayscale.karma, 'Grayscale');
+    ws.send(
+      JSON.stringify({
+        type: 'picom-shader',
+        op: 'ENABLE',
+        shader: getOverlayConfig().grayscale.shader,
+        durationMs: getOverlayConfig().grayscale.durationMs
+      })
+    );
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `grayscale ON, -${getOverlayConfig().grayscale.cost}`,
+      message.id
+    );
   }
 }

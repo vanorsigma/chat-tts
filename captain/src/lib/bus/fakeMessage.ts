@@ -1,12 +1,17 @@
 import type { ChatMessage, ChatUser } from '@twurple/chat';
 
-export function createFakeMessage(text: string, displayName?: string, channelId?: string): ChatMessage {
+export function createFakeMessage(
+  text: string,
+  displayName?: string,
+  channelId?: string
+): ChatMessage {
+  const name = displayName?.trim() || 'Faker';
   return {
     userInfo: {
       id: '12345678',
       userId: '12345678',
-      displayName: displayName ?? 'Faker',
-      userName: (displayName ?? 'faker').toLowerCase(),
+      displayName: name,
+      userName: name.toLowerCase(),
       color: '#000000',
       badges: new Map(),
       emotes: new Map(),

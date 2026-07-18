@@ -6,7 +6,8 @@ import { setBroadcastFn } from './logger';
 import { Controller } from '$lib/controllers';
 import { ParseableConfig } from '$lib/config';
 import { createFakeMessage } from '$lib/bus/fakeMessage';
-import type { FakerMessage, ControlMessage } from '$lib/bus/messages';
+import type { FakerMessage, FakerSubMessage, FakerBitsMessage, ControlMessage } from '$lib/bus/messages';
+import { setSubTier, addBitBoost } from './db';
 import { isRemoteTTSMessage, type RemoteTTSMessages } from '$lib/remoteTTSMessages';
 
 const BUS_URL = 'ws://localhost:3001';
@@ -36,6 +37,18 @@ function handleFaker(msg: FakerMessage) {
   controller.updateWithMessage(fake);
 }
 
+function handleFakerSub(msg: FakerSubMessage) {
+  const name = msg.displayName?.trim() || 'Faker';
+  setSubTier(name, msg.tier).catch((e) => console.warn('Failed to set fake sub tier:', e));
+  console.log(`Faker sub: ${name} tier ${msg.tier}`);
+}
+
+function handleFakerBits(msg: FakerBitsMessage) {
+  const name = msg.displayName?.trim() || 'Faker';
+  addBitBoost(name, msg.amount).catch((e) => console.warn('Failed to add fake bits:', e));
+  console.log(`Faker bits: ${name} amount ${msg.amount}`);
+}
+
 function handleTTS(msg: RemoteTTSMessages) {
   if (!controller?.remoteChatTTSController) {
     console.warn('No remote TTS controller active, ignoring TTS message');
@@ -62,15 +75,24 @@ function handleControl(msg: ControlMessage) {
   }
 }
 
+let _pendingConfig: string | null = null;
+
 function connectToBus() {
   console.log('Connecting to the bus...');
   senderWs = new WebSocket(`${BUS_URL}/senders`);
   senderWs.on('open', () => {
     wireLogger();
     console.log('Connected to the sender bus');
+    if (_pendingConfig) {
+      const raw = _pendingConfig;
+      _pendingConfig = null;
+      reloadConfig(raw);
+    }
   });
   senderWs.on('error', () => {
-    console.error('Unable to connect to the sender bus. We will retry, but this is typically a much more serious issue');
+    console.error(
+      'Unable to connect to the sender bus. We will retry, but this is typically a much more serious issue'
+    );
     setTimeout(connectToBus, 2000);
   });
 
@@ -83,6 +105,10 @@ function connectToBus() {
       const msg = JSON.parse(data.toString());
       if (msg.type === 'faker') {
         handleFaker(msg as FakerMessage);
+      } else if (msg.type === 'faker-sub') {
+        handleFakerSub(msg as FakerSubMessage);
+      } else if (msg.type === 'faker-bits') {
+        handleFakerBits(msg as FakerBitsMessage);
       } else if (msg.type === 'control') {
         handleControl(msg as ControlMessage);
       } else if (msg.type === 'tts' && isRemoteTTSMessage(msg)) {
@@ -93,7 +119,9 @@ function connectToBus() {
     }
   });
   receiverWs.on('error', () => {
-    console.error('Unable to connect to the receiver bus. We will retry, but this is typically a much more serious issue');
+    console.error(
+      'Unable to connect to the receiver bus. We will retry, but this is typically a much more serious issue'
+    );
     setTimeout(connectToBus, 2000);
   });
 }
@@ -108,11 +136,16 @@ function reloadConfig(rawYaml: string) {
     const parsed = new ParseableConfig(parse(rawYaml));
     const fullConfig = parsed.toFullConfig();
 
+    if (!senderWs) {
+      console.warn('Bus not connected yet, deferring config load');
+      return;
+    }
+
     if (controller) {
       controller.end().catch((e) => console.warn('Error ending controller:', e));
     }
 
-    controller = new Controller(fullConfig, senderWs!);
+    controller = new Controller(fullConfig, senderWs);
     controller.start();
     console.log('Config reloaded successfully');
   } catch (e) {
@@ -124,7 +157,12 @@ function startConfigWatcher() {
   console.log('Watching config file for changes...');
   _configWatcher = watch(CONFIG_PATH, () => {
     const raw = readConfig();
-    if (raw) reloadConfig(raw);
+    if (!raw) return;
+    if (!senderWs) {
+      _pendingConfig = raw;
+      return;
+    }
+    reloadConfig(raw);
   });
 }
 
@@ -135,8 +173,7 @@ export function initializeRuntime() {
   console.log('Runtime initializing...');
   connectToBus();
 
-  const raw = readConfig();
-  if (raw) reloadConfig(raw);
+  _pendingConfig = readConfig();
 
   startConfigWatcher();
 }

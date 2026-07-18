@@ -37,7 +37,6 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
       message.channelId!,
       username,
       -getOverlayConfig().goodNightKiss.cost,
-      undefined,
       message.id
     ))
   ) {
@@ -88,7 +87,6 @@ export async function settitleHandler(dispatcher: OverlayDispatchers, message: C
       message.channelId!,
       username,
       -getOverlayConfig().setTitle.cost,
-      undefined,
       message.id
     ))
   )
@@ -134,11 +132,11 @@ export async function togglesHandler(
   }
 
   timeoutVal = setTimeout(() => {
-    dispatcher.modelUpdater.setBlendShape(blendShape, 0.0);
+    dispatcher.modelUpdater.hideBlendShape(blendShape);
   }, TOGGLE_COOLDOWN);
 
   TOGGLE_EXPIRY.set(blendShape, timeoutVal);
-  dispatcher.modelUpdater.setBlendShape(blendShape, 1.0);
+  dispatcher.modelUpdater.showBlendShape(blendShape);
   karmaStore.setKarma(karmaValue - requiredKarma, 'Toggles');
 }
 

@@ -1,3 +1,9 @@
+const disabledSections = new Set<string>();
+
+export function isSectionDisabled(sectionKey: string): boolean {
+  return disabledSections.has(sectionKey);
+}
+
 const _overlayConfig = {
   moderation: {
     moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
@@ -5,7 +11,7 @@ const _overlayConfig = {
       '%restart',
       '%block',
       '%unblock',
-      '%closemarket',
+      '%endstream',
       '%refreshVoice',
       '%rotate',
       '%distract'
@@ -19,10 +25,17 @@ const _overlayConfig = {
   mistake: { cost: 5000, user: 'mr_auto', karma: -1000 },
   showImage: { cost: 10000, user: 'mayoigo_qwq', cooldownMs: 60000, karma: -200 },
   playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
+  grayscale: { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 10000 },
   selfThought: { cost: 5000, karma: -200 },
   goodNightKiss: { cost: 5000, user: 'pastel8844', karma: -300, timeoutDurationSec: 1800 },
   setTitle: { cost: 1000, karmaRequirement: 100, karmaModifier: -0.3, user: 'sekatsu1' },
   checkIn: { points: 999.99 },
+  stockMarket: {
+    cycleIntervalMs: 15000,
+    instantSuccessChance: 0.05,
+    checkinShares: 100,
+    endstreamDefaultPrice: 1
+  },
   karma: {
     min: -5000,
     max: 5000,
@@ -40,8 +53,17 @@ const _overlayConfig = {
   },
   model: { initialHeartrate: 50, blushHrThreshold: 80, despairHrThreshold: 50 },
   captcha: { points: 500, karma: 100, durationMs: 30000 },
+  poll: {},
+  prediction: {},
+  economy: {},
+  endstream: {},
+  bid: {},
+  voice: {},
+  restart: {},
+  distract: {},
   commandCooldowns: {
     poll: 10000,
+    prediction: 10000,
     flashbang: 10000,
     selfthought: 10000,
     undress: 1000,
@@ -49,8 +71,24 @@ const _overlayConfig = {
     hearts: 1000,
     block: 10000,
     unblock: 10000,
-    kill: 10000
-  }
+    kill: 10000,
+    gamba: 60000,
+    buy: 2000,
+    sell: 2000,
+    grayscale: 10000
+  },
+  commandChances: {
+    default: 90,
+    flashbang: 40,
+    grayscale: 40
+  },
+  positions: {
+    artistWidgetX: 20,
+    artistWidgetY: 20,
+    rightPanelX: 1520,
+    rightPanelY: 0
+  },
+  makiConfig: { textSpeed: 30 }
 };
 
 export function getOverlayConfig() {
@@ -65,6 +103,33 @@ interface ApiToggleEntry {
   name: string;
   karma: number;
 }
+
+const COMMAND_SECTION_API_KEYS = new Set([
+  'moderationConfig',
+  'blackSilenceConfig',
+  'flashbangConfig',
+  'maxwellConfig',
+  'mistakeConfig',
+  'showImageConfig',
+  'playAudioConfig',
+  'selfThoughtConfig',
+  'goodNightKissConfig',
+  'setTitleConfig',
+  'checkInConfig',
+  'stockMarketConfig',
+  'karmaConfig',
+  'modelConfig',
+  'captchaConfig',
+  'pollConfig',
+  'predictionConfig',
+  'economyConfig',
+  'endstreamConfig',
+  'bidConfig',
+  'voiceConfig',
+  'restartConfig',
+  'distractConfig',
+  'grayscaleConfig'
+]);
 
 export function applyOverlayConfig(raw?: Record<string, unknown>): void {
   if (!raw) return;
@@ -81,16 +146,36 @@ export function applyOverlayConfig(raw?: Record<string, unknown>): void {
     goodNightKissConfig: 'goodNightKiss',
     setTitleConfig: 'setTitle',
     checkInConfig: 'checkIn',
+    stockMarketConfig: 'stockMarket',
     karmaConfig: 'karma',
     modelConfig: 'model',
     captchaConfig: 'captcha',
-    commandCooldownsConfig: 'commandCooldowns'
+    pollConfig: 'poll',
+    predictionConfig: 'prediction',
+    economyConfig: 'economy',
+    endstreamConfig: 'endstream',
+    bidConfig: 'bid',
+    voiceConfig: 'voice',
+    restartConfig: 'restart',
+    distractConfig: 'distract',
+    grayscaleConfig: 'grayscale',
+    commandCooldownsConfig: 'commandCooldowns',
+    commandChancesConfig: 'commandChances',
+    overlayPositionsConfig: 'positions',
+    makiConfig: 'makiConfig'
   };
 
   for (const [apiKey, internalKey] of Object.entries(sectionMap)) {
     const section = raw[apiKey] as Record<string, unknown> | undefined;
     if (section) {
       Object.assign(_overlayConfig[internalKey] as Record<string, unknown>, section);
+    }
+    if (COMMAND_SECTION_API_KEYS.has(apiKey)) {
+      if (section) {
+        disabledSections.delete(internalKey);
+      } else {
+        disabledSections.add(internalKey);
+      }
     }
   }
 

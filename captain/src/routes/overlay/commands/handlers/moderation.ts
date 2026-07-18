@@ -6,7 +6,7 @@ import { requireUsername } from './shared';
 import { getOverlayConfig } from '../../constants';
 import { asChatCommand } from '../registry';
 import { makeStandardYesNoBid } from '../../bid.svelte';
-import { closeMarketHandler } from './stockmarket';
+import { endStreamHandler } from './stockmarket';
 
 export async function blockHandler(
   commands: Commands,
@@ -73,7 +73,6 @@ export async function blockHandler(
           message.channelId!,
           bidMessage.userInfo.userName,
           -bidNumber,
-          undefined,
           bidMessage.id
         ))
       ) {
@@ -150,7 +149,6 @@ export async function killHandler(dispatcher: OverlayDispatchers, message: ChatM
           originalMessageChannelId,
           biddingMsg.userInfo.userName,
           -bidNumber,
-          undefined,
           biddingMsg.id
         ))
       ) {
@@ -199,6 +197,6 @@ export async function restartHandler(dispatcher: OverlayDispatchers, message: Ch
 
   if (!message.userInfo.isBroadcaster) return;
 
-  await closeMarketHandler(dispatcher, message);
+  await endStreamHandler(dispatcher, message);
   window.location.reload();
 }

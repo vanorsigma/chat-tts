@@ -1,5 +1,6 @@
 import { getOverlayConfig } from '../constants';
 import type { Poll } from '../poll.svelte';
+import type { Prediction } from '../prediction.svelte';
 import type { BidInstance } from '../bid.svelte';
 import { createPubSub, type Unsubscribe } from './pubsub';
 
@@ -219,6 +220,24 @@ export function createPollStore() {
     },
     get totalVotes() {
       return poll?.options?.reduce((sum, option) => sum + option.votes, 0) ?? 0;
+    },
+    set
+  };
+}
+
+export function createPredictionStore() {
+  let prediction: Prediction | undefined | null = $state(undefined);
+
+  function set(newPrediction: Prediction | null) {
+    prediction = newPrediction;
+  }
+
+  return {
+    get data() {
+      return prediction;
+    },
+    get totalChannelPoints() {
+      return prediction?.outcomes?.reduce((sum, o) => sum + o.channelPoints, 0) ?? 0;
     },
     set
   };

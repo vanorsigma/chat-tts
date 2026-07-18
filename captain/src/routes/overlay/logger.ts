@@ -1,4 +1,4 @@
-import type { LogMessage } from '$lib/bus/messages';
+import { stripAnsi, type LogMessage } from '$lib/bus/messages';
 
 type BroadcastFn = (msg: LogMessage) => void;
 
@@ -59,7 +59,9 @@ export function installConsoleHijack(busSocket: WebSocket) {
     return (...args: unknown[]) => {
       orig[level](...args);
 
-      const msg = `[Overlay] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`;
+      const msg = stripAnsi(
+        `[Overlay] ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
+      );
 
       const entry: LogMessage = {
         type: 'log',

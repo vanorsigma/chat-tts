@@ -22,16 +22,7 @@ export async function withCostOrFreeUser(
     return true;
   }
 
-  if (
-    !(await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -cost,
-      undefined,
-      message.id
-    ))
-  )
+  if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -cost, message.id)))
     return false;
 
   dispatcher.sendMessageAsUser(message.channelId!, `-${cost}`, message.id);

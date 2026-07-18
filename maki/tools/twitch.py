@@ -12,7 +12,7 @@ from twitchAPI.twitch import Twitch
 from twitchAPI.type import AuthScope
 from pydantic_ai import ModelRetry, Tool
 
-from config import MakiConfig
+from config import MakiConfig, BotToken
 
 
 class ChatterCommand(TypedDict):
@@ -108,11 +108,13 @@ class TwitchChatClient:
                         tier = self._extract_subscriber_tier(badges)
 
                         self.sub_tiers[display_name] = tier
-                        self.buffer.append({
-                            "user": display_name,
-                            "message": content,
-                            "tier": tier,
-                        })
+                        self.buffer.append(
+                            {
+                                "user": display_name,
+                                "message": content,
+                                "tier": tier,
+                            }
+                        )
         except (asyncio.CancelledError, ConnectionError):
             pass
 
@@ -137,10 +139,11 @@ class TwitchChatClient:
 
 
 class TwitchTool:
-    def __init__(self, config: MakiConfig) -> None:
+    def __init__(self, config: MakiConfig, bot_token: BotToken) -> None:
         self.app_id = config.twitch_client_id
         self.app_secret = config.twitch_client_secret
         self.target_channel = config.broadcaster_name
+        self.bot_token = bot_token
         self.twitch: Twitch | None = None
         self.broadcaster_id = ""
         self.moderator_id = ""
@@ -156,16 +159,6 @@ class TwitchTool:
             )
         print(f"[TOOL] Chatter commands loaded: {self.chatter_commands}")
 
-        try:
-            with open("twitch_tokens.txt", "r") as f:
-                tokens = f.readlines()
-                self.refresh_token = tokens[0].strip()
-                self.user_token = tokens[1].strip()
-        except Exception:
-            raise RuntimeError(
-                "create a file called twitch_tokens.txt and put the refresh token there"
-            )
-
     async def _lazy_init(self):
         if self.twitch is not None:
             return
@@ -175,11 +168,10 @@ class TwitchTool:
         target_scopes = [
             AuthScope.MODERATOR_READ_CHATTERS,
             AuthScope.MODERATOR_MANAGE_BANNED_USERS,
-            AuthScope.USER_READ_CHAT,
             AuthScope.USER_WRITE_CHAT,
         ]
         await self.twitch.set_user_authentication(
-            self.user_token, target_scopes, self.refresh_token
+            self.bot_token.access_token, target_scopes, self.bot_token.refresh_token
         )
 
         user_info_gen = self.twitch.get_users(logins=[self.target_channel])
@@ -212,16 +204,18 @@ class TwitchTool:
                     for version in badge_set.versions:
                         result[version.id] = _parse_tier_from_title(version.title)
         except Exception:
-            print(f"[TWITCH-API] Failed to fetch subscriber badge map, defaulting to tier 1")
+            print(
+                f"[TWITCH-API] Failed to fetch subscriber badge map, defaulting to tier 1"
+            )
         print(f"[TWITCH-API] Subscriber badge map: {len(result)} versions")
         return result
 
     async def _save_token(self, auth_token: str, refresh_token: str):
         print("[TWITCH-API] Saving refreshed tokens to twitch_tokens.txt")
         with open("twitch_tokens.txt", "w") as f:
-            self.refresh_token = refresh_token
-            self.user_token = auth_token
-            f.write(f"{self.refresh_token}\n{self.user_token}")
+            f.write(f"{refresh_token}\n{auth_token}")
+        self.bot_token.access_token = auth_token
+        self.bot_token.refresh_token = refresh_token
         print("[TWITCH-API] Tokens saved")
 
     async def _get_chatter_list(self) -> dict[str, str]:
@@ -335,7 +329,7 @@ class TwitchTool:
         Args:
             title: A title to change to. 1 to 60 charactes only
         """
-        if not (1 < len(title) < 60):
+        if not (1 <= len(title) <= 60):
             raise ModelRetry(
                 "title is too long / short, keep it between 1 to 60 characters"
             )

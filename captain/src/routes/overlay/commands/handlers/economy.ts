@@ -5,6 +5,7 @@ import { requireUsername } from './shared';
 import { getPointsForUser } from '$lib/api/points';
 import { getOverlayConfig } from '../../constants';
 import { checkinUser } from '../../checkinInterface';
+import { GLOBAL_STOCK_MARKET } from '../../stock/market';
 
 export async function transferHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
@@ -28,25 +29,9 @@ export async function transferHandler(dispatcher: OverlayDispatchers, message: C
     return;
   }
 
-  if (
-    !(await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -amount,
-      undefined,
-      message.id
-    ))
-  )
+  if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, message.id)))
     return;
-  (await checkCostAddIfEnough(
-    dispatcher,
-    message.channelId!,
-    target,
-    amount,
-    undefined,
-    message.id
-  ))!;
+  (await checkCostAddIfEnough(dispatcher, message.channelId!, target, amount, message.id))!;
 
   dispatcher.sendMessageAsUser(
     message.channelId!,
@@ -61,28 +46,21 @@ export async function givePointsHandler(dispatcher: OverlayDispatchers, message:
   if (!message.userInfo.isBroadcaster) return;
 
   const splitted = message.text.split(' ');
-  const target = splitted[1];
+  const target = splitted[1].toLowerCase();
   const points = Number(splitted[2]);
   if (!target || Number.isNaN(points)) {
     dispatcher.sendMessageAsUser(message.channelId!, 'invalid arguments', message.id);
     return;
   }
 
-  (await checkCostAddIfEnough(
-    dispatcher,
-    message.channelId!,
-    target,
-    points,
-    undefined,
-    message.id
-  ))!;
+  (await checkCostAddIfEnough(dispatcher, message.channelId!, target, points, message.id))!;
   dispatcher.sendMessageAsUser(message.channelId!, `given ${points} to ${target}`, message.id);
 }
 
 export function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
   if (!username) return;
-  const target = message.text.split(' ').at(1) ?? username;
+  const target = (message.text.split(' ').at(1)?.toLowerCase()) ?? username;
 
   (async () => {
     const points = (await getPointsForUser(target)) ?? 0;
@@ -115,8 +93,10 @@ export async function checkInHandler(
     message.channelId!,
     username,
     getOverlayConfig().checkIn.points,
-    undefined,
     message.id
   ))!;
+
+  GLOBAL_STOCK_MARKET.checkin(username);
+
   if (sender) checkinUser(username, sender);
 }

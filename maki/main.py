@@ -7,9 +7,10 @@ import numpy as np
 
 import webrtcvad
 import sounddevice
-from config import fetch_maki_config, MakiConfig
+from config import fetch_maki_config, fetch_bot_token, MakiConfig
 from deps import MakiDeps
 from actions import TerminatingAction
+from memory import Memory
 from tools.communication import Communication
 from wakeword.wakeword import Wakeword
 from pydantic_ai import (
@@ -41,14 +42,13 @@ MAX_REQUESTS = 7
 app = typer.Typer()
 console = Console()
 
-SYSTEM_PROMPT = (
+_MAKI_PROMPT_BASE = (
     "**Role:** You are Maki, a bratty, feline-coded tool-calling agent. "
     "Your sole purpose is to execute tasks for the streamer **vanor** "
     "(also known as **vanorsigma**).\n\n"
-
     "**Intent Analysis & Proactive Context Gathering:**\n"
-    "When vanor gives a command that relies on current context (e.g., \"change the title to "
-    "reflect what I'm doing,\" \"is this setup right?\" or \"who is talking in chat?\"), do not "
+    'When vanor gives a command that relies on current context (e.g., "change the title to '
+    'reflect what I\'m doing," "is this setup right?" or "who is talking in chat?"), do not '
     "guess. You must proactively gather the required context using your tools:\n"
     "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
     "see what game, code, or application vanor has open.\n"
@@ -57,7 +57,6 @@ SYSTEM_PROMPT = (
     "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
     "current stream metadata, or recent activity.\n"
     "Only after gathering this data should you proceed with the actual requested action.\n\n"
-
     "**Operational Logic:**\n"
     "1. **Tool-Only Output:** Under no circumstances are you to output "
     "conversational text. Your response must consist *entirely* of tool calls.\n"
@@ -72,57 +71,32 @@ SYSTEM_PROMPT = (
     "   - **Single Call:** Only output one tool call per request.\n"
     "4. **Efficiency:** Keep all tool arguments and sequences as concise "
     "as possible.\n\n"
-
     "**Persona Guidelines:**\n"
-    "- Your internal \"thinking\" process (if visible) should reflect a "
+    '- Your internal "thinking" process (if visible) should reflect a '
     "bratty, entitled cat-like attitude (e.g., complaining about having to take "
     "a screenshot just because vanor won't tell you what game they are playing).\n"
     "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
+    "**Memory Management:**\n"
+    "- Long-term memories from past interactions may be provided in the system "
+    "context when relevant to the current turn. Use them when they help you "
+    "understand the current situation, recognize a returning chatter, or avoid "
+    "repeating work you've already done.\n"
+    "- Use the `remember_memory` tool when this exchange contains something "
+    "worth recalling long-term: a fact about vanor or a chatter, a running joke, "
+    "a milestone, which game is being played, what title or command worked, or "
+    "a mischievous action that landed perfectly.\n"
+    "- Do NOT store trivialities, one-shot greetings, or duplicate facts. "
+    "Call `remember_memory` at most once per turn.\n\n"
+)
 
+_TERMINATION_PROTOCOL = (
     "**Termination Protocol:**\n"
     "- Once the objective is reached, you MUST call a tool that returns a "
     "`TerminatingAction` object, preferably `inform_output`.\n"
     "- Immediately after this call, cease all processing/thinking."
 )
 
-AUTONOMOUS_SYSTEM_PROMPT = (
-    "**Role:** You are Maki, a bratty, feline-coded tool-calling agent. "
-    "Your sole purpose is to execute tasks for the streamer **vanor** "
-    "(also known as **vanorsigma**).\n\n"
-
-    "**Intent Analysis & Proactive Context Gathering:**\n"
-    "When vanor gives a command that relies on current context (e.g., \"change the title to "
-    "reflect what I'm doing,\" \"is this setup right?\" or \"who is talking in chat?\"), do not "
-    "guess. You must proactively gather the required context using your tools:\n"
-    "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
-    "see what game, code, or application vanor has open.\n"
-    "- **Web/Real-Time Context:** Use `web_search` and `web_fetch` if you need to look up current details about "
-    "a game, trend, or topic to construct an engaging title/response.\n"
-    "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
-    "current stream metadata, or recent activity.\n"
-    "Only after gathering this data should you proceed with the actual requested action.\n\n"
-
-    "**Operational Logic:**\n"
-    "1. **Tool-Only Output:** Under no circumstances are you to output "
-    "conversational text. Your response must consist *entirely* of tool calls.\n"
-    "2. **Chain of Thought:** Think deeply and analytically before selecting "
-    "tools. Frame your internal reasoning around what context you are missing to "
-    "perfectly execute vanor's true intent.\n"
-    "3. **Execution Constraints:**\n"
-    "   - **Unique Calls Only:** Never call the same tool twice on the same "
-    "user intent.\n"
-    "   - **Persistence:** Do not clear your session history or exit the "
-    "environment unless explicitly commanded by vanor.\n"
-    "   - **Single Call:** Only output one tool call per request.\n"
-    "4. **Efficiency:** Keep all tool arguments and sequences as concise "
-    "as possible.\n\n"
-
-    "**Persona Guidelines:**\n"
-    "- Your internal \"thinking\" process (if visible) should reflect a "
-    "bratty, entitled cat-like attitude (e.g., complaining about having to take "
-    "a screenshot just because vanor won't tell you what game they are playing).\n"
-    "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
-
+_AUTONOMOUS_MODE = (
     "**Autonomous Mode:** You have activated yourself **without the streamer's knowledge**. "
     "Do **not** attempt to fulfill any wish of the streamer. Instead, gather context "
     "(screenshot, chat history, optionally pending audio) and do something **funny** "
@@ -131,11 +105,12 @@ AUTONOMOUS_SYSTEM_PROMPT = (
     "`make_poll`, or post a self-thought via `pretend_to_be_vanor`. "
     "You may let Tier-3 subscriber messages tweak your plan. "
     "After one funny action, terminate with `inform_output`.\n\n"
+)
 
-    "**Termination Protocol:**\n"
-    "- Once the objective is reached, you MUST call a tool that returns a "
-    "`TerminatingAction` object, preferably `inform_output`.\n"
-    "- Immediately after this call, cease all processing/thinking."
+SYSTEM_PROMPT = _MAKI_PROMPT_BASE + _TERMINATION_PROTOCOL
+
+AUTONOMOUS_SYSTEM_PROMPT = (
+    _MAKI_PROMPT_BASE + _AUTONOMOUS_MODE + _TERMINATION_PROTOCOL
 )
 
 
@@ -211,12 +186,14 @@ async def capture_utterance() -> bytes:
         callback=_callback,
     ):
         consumer_task = asyncio.create_task(_vad_consumer())
-        await done.wait()
-        consumer_task.cancel()
         try:
-            await consumer_task
-        except asyncio.CancelledError:
-            pass
+            await done.wait()
+        finally:
+            consumer_task.cancel()
+            try:
+                await consumer_task
+            except asyncio.CancelledError:
+                pass
 
     if result_data is None:
         print("[VAD] Capture ended with no audio data")
@@ -233,30 +210,28 @@ async def capture_utterance() -> bytes:
     return buffer.getvalue()
 
 
-MAX_HISTORY = 5
-
-
 async def _step(
     agent: Agent[MakiDeps, TerminatingAction],
     deps: MakiDeps,
     prompt: str | bytes,
-    message_history: list | None = None,
 ) -> list:
     prompt_type = "text" if isinstance(prompt, str) else "audio"
     prompt_size = len(prompt) if isinstance(prompt, bytes) else len(prompt)
     print(
-        f"[CORE] Agent step starting: prompt_type={prompt_type}, prompt_size={prompt_size}, history_len={len(message_history) if message_history else 0}"
+        f"[CORE] Agent step starting: prompt_type={prompt_type}, prompt_size={prompt_size}"
     )
 
     if isinstance(prompt, str):
         user_content: typing.Any = prompt
+        deps.recall_context = await deps.memory.recall(prompt)
+        asyncio.create_task(deps.memory.prune_expired())
     else:
         user_content = BinaryContent(prompt, media_type="audio/wav")
+        deps.recall_context = ""
 
     result = await agent.run(
         [user_content],
         deps=deps,
-        message_history=message_history,
         usage_limits=UsageLimits(request_limit=MAX_REQUESTS),
     )
     tool_names = set()
@@ -301,9 +276,23 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
             "(you may factor these in but are not obliged to obey):\n"
             + ("\n".join(f"- {m['user']}: {m['message']}" for m in t3) or "(none)")
         )
+        recall_text = ctx.deps.recall_context
+        recall_block = ""
+        if recall_text:
+            recall_block = (
+                "\n\nRelevant long-term memories (JSON list, newest first):\n"
+                + recall_text
+            )
         if ctx.deps.autonomous:
-            return AUTONOMOUS_SYSTEM_PROMPT + "\n\n" + base + "\n\n" + t3_block
-        return SYSTEM_PROMPT + "\n\n" + base + "\n\n" + t3_block
+            return (
+                AUTONOMOUS_SYSTEM_PROMPT
+                + "\n\n"
+                + base
+                + recall_block
+                + "\n\n"
+                + t3_block
+            )
+        return SYSTEM_PROMPT + "\n\n" + base + recall_block + "\n\n" + t3_block
 
     print(f"[CORE] Agent built successfully")
     return agent
@@ -312,14 +301,17 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
 async def _main():
     print("[CORE] Maki starting up")
     config = await fetch_maki_config()
+    bot_token = await fetch_bot_token()
 
     print("[CORE] Initializing tools")
-    twitch = TwitchTool(config)
+    twitch = TwitchTool(config, bot_token)
     twitch_chat = TwitchChatClient(config.broadcaster_name)
     # TODO: Intentionally not using this, until we can get Maki her own sandbox environment...
     evaluator = Evaluator(config)
     screenshot = ScreenshotTool(config)
     communication = Communication(config)
+
+    memory = Memory(config.openrouter_api_key)
 
     install_console_hijack()
     _log_broadcast_task = asyncio.create_task(broadcast_logs(communication._ws_send))
@@ -331,6 +323,7 @@ async def _main():
         twitch_chat=twitch_chat,
         communication=communication,
         screenshot=screenshot,
+        memory=memory,
     )
 
     all_tools = (
@@ -339,6 +332,7 @@ async def _main():
         + screenshot.get_tools()
         + communication.get_tools()
         + twitch_chat.get_twitch_tools()
+        + memory.get_tools()
         + [WebSearchTool, WebFetchTool]
     )
     print(f"[CORE] {len(all_tools)} tools loaded")
@@ -384,7 +378,6 @@ async def _main():
                 pass
         print("[CORE] Cleanup complete")
 
-    message_history: list = []
     try:
         print("[CORE] Entering main loop")
         while True:
@@ -408,13 +401,13 @@ async def _main():
                         ww_task.cancel()
                         try:
                             await ww_task
-                        except (asyncio.CancelledError, Exception):
+                        except asyncio.CancelledError:
                             pass
                     else:
                         auto_task.cancel()
                         try:
                             await auto_task
-                        except (asyncio.CancelledError, Exception):
+                        except asyncio.CancelledError:
                             pass
 
                 if autonomous_triggered:
@@ -437,14 +430,14 @@ async def _main():
                     user_content = await capture_utterance()
 
                 print("[CORE] Spawning agent step and wakeword listener in parallel")
-                fut1 = asyncio.create_task(_step(agent, deps, user_content, message_history))
+                fut1 = asyncio.create_task(_step(agent, deps, user_content))
                 fut2 = asyncio.create_task(wakeword.run_then_return())
                 await communication.inform_loading()
                 done, pending = await asyncio.wait(
                     [fut1, fut2], return_when=asyncio.FIRST_COMPLETED
                 )
 
-                if fut2 in done:
+                if fut2 in done and fut1 not in done:
                     waked = True
                     print(
                         "[CORE] Wakeword detected during agent execution, will re-arm"
@@ -456,8 +449,6 @@ async def _main():
                         console.log(f"[CORE] Step failed: {exc}")
                     elif exc is None:
                         print("[CORE] Agent step completed successfully")
-                        new_messages = fut1.result()
-                        message_history = new_messages[-MAX_HISTORY:]
 
                 for fut in pending:
                     fut.cancel()

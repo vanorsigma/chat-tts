@@ -1,148 +1,158 @@
 import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
-import { checkCostAddIfEnough } from '../middleware';
 import { requireUsername } from './shared';
-import { getPointsForUser } from '$lib/api/points';
-import { GLOBAL_HEART_STOCK_MARKET } from '../../heartstockmarket.svelte';
+import { GLOBAL_STOCK_MARKET } from '../../stock/market';
 
-export async function investHandler(
-  dispatcher: OverlayDispatchers,
-  message: ChatMessage,
-  operation: 'invest' | 'uninvest'
-) {
+export async function buyHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
   if (!username) return;
 
   const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
-  if (args.length < 1) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'insufficient arguments', message.id);
+  if (args.length < 3) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'usage: %buy <stock> <amount> <price>',
+      message.id
+    );
     return;
   }
 
-  let amount = 0;
+  const stock = args[0].toUpperCase();
+  const amount = Number(args[1]);
+  const price = Number(args[2]);
 
-  if (args[0].trim() === 'all') {
-    switch (operation) {
-      case 'uninvest': {
-        const returns = GLOBAL_HEART_STOCK_MARKET.uninvestAll(username);
-        (await checkCostAddIfEnough(
-          dispatcher,
-          message.channelId!,
-          username,
-          returns,
-          undefined,
-          message.id
-        ))!;
-        dispatcher.sendMessageAsUser(
-          message.channelId!,
-          `successfully uninvested ${returns} (all)`,
-          message.id
-        );
-        return;
-      }
-      case 'invest': {
-        const points = await getPointsForUser(username);
-        if (!points) {
-          dispatcher.sendMessageAsUser(message.channelId!, 'nothing to invest', message.id);
-          return;
-        }
-        amount = points;
-        break;
-      }
+  if (Number.isNaN(amount) || amount <= 0 || Number.isNaN(price) || price <= 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'invalid amount or price', message.id);
+    return;
+  }
+
+  try {
+    const result = await GLOBAL_STOCK_MARKET.buy(username, stock, amount, price);
+    let feedback = `bought ${result.matched} shares of ${stock}`;
+    if (result.instant) {
+      feedback += ' (filled instantly, paid by Kiki!)';
     }
-  } else {
-    amount = Number(args[0]);
-  }
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'invalid amount', message.id);
-    return;
-  }
-
-  switch (operation) {
-    case 'invest':
-      if (
-        !(await checkCostAddIfEnough(
-          dispatcher,
-          message.channelId!,
-          username,
-          -amount,
-          false,
-          message.id
-        ))
-      )
-        return;
-      try {
-        GLOBAL_HEART_STOCK_MARKET.invest(message.userInfo.userName, amount);
-      } catch (e: unknown) {
-        dispatcher.sendMessageAsUser(message.channelId!, `${e}`, message.id);
-        (await checkCostAddIfEnough(
-          dispatcher,
-          message.channelId!,
-          username,
-          amount,
-          false,
-          message.id
-        ))!;
-        return;
-      }
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        `successfully invested ${amount}`,
-        message.id
-      );
-      break;
-    case 'uninvest':
-      try {
-        GLOBAL_HEART_STOCK_MARKET.uninvest(message.userInfo.userName, amount);
-      } catch (e: unknown) {
-        dispatcher.sendMessageAsUser(message.channelId!, `${e}`, message.id);
-        return;
-      }
-      (await checkCostAddIfEnough(
-        dispatcher,
-        message.channelId!,
-        username,
-        amount,
-        false,
-        message.id
-      ))!;
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        `successfully uninvested ${amount}`,
-        message.id
-      );
+    if (result.placed) {
+      feedback += `, order for ${result.placed.amount} shares at ${result.placed.price} placed`;
+    }
+    dispatcher.sendMessageAsUser(message.channelId!, feedback, message.id);
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    dispatcher.sendMessageAsUser(message.channelId!, `buy failed: ${errMsg}`, message.id);
   }
 }
 
-export async function stockHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function sellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
   if (!username) return;
 
-  const stock_value = GLOBAL_HEART_STOCK_MARKET.get_current_price_for(username);
+  const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
+  if (args.length < 3) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'usage: %sell <stock> <amount> <price>',
+      message.id
+    );
+    return;
+  }
+
+  const stock = args[0].toUpperCase();
+  const amount = Number(args[1]);
+  const price = Number(args[2]);
+
+  if (Number.isNaN(amount) || amount <= 0 || Number.isNaN(price) || price <= 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'invalid amount or price', message.id);
+    return;
+  }
+
+  try {
+    const result = await GLOBAL_STOCK_MARKET.sell(username, stock, amount, price);
+    let feedback = `sold ${result.matched} shares of ${stock}`;
+    if (result.instant) {
+      feedback += ' (filled instantly, paid by Kiki!)';
+    }
+    if (result.placed) {
+      feedback += `, sell order for ${result.placed.amount} shares at ${result.placed.price} placed`;
+    }
+    dispatcher.sendMessageAsUser(message.channelId!, feedback, message.id);
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    dispatcher.sendMessageAsUser(message.channelId!, `sell failed: ${errMsg}`, message.id);
+  }
+}
+
+export async function stocksHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  const pos = GLOBAL_STOCK_MARKET.userPositions(username);
+  const shareLines = Object.entries(pos.shares).map(([stock, shares]) => `${shares}x ${stock}`);
+
+  const buyLines = pos.buyOrders.map((o) => `buy ${o.amount}x ${o.stock} @ ${o.price}`);
+  const sellLines = pos.sellOrders.map((o) => `sell ${o.amount}x ${o.stock} @ ${o.price}`);
+
+  const lines: string[] = [];
+  if (shareLines.length) lines.push(`Shares: ${shareLines.join(', ')}`);
+  if (buyLines.length) lines.push(`Buy orders: ${buyLines.join(', ')}`);
+  if (sellLines.length) lines.push(`Sell orders: ${sellLines.join(', ')}`);
+
+  if (lines.length === 0) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `${username} has no stocks or orders`,
+      message.id
+    );
+  } else {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `${username}: ${lines.join(' | ')}`,
+      message.id
+    );
+  }
+}
+
+export async function buyOrdersHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const orders = GLOBAL_STOCK_MARKET.randomBuyOrders(5);
+  if (orders.length === 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'no buy orders', message.id);
+    return;
+  }
+  const lines = orders.map((o) => `${o.user}: ${o.amount}x ${o.stock} @ ${o.price}`);
+  dispatcher.sendMessageAsUser(message.channelId!, `Buy orders: ${lines.join(' | ')}`, message.id);
+}
+
+export async function sellOrdersHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const orders = GLOBAL_STOCK_MARKET.randomSellOrders(5);
+  if (orders.length === 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'no sell orders', message.id);
+    return;
+  }
+  const lines = orders.map((o) => `${o.user}: ${o.amount}x ${o.stock} @ ${o.price}`);
+  dispatcher.sendMessageAsUser(message.channelId!, `Sell orders: ${lines.join(' | ')}`, message.id);
+}
+
+export async function endStreamHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  if (!message.userInfo.isBroadcaster) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'only the broadcaster can end the stream',
+      message.id
+    );
+    return;
+  }
+
+  const payouts = await GLOBAL_STOCK_MARKET.close();
+  const totalPayout = payouts.reduce((sum, p) => sum + p.total, 0);
+  const userCount = new Set(payouts.map((p) => p.user)).size;
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `${username} has ${stock_value} in the heart rate stock market`,
+    `stream ended! paid out ${totalPayout} to ${userCount} users across ${payouts.length} holdings`,
     message.id
   );
 }
 
-export async function closeMarketHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
-  const username = requireUsername(message);
-  if (!username) return;
 
-  if (message.userInfo.isBroadcaster) {
-    const returns = GLOBAL_HEART_STOCK_MARKET.close();
-    for (const user_return of returns) {
-      (await checkCostAddIfEnough(
-        dispatcher,
-        message.channelId!,
-        user_return.user,
-        user_return.currency,
-        false,
-        message.id
-      ))!;
-    }
-    dispatcher.sendMessageAsUser(message.channelId!, 'stock market closed!', message.id);
-  }
-}
+

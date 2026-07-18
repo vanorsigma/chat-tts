@@ -1,22 +1,30 @@
 [
     {
         "name": "%blacksilence",
-        "description": "Removes all the nonsense (e.g. images, audios, maxwells) on the screen."
+        "description": "Cancels TTS playback and disables TTS for a duration. Costs 500 meowDollars."
     },
     {
         "name": "%maxwell",
-        "description": "Spawns Maxwell, a bouncing cat"
+        "description": "Spawns the animated Maxwell bread cat that bounces around the overlay. Costs 100 meowDollars."
     },
     {
         "name": "%distract",
-        "description": "Distracts the streamer."
+        "description": "Sends a random visual or audio distraction trinket to the stream."
     },
     {
         "name": "%rotate",
-        "description": "Rotates the screen of the streamer."
+        "description": "Rotates the model overlay with random speed and direction."
     },
     {
         "name": "%goodnightkiss clear",
-        "description": "Clears a good night kiss."
+        "description": "Cancels the active goodnight kiss animation. Mod/broadcaster only."
+    },
+    {
+        "name": "%prediction",
+        "description": "Creates a Twitch prediction. Format: %prediction <title>;<durationSec>;<option1>;<option2>. Mod/VIP/broadcaster only."
+    },
+    {
+        "name": "%mistake",
+        "description": "Increments the mistake counter on the overlay. Costs 5000 meowDollars, applies -1000 karma."
     }
 ]

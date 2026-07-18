@@ -1,13 +1,24 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { ChatBulletContainer } from './chatbullet/container';
-  import { createNewTwitchApiClient, createNewTwitchClientV2 } from '$lib/twitch';
+  import { createOverlayTwitchClient } from '$lib/twitch';
+  import { StaticAuthProvider } from '@twurple/auth';
+  import { ApiClient } from '@twurple/api';
+  import { PUBLIC_TWITCH_APP_ID } from '$env/static/public';
+  import {
+    isSongStateMessage,
+    isSongControlMessage,
+    isSongCompleteMessage
+  } from '$lib/songs/messages';
+  import type { SongStateMessage } from '$lib/songs/messages';
+  import type { SongData } from '$lib/songs/types';
+  import { createAudioEngine } from '$lib/songs/audioEngine.svelte';
+  import { handleCommand } from '$lib/songs/commands';
+  import ArtistWidget from '$lib/songs/ArtistWidget.svelte';
   import {
     PUBLIC_BUS_URL,
     PUBLIC_RECEIVER_URL,
     PUBLIC_HEARTRATE_URL,
-    PUBLIC_TWITCH_APP_ID,
-    PUBLIC_TWITCH_APP_SECRET,
     PUBLIC_TWITCH_BOT_ID,
     PUBLIC_KIKI_API,
     PUBLIC_TARGET_CHANNEL_ID,
@@ -18,6 +29,7 @@
   import { Commands } from './commands';
   import {
     pollStore,
+    predictionStore,
     flashbangStore,
     blackSilenceStore,
     maxwellStore,
@@ -28,11 +40,15 @@
     createCheckInStore,
     createMakiStore,
     karmaStore,
-    biddingStore
+    biddingStore,
+    positionStore,
+    pinStore,
+    DEFAULT_POSITIONS
   } from './stores';
   import { startCaptchaLoop } from './captcha';
   import { Heartrate } from './heartrate';
-  import { GLOBAL_HEART_STOCK_MARKET } from './heartstockmarket.svelte';
+  import { createAndStartCycler, type CyclerSnapshot } from './stock/cycler.svelte';
+  import { DEFAULT_STOCK_ICON } from './stock/icons';
   import type { ChatClient } from '@twurple/chat';
   import { makeApplication, properRandom } from './utils';
   import { MaxwellContainer } from './maxwell';
@@ -41,42 +57,272 @@
   import { TimeoutAnimation } from './timeoutanimation';
   import { buildSvgGraphFor } from './heartrateGraph';
   import { AudioPlayer } from './audioPlayer';
+  import type { OverlayPositionsConfig } from '$lib/config';
   import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
+  import { isOverlayPositionsMessage } from '$lib/bus/messages';
+  import { gambaStore } from './gamba/gamba.svelte';
+  import GambaWheel from './gamba/GambaWheel.svelte';
+  import { SubTracker } from './subTracker';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
-  let stockMarket = GLOBAL_HEART_STOCK_MARKET;
 
-  let flashbangCount: number = 0;
-  let blackSilenceCount: number = 0;
+  let flashbangCount: number = $state(0);
+  let blackSilenceCount: number = $state(0);
   let client: ChatClient | null = null;
   let chatBulletBackend: ChatBulletContainer | undefined = undefined;
 
-  let blackSilenceBorder = false;
+  let blackSilenceBorder = $state(false);
 
   let captchaElement: HTMLDivElement;
-  let captchaText: string | null = null;
-  let captchaTop = 0;
-  let captchaLeft = 0;
+  let captchaText: string | null = $state(null);
+  let captchaTop = $state(0);
+  let captchaLeft = $state(0);
 
-  let mistakeCount = 0;
+  let mistakeCount = $state(0);
 
   let heartrateGraphParent: HTMLDivElement;
   let dispatchers: OverlayDispatchers | null = null;
+  let commands: Commands | null = null;
 
-  let currentMakiMessage: string = '';
-  let currentMakiDuration: number = 0;
-  let makiActivated: boolean = false;
-  let makiThinking: boolean = false;
+  let currentMakiMessage: string = $state('');
+  let currentMakiDuration: number = $state(0);
+  let makiActivated: boolean = $state(false);
+  let makiThinking: boolean = $state(false);
+  let displayedMakiMessage: string = $state('');
+  let makiRevealTimer: ReturnType<typeof setInterval> | null = null;
+  let makiMeowAudio: HTMLAudioElement | null = null;
+  let lastMakiMeowTime = 0;
+
+  $effect(() => {
+    const msg = currentMakiMessage;
+    if (!msg) return;
+
+    displayedMakiMessage = '';
+    lastMakiMeowTime = 0;
+    let index = 0;
+    const textSpeed = getOverlayConfig().makiConfig.textSpeed;
+    const intervalMs = Math.max(50, 1000 / textSpeed);
+
+    makiRevealTimer = setInterval(() => {
+      if (index < msg.length) {
+        displayedMakiMessage += msg[index];
+        index++;
+
+        const now = Date.now();
+        if (now - lastMakiMeowTime >= 50) {
+          lastMakiMeowTime = now;
+          try {
+            if (!makiMeowAudio) {
+              makiMeowAudio = new Audio('/meow.mp3');
+            }
+            makiMeowAudio.currentTime = 0;
+            makiMeowAudio.play();
+          } catch {
+            // audio may fail to load
+          }
+        }
+      } else {
+        if (makiRevealTimer) {
+          clearInterval(makiRevealTimer);
+          makiRevealTimer = null;
+        }
+      }
+    }, intervalMs);
+
+    return () => {
+      if (makiRevealTimer) {
+        clearInterval(makiRevealTimer);
+        makiRevealTimer = null;
+      }
+    };
+  });
 
   let audioPlayer: AudioPlayer | undefined = undefined;
+
+  let songAudioEngine: ReturnType<typeof createAudioEngine> | undefined = undefined;
+  let overlayQueue: string[] = [];
+  let queueIndex = 0;
+  let wasPlayingBeforeSilence = false;
+  let lastSentSongId: string | null = null;
+
+  let overlaySong: SongData | null = $state(null);
+  let overlaySongRate = $state(0.5);
+  let overlaySongProgress = $state(0);
+  let overlayRemainingMs = $state(0);
+  let overlaySongFlying = $state(false);
+
+  let currentPin = $state<{ username: string; text: string; kamoji: string; emoji: string } | null>(
+    null
+  );
+
+  let cyclerSnapshot: CyclerSnapshot = $state({
+    symbol: 'HEART',
+    label: 'Heartrate',
+    current: getOverlayConfig().model.initialHeartrate,
+    history: []
+  });
 
   const busWs = new WebSocket(PUBLIC_BUS_URL);
   installConsoleHijack(busWs);
   const ws = new WebSocket(PUBLIC_RECEIVER_URL);
   const checkInStore = createCheckInStore(ws);
   const makiStore = createMakiStore(ws);
+
+  let pollDismissTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
+  let pollRemainingMs = $state(0);
+  let pollProgressPct = $state(0);
+  let pollTickInterval = $state<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  let predictionDismissTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
+  let predictionRemainingMs = $state(0);
+  let predictionProgressPct = $state(0);
+  let predictionTickInterval = $state<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  function clearPollTimers() {
+    if (pollTickInterval !== undefined) {
+      clearInterval(pollTickInterval);
+      pollTickInterval = undefined;
+    }
+    if (pollDismissTimer !== undefined) {
+      clearTimeout(pollDismissTimer);
+      pollDismissTimer = undefined;
+    }
+  }
+
+  function clearPredictionTimers() {
+    if (predictionTickInterval !== undefined) {
+      clearInterval(predictionTickInterval);
+      predictionTickInterval = undefined;
+    }
+    if (predictionDismissTimer !== undefined) {
+      clearTimeout(predictionDismissTimer);
+      predictionDismissTimer = undefined;
+    }
+  }
+
+  function startPollTick(startDate: string, endDate: string) {
+    clearPollTimers();
+    const end = new Date(endDate).getTime();
+    const start = new Date(startDate).getTime();
+    const total = end - start;
+    function tick() {
+      const now = Date.now();
+      const remaining = Math.max(0, end - now);
+      pollRemainingMs = remaining;
+      pollProgressPct = total > 0 ? (1 - remaining / total) * 100 : 0;
+    }
+    tick();
+    pollTickInterval = setInterval(tick, 200);
+  }
+
+  function startPredictionTick(startDate: string, endDate: string) {
+    clearPredictionTimers();
+    const end = new Date(endDate).getTime();
+    const start = new Date(startDate).getTime();
+    const total = end - start;
+    function tick() {
+      const now = Date.now();
+      const remaining = Math.max(0, end - now);
+      predictionRemainingMs = remaining;
+      predictionProgressPct = total > 0 ? (1 - remaining / total) * 100 : 0;
+    }
+    tick();
+    predictionTickInterval = setInterval(tick, 200);
+  }
+
+  ws.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'poll-update') {
+        const poll = {
+          id: data.id,
+          title: data.title,
+          options: data.options?.map(
+            (o: { id: string; name: string; votes: number; channelPoints?: number }) => ({
+              id: o.id,
+              name: o.name,
+              votes: o.votes ?? 0,
+              channelPoints: o.channelPoints ?? 0
+            })
+          ),
+          totalVotes: data.totalVotes,
+          status: data.status,
+          startDate: data.startDate,
+          endDate: data.endDate
+        };
+        pollStore.set(poll);
+        if (data.status === 'active') {
+          startPollTick(data.startDate, data.endDate);
+        } else {
+          clearPollTimers();
+          schedulePollDismiss();
+        }
+      } else if (data.type === 'prediction-update') {
+        const prediction = {
+          id: data.id,
+          title: data.title,
+          outcomes: data.outcomes?.map(
+            (o: {
+              id: string;
+              name: string;
+              channelPoints: number;
+              voters: number;
+              color?: string;
+            }) => ({
+              id: o.id,
+              name: o.name,
+              channelPoints: o.channelPoints ?? 0,
+              voters: o.voters ?? 0,
+              color: o.color
+            })
+          ),
+          status: data.status,
+          winningOutcomeId: data.winningOutcomeId,
+          startDate: data.startDate,
+          endDate: data.endDate
+        };
+        predictionStore.set(prediction);
+        if (data.status === 'active') {
+          startPredictionTick(data.startDate, data.endDate);
+        } else {
+          clearPredictionTimers();
+          schedulePredictionDismiss();
+        }
+      } else if (data.type === 'karma-update') {
+        karmaStore.updateKarma(data.amount, data.label);
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  });
+
+  function schedulePollDismiss() {
+    clearPollTimers();
+    pollDismissTimer = setTimeout(() => {
+      pollStore.set(null);
+      pollRemainingMs = 0;
+      pollProgressPct = 100;
+    }, 5000);
+  }
+
+  function schedulePredictionDismiss() {
+    clearPredictionTimers();
+    predictionDismissTimer = setTimeout(() => {
+      predictionStore.set(null);
+      predictionRemainingMs = 0;
+      predictionProgressPct = 100;
+    }, 5000);
+  }
+
+  function formatDuration(ms: number): string {
+    if (ms <= 0) return '';
+    const totalSec = Math.ceil(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+  }
 
   function onShowImageLoad(event: Event) {
     const target = event.target;
@@ -109,30 +355,198 @@
       const res = await fetch('/api/config');
       const rawConfig = await res.json();
       console.log(`Applying overlay config...`);
-      if (res.ok) applyOverlayConfig(rawConfig);
-      installFakerReceiver(ws, PUBLIC_TARGET_CHANNEL_ID, (fake) => {
-        dispatchers?.dispatchMessage(fake);
-      });
+      if (res.ok) {
+        applyOverlayConfig(rawConfig);
+        if (rawConfig.overlayPositionsConfig) {
+          const src = rawConfig.overlayPositionsConfig as OverlayPositionsConfig;
+          positionStore.set({ ...DEFAULT_POSITIONS, ...src });
+        }
+      }
+      installFakerReceiver(
+        ws,
+        PUBLIC_TARGET_CHANNEL_ID,
+        () => dispatchers,
+        () => commands,
+        (fake) => dispatchers?.dispatchMessage(fake)
+      );
     } catch (e) {
       console.warn('Failed to load config:', e);
     }
-    const modelUpdater = new ModelUpdater();
-    client = createNewTwitchClientV2('vanorsigma');
-    console.log('Twitch client created');
-    stockMarket.setHeartrateObject(heartrate);
-    heartrate.subscribe((hr: number) => {
-      modelUpdater.setBlendShape(
-        'Blush',
-        hr < getOverlayConfig().model.blushHrThreshold ? 0.0 : 1.0
-      );
-      modelUpdater.setBlendShape(
-        'Despair',
-        hr < getOverlayConfig().model.despairHrThreshold ? 1.0 : 0.0
-      );
+
+    let channelName = 'vanorsigma';
+    try {
+      const chanRes = await fetch('/api/config/channel');
+      const chanData = await chanRes.json();
+      channelName = chanData.channelName ?? 'vanorsigma';
+    } catch {
+      /* ignore */
+    }
+
+    ws.addEventListener('message', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (isSongStateMessage(data)) {
+          const ss = data;
+          if (ss.song) overlaySong = ss.song;
+          else if (ss.songId === null) overlaySong = null;
+          overlaySongRate = ss.rate;
+          overlaySongProgress = (ss.positionMs / ss.durationMs) * 100;
+          overlayRemainingMs = Math.max(0, ss.durationMs - ss.positionMs);
+          if (ss.songId && ss.positionMs > 500) overlaySongFlying = true;
+          if (!ss.songId) overlaySongFlying = false;
+        }
+        if (isOverlayPositionsMessage(data)) {
+          positionStore.set({ ...DEFAULT_POSITIONS, ...data.positions });
+        }
+        if (isSongCompleteMessage(data) && overlaySong && data.songId === overlaySong.id) {
+          if (queueIndex + 1 < overlayQueue.length) {
+            queueIndex++;
+            songAudioEngine!.load(
+              `/api/song/audio/${overlayQueue[queueIndex]}`,
+              overlayQueue[queueIndex]
+            );
+            songAudioEngine!.play();
+          } else {
+            songAudioEngine!.unload();
+            overlayQueue = [];
+            queueIndex = 0;
+            overlaySong = null;
+            overlaySongFlying = false;
+          }
+        }
+        const engine = songAudioEngine;
+        if (isSongControlMessage(data) && engine) {
+          handleCommand(data, {
+            load: (song: SongData) => {
+              overlayQueue = [song.id];
+              queueIndex = 0;
+              overlaySong = song;
+              engine.load(song.audioUrl, song.id);
+            },
+            play: () => {
+              console.log('Audio engine is going to play');
+              engine.setRate(1.0); // NOTE: by default, this is 0
+              engine.play();
+            },
+            pause: () => {
+              console.log('Audio engine is going to pause');
+              engine.pause();
+            },
+            skip: (skippedSongId, nextSong) => {
+              if (skippedSongId) {
+                const i = overlayQueue.indexOf(skippedSongId);
+                if (i >= 0) {
+                  overlayQueue.splice(i, 1);
+                  overlayQueue = [...overlayQueue];
+                }
+                if (overlaySong) {
+                  busWs.send(
+                    JSON.stringify({
+                      type: 'song-complete',
+                      songId: skippedSongId,
+                      elapsedMs: engine.getState().positionMs
+                    })
+                  );
+                }
+              }
+              if (nextSong) {
+                overlaySong = nextSong;
+                overlaySongFlying = true;
+                queueIndex = Math.max(0, overlayQueue.indexOf(nextSong.id));
+                engine.load(nextSong.audioUrl, nextSong.id);
+                engine.setRate(1.0);
+                engine.play();
+              } else {
+                engine.unload();
+                overlayQueue = [];
+                queueIndex = 0;
+                overlaySong = null;
+                overlaySongFlying = false;
+              }
+            },
+            seek: (ms: number) => engine.seek(ms),
+            setRate: (rate: number) => engine.setRate(rate),
+            setVolume: (volume: number) => engine.setVolume(volume),
+            loadQueue: (songs: SongData[]) => {
+              overlayQueue = songs.map((s) => s.id);
+              const curId = overlaySong?.id;
+              if (curId) {
+                const idx = overlayQueue.indexOf(curId);
+                if (idx >= 0) {
+                  queueIndex = idx;
+                  if (songs[idx]) overlaySong = songs[idx];
+                  return;
+                }
+              }
+              queueIndex = 0;
+              overlaySong = songs[0] ?? null;
+              if (overlayQueue[0]) {
+                engine.load(songs[0].audioUrl, overlayQueue[0]);
+              }
+            },
+            removeFromQueue: (songId: string) => {
+              const idx = overlayQueue.indexOf(songId);
+              if (idx < 0) return;
+              overlayQueue.splice(idx, 1);
+              overlayQueue = [...overlayQueue];
+              if (idx <= queueIndex) {
+                queueIndex = Math.max(0, queueIndex - (idx < queueIndex ? 1 : 0));
+              }
+            },
+            reorderQueue: (fromIndex: number, toIndex: number) => {
+              const item = overlayQueue.splice(fromIndex, 1)[0];
+              if (item) overlayQueue.splice(toIndex, 0, item);
+              overlayQueue = [...overlayQueue];
+              const newIdx = overlayQueue.indexOf(overlaySong?.id ?? '');
+              if (newIdx >= 0) queueIndex = newIdx;
+            }
+          });
+        }
+      } catch {
+        /* ignore */
+      }
     });
+
+    const modelUpdater = new ModelUpdater();
+    const twitchClient = createOverlayTwitchClient(channelName);
+    client = twitchClient.client;
+    console.log('Twitch client created');
+
+    heartrate.subscribe((hr: number) => {
+      if (hr < getOverlayConfig().model.blushHrThreshold) {
+        modelUpdater.hideBlendShape('Blush');
+      } else {
+        modelUpdater.showBlendShape('Blush');
+      }
+      if (hr < getOverlayConfig().model.despairHrThreshold) {
+        modelUpdater.showBlendShape('Despair');
+      } else {
+        modelUpdater.hideBlendShape('Despair');
+      }
+    });
+
+    const cycler = createAndStartCycler();
+    cycler.subscribe((snap) => {
+      cyclerSnapshot = snap;
+      const graph = buildSvgGraphFor(snap.history);
+      if (!graph) return;
+      heartrateGraphParent.innerHTML = '';
+      heartrateGraphParent.appendChild(graph);
+    });
+
     let gameApplication = await makeApplication(chatBulletContainer);
     console.log('Pixi application ready');
-    let apiClient = createNewTwitchApiClient(PUBLIC_TWITCH_APP_ID, PUBLIC_TWITCH_APP_SECRET);
+    const botTokenRes = await fetch('/api/twitch/bot-token');
+    if (!botTokenRes.ok) {
+      throw new Error('Failed to load bot token. Run `npx tsx authflow.ts bot` first.');
+    }
+    const botToken = await botTokenRes.json();
+    const botAuthProvider = new StaticAuthProvider(
+      PUBLIC_TWITCH_APP_ID,
+      botToken.accessToken,
+      botToken.scope
+    );
+    let apiClient = new ApiClient({ authProvider: botAuthProvider });
 
     dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
     console.log('Dispatchers created');
@@ -143,14 +557,59 @@
     const _ = new KarmaContainer(dispatchers, gameApplication, karmaStore.updateKarma);
     console.log('Karma container created');
     let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
-    let commands = new Commands(dispatchers);
+    commands = new Commands(dispatchers);
     commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);
-    client.connect();
+    let _subTracker = new SubTracker(dispatchers);
+    twitchClient.connect();
     console.log('Twitch connected');
 
     audioPlayer = new AudioPlayer(dispatchers);
     audioPlayer.start();
+
+    songAudioEngine = createAudioEngine();
+    songAudioEngine.onProgressTick(() => {
+      const s = songAudioEngine!.getState();
+      const songChanged = s.songId !== lastSentSongId;
+      const msg: SongStateMessage = {
+        type: 'song-state',
+        songId: s.songId,
+        positionMs: s.positionMs,
+        durationMs: s.durationMs,
+        rate: s.rate,
+        playing: s.playing,
+        queueHead: overlayQueue[0] ?? null,
+        ...(songChanged && overlaySong ? { song: overlaySong } : {})
+      };
+      lastSentSongId = s.songId;
+      busWs.send(JSON.stringify(msg));
+    });
+    songAudioEngine.onSongEnded(() => {
+      if (overlaySong) {
+        busWs.send(
+          JSON.stringify({
+            type: 'song-complete',
+            songId: overlaySong.id,
+            elapsedMs: songAudioEngine!.getState().durationMs
+          })
+        );
+      }
+      if (queueIndex + 1 < overlayQueue.length) {
+        queueIndex++;
+        songAudioEngine!.load(
+          `/api/song/audio/${overlayQueue[queueIndex]}`,
+          overlayQueue[queueIndex]
+        );
+        songAudioEngine!.play();
+      } else {
+        songAudioEngine!.unload();
+        overlayQueue = [];
+        queueIndex = 0;
+        overlaySong = null;
+        overlaySongFlying = false;
+      }
+    });
+    songAudioEngine.play();
 
     startCaptchaLoop(
       dispatchers,
@@ -169,16 +628,17 @@
       makiThinking = thinking;
     });
 
+    pinStore.subscribe((pin) => {
+      currentPin = pin;
+    });
+
     maxwellStore.subscribe(async (_maxwellCount: number) => {
       await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwell.cooldownMs);
     });
+  });
 
-    stockMarket.subscribe((heartrates) => {
-      const graph = buildSvgGraphFor(heartrates);
-      if (!graph) return;
-      heartrateGraphParent.innerHTML = '';
-      heartrateGraphParent.appendChild(graph);
-    });
+  onDestroy(() => {
+    songAudioEngine?.unload();
   });
 
   function onFlashbangDone() {
@@ -189,6 +649,8 @@
     chatBulletBackend?.deleteAllBullets();
     chatBulletBackend?.setEnabled(false);
     audioPlayer?.pauseAll();
+    wasPlayingBeforeSilence = songAudioEngine?.getState().playing ?? false;
+    songAudioEngine?.pause();
     blackSilenceBorder = true;
     playAudioStore.purge();
     showImageStore.purge();
@@ -197,6 +659,10 @@
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);
       blackSilenceBorder = false;
+      if (wasPlayingBeforeSilence) {
+        songAudioEngine?.play();
+        wasPlayingBeforeSilence = false;
+      }
     }, getOverlayConfig().blackSilence.durationMs);
   }
 
@@ -210,6 +676,18 @@
 </script>
 
 <div class="overlay">
+  <div
+    class="overlay-artist-widget"
+    style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px;"
+  >
+    <ArtistWidget
+      song={overlaySong}
+      rate={overlaySongRate}
+      remainingMs={overlayRemainingMs}
+      flying={overlaySongFlying}
+      progressPct={overlaySongProgress}
+    />
+  </div>
   <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements"> </iframe>
 
   {#if makiActivated}
@@ -228,14 +706,23 @@
     <div class="makiShared">
       <div class="makiOutput">
         <div class="makiCountdown">{currentMakiDuration}</div>
-        <p>{currentMakiMessage}</p>
+        <p>{displayedMakiMessage}</p>
       </div>
+    </div>
+  {/if}
+  {#if currentPin}
+    <div class="pinnedMessage" style="left: {$positionStore.pinX}px; top: {$positionStore.pinY}px;">
+      <span class="pinUser">{currentPin.username}</span>
+      <span class="pinText">{currentPin.text}</span>
+      <span class="pinKiki">{currentPin.kamoji} {currentPin.emoji}</span>
     </div>
   {/if}
   <div
     bind:this={captchaElement}
     class="captcha"
-    style={`top: ${captchaTop}px; left: ${captchaLeft}px; visibility: ${captchaText ? 'visible' : 'hidden'}`}
+    style="top: {captchaTop}px; left: {captchaLeft}px; visibility: {captchaText
+      ? 'visible'
+      : 'hidden'}"
   >
     <span style="font-size: 5em">{captchaText}</span>
   </div>
@@ -297,21 +784,57 @@
     <img class="showImage" src={imgUrl} alt="erm" onload={onShowImageLoad} />
   {/each}
 
-  <div class="rightpanel">
+  {#if $gambaStore.spinning || $gambaStore.result}
+    <GambaWheel wheelState={$gambaStore} />
+  {/if}
+
+  <div
+    class="rightpanel"
+    style="left: {$positionStore.rightPanelX}px; top: {$positionStore.rightPanelY}px;"
+  >
     {#if pollStore.data}
       <div class="grey-box">
-        <h3>{pollStore.data?.title}</h3>
-        {#each pollStore.data?.options ?? [] as option, idx}
+        <h3>Poll: {pollStore.data?.title}</h3>
+        {#each pollStore.data?.options ?? [] as option}
           <div class="option">
-            <div class="option-title">{option.name} [type {idx + 1}] ({option.votes} votes)</div>
+            <div class="option-title">{option.name} ({option.votes} votes)</div>
             <div class="progress-container">
               <div
                 class="progress-bar"
-                style="width: {(option.votes / pollStore.totalVotes) * 100}%;"
+                style="width: {(option.votes / (pollStore.totalVotes || 1)) * 100}%;"
               ></div>
             </div>
           </div>
         {/each}
+        <p class="remaining">{formatDuration(pollRemainingMs)}</p>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width: {100 - pollProgressPct}%"></div>
+        </div>
+      </div>
+    {/if}
+
+    {#if predictionStore.data}
+      <div class="grey-box">
+        <h3>Prediction: {predictionStore.data?.title}</h3>
+        <div class="small-meta">{predictionStore.data?.status}</div>
+        {#each predictionStore.data?.outcomes ?? [] as outcome}
+          <div class="option">
+            <div class="option-title">
+              {outcome.name} ({outcome.voters} votes, {outcome.channelPoints} pts)
+            </div>
+            <div class="progress-container">
+              <div
+                class="progress-bar"
+                style="width: {(outcome.channelPoints / (predictionStore.totalChannelPoints || 1)) *
+                  100}%;"
+              ></div>
+            </div>
+          </div>
+        {/each}
+        <p class="remaining">{formatDuration(predictionRemainingMs)}</p>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width: {100 - predictionProgressPct}%"></div>
+        </div>
       </div>
     {/if}
 
@@ -341,36 +864,23 @@
       </div>
     {/if}
 
-    <div class="heartrate">
-      <svg
-        width="70.90000000000006"
-        height="70.90000000000006"
-        viewBox="-720 -750 1500 1450"
-        style="margin: 0px 30px 0px 0px; filter: none;"
-        ><path
-          transform="scale(25)"
-          style="transform-origin: center center 0px; transform-box: fill-box; stroke-width: 0px;"
-          fill="#f72d21ff"
-          d="M51.911,16.242C51.152,7.888,45.239,1.827,37.839,1.827c-4.93,0-9.444,2.653-11.984,6.905
-  c-2.517-4.307-6.846-6.906-11.697-6.906c-7.399,0-13.313,6.061-14.071,14.415c-0.06,0.369-0.306,2.311,0.442,5.478
-  c1.078,4.568,3.568,8.723,7.199,12.013l18.115,16.439l18.426-16.438c3.631-3.291,6.121-7.445,7.199-12.014
-  C52.216,18.553,51.97,16.611,51.911,16.242z"
-        ></path><animateTransform
-          attributeName="transform"
-          type="scale"
-          values="0.8; 1.1; 1; 1.1; 1.1; 0.8;"
-          dur="500ms"
-          repeatCount="indefinite"
-          additive="sum"
-        ></animateTransform></svg
-      >
-      <p>{$heartrate}</p>
+    <div class="stockPanel" style="color: {cyclerSnapshot.color};">
+      <div class="stockPanel-row">
+        {@html cyclerSnapshot.icon ?? DEFAULT_STOCK_ICON}
+        <p>{cyclerSnapshot.current}</p>
+      </div>
+      <span class="stockPanel-label">Stock: {cyclerSnapshot.symbol}</span>
     </div>
     <div bind:this={heartrateGraphParent} class="grey-box"></div>
   </div>
 </div>
 
 <style>
+  .overlay-artist-widget {
+    position: absolute;
+    z-index: 100;
+  }
+
   .streamelements {
     width: 100%;
     height: 100%;
@@ -400,21 +910,51 @@
 
   .makiShared .makiOutput {
     position: relative;
-    background-color: lightgray;
-    border: 2px solid #007bff;
+    background-color: rgba(20, 20, 30, 0.55);
+    color: white;
+    border: 2px solid rgba(0, 123, 255, 0.7);
     border-radius: 12px;
     padding: 20px;
     overflow-wrap: break-word;
     word-wrap: break-word;
     overflow-y: hidden;
-    width: 600px;
-    height: 300px;
+    width: 800px;
+    height: 400px;
   }
 
   .makiShared p {
     margin: 0px;
     font-size: 2em;
     font-weight: bold;
+  }
+
+  .pinnedMessage {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid rgb(255, 105, 180);
+    border-radius: 12px;
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 400px;
+    pointer-events: none;
+  }
+
+  .pinnedMessage .pinUser {
+    color: rgb(255, 105, 180);
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+
+  .pinnedMessage .pinText {
+    color: white;
+    font-size: 1.1em;
+  }
+
+  .pinnedMessage .pinKiki {
+    color: rgb(255, 182, 193);
+    font-size: 1em;
   }
 
   .showImage {
@@ -541,8 +1081,6 @@
     display: flex;
     flex-direction: column;
     position: absolute;
-    top: 0px;
-    right: 0px;
     height: 100%;
     width: 400px;
     padding-top: 40px;
@@ -550,20 +1088,31 @@
     align-items: end;
   }
 
-  .heartrate {
+  .stockPanel {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     width: 200px;
-    color: rgb(4, 187, 175);
     font-family: 'Fredoka One';
-    font-size: 72px;
     font-weight: bold;
   }
 
-  .heartrate p {
+  .stockPanel-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    font-size: 72px;
+  }
+
+  .stockPanel p {
     padding: 0;
     margin: 0;
+  }
+
+  .stockPanel-label {
+    font-size: 14px;
+    font-family: 'Fredoka One';
+    opacity: 0.7;
   }
 
   .grey-box {
@@ -573,6 +1122,30 @@
     border-radius: 5px;
     background-color: rgba(255, 255, 255, 0.6);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-bar-bg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4f46e5, #3b82f6);
+    transition: width 0.25s linear;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .remaining {
+    margin: 2px 0;
+    font-size: 0.8em;
+    color: #555;
   }
 
   .progress-bar {

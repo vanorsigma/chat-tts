@@ -30,9 +30,21 @@ logs/
 # Config
 config.yml
 
+# Twitch auth tokens
+tokens.broadcaster.json
+tokens.bot.json
+
 # Backup files, PNPM (will migrate soon)
 pnpm-lock.yaml
 pnpm-workspace.yaml
 *.backup
 
 attachments/*
+
+# Song files
+songs/audio/
+songs/imgs/
+songs/songs.json
+
+# Starting Soon
+static/startingsoon/*

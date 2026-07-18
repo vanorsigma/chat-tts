@@ -77,9 +77,7 @@ export class CaptchaObserver implements OverlayObserver {
         this.dispatcher,
         message.channelId!,
         username,
-        getOverlayConfig().captcha.points,
-        false,
-        undefined
+        getOverlayConfig().captcha.points
       );
       this.dispatcher.sendMessageAsUser(
         message.channelId!,
