@@ -4,6 +4,7 @@ import type { ChatMessage } from '@twurple/chat';
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import { KikiAPI, type KikiResponse } from '../kikiapi';
 import { LRUCache } from '$lib/LRUcache';
+import { getSubTier } from '$lib/api/subtiers';
 import { karmaStore, pinStore } from '../stores';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
@@ -23,6 +24,7 @@ export class ChatBulletContainer implements OverlayObserver {
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
   private cache = new LRUCache<Texture[]>(CACHE_SIZE);
+  private subTierCache = new LRUCache<number>(CACHE_SIZE);
 
   constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     this.app = app;
@@ -68,9 +70,28 @@ export class ChatBulletContainer implements OverlayObserver {
     }
   }
 
-  private willKikiReadMessage(message: ChatMessage): boolean {
+  private async getSubscriberTier(message: ChatMessage): Promise<number> {
+    const userId = message.userInfo.userId;
+    const cached = this.subTierCache.get(userId);
+    if (cached !== null) return cached;
+
+    let tier = 0;
+    try {
+      tier = await getSubTier(userId, message.channelId ?? '');
+    } catch {
+      tier = 0;
+    }
+
+    this.subTierCache.put(userId, tier);
+    return tier;
+  }
+
+  private async willKikiReadMessage(message: ChatMessage): Promise<boolean> {
     if (message.userInfo.badges.has('bot-badge')) return false;
     if (message.text.toLowerCase().includes('kiki') || message.userInfo.isBroadcaster) return true;
+
+    const tier = await this.getSubscriberTier(message);
+    if (tier >= 2) return true;
 
     return Math.random() < 0.5;
   }
@@ -83,8 +104,11 @@ export class ChatBulletContainer implements OverlayObserver {
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
 
-    if (this.willKikiReadMessage(message)) {
-      const kikiResponse = await this.kiki.fetchKikiResponse(displayName ?? 'anonymous', message.text);
+    if (await this.willKikiReadMessage(message)) {
+      const kikiResponse = await this.kiki.fetchKikiResponse(
+        displayName ?? 'anonymous',
+        message.text
+      );
       this.spawnBullet(displayName, parts, kikiResponse, color);
 
       if (kikiResponse?.pin_worthy) {
