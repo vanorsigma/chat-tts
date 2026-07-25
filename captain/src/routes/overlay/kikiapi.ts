@@ -18,7 +18,7 @@ export class KikiAPI {
 
   async fetchKikiResponse(username: string, message: string): Promise<KikiResponse | null> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
     try {
       const response = await fetch(
@@ -35,8 +35,8 @@ export class KikiAPI {
       }
 
       return await response.json();
-    } catch {
-      console.error('Kiki timed out or errored');
+    } catch (e) {
+      console.error('Kiki timed out or errored', e);
       return null;
     } finally {
       clearTimeout(timeoutId);

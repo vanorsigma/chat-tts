@@ -28,7 +28,11 @@
   let manualSongId = $state('');
   let songFeedback = $state('');
   let volume = $state(0.5);
+  let rate = $state(0);
   let currentPlayingSongId = $state('');
+  let activeMusicPage = $state<'overlay' | 'startingsoon'>('overlay');
+  let refreshTokenStatus = $state('');
+  let refreshTokenBusy = $state(false);
 
   async function fetchProviders() {
     try {
@@ -53,10 +57,6 @@
   function addToQueue(song: SongData) {
     if (!songQueue.find((s) => s.id === song.id)) {
       songQueue = [...songQueue, song];
-      sendBus({
-        type: 'song-control',
-        command: { type: 'loadQueue', songs: songQueue }
-      });
     }
   }
 
@@ -66,15 +66,10 @@
         songQueue = [...songQueue, song];
       }
     }
-    sendBus({
-      type: 'song-control',
-      command: { type: 'loadQueue', songs: songQueue }
-    });
   }
 
   function removeFromQueue(id: string) {
     songQueue = songQueue.filter((s) => s.id !== id);
-    sendBus({ type: 'song-control', command: { type: 'removeFromQueue', songId: id } });
   }
 
   function moveInQueue(from: number, to: number) {
@@ -82,32 +77,45 @@
     if (item) {
       songQueue.splice(to, 0, item);
       songQueue = [...songQueue];
-      sendBus({
-        type: 'song-control',
-        command: { type: 'reorderQueue', fromIndex: from, toIndex: to }
-      });
     }
   }
 
   function sendPlay() {
-    sendBus({ type: 'song-control', command: { type: 'play' } });
+    const song = songQueue.find((s) => s.id === currentPlayingSongId) ?? songQueue[0] ?? null;
+    if (song && currentPlayingSongId !== song.id) {
+      currentPlayingSongId = song.id;
+      sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'load', song } });
+    }
+    sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
   }
   function sendPause() {
-    sendBus({ type: 'song-control', command: { type: 'pause' } });
+    sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'pause' } });
   }
   function sendSkip() {
     const idx = songQueue.findIndex((s) => s.id === currentPlayingSongId);
-    if (idx < 0) {
-      sendBus({ type: 'song-control', command: { type: 'skip' } });
-      return;
+    const skippedId = currentPlayingSongId;
+    if (idx >= 0) {
+      songQueue = songQueue.filter((s) => s.id !== skippedId);
     }
-    const nextSong = songQueue[idx + 1] ?? null;
-    const skippedSongId = currentPlayingSongId;
-    songQueue = songQueue.filter((s) => s.id !== skippedSongId);
-    sendBus({
-      type: 'song-control',
-      command: { type: 'skip', skippedSongId, nextSong }
-    });
+    sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'skip' } });
+    const next = idx >= 0 && idx < songQueue.length ? songQueue[idx] : (songQueue[0] ?? null);
+    if (next) {
+      currentPlayingSongId = next.id;
+      sendBus({
+        type: 'song-control',
+        page: activeMusicPage,
+        command: { type: 'load', song: next }
+      });
+      sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
+    } else {
+      currentPlayingSongId = '';
+    }
+  }
+
+  function sendSkipAll() {
+    songQueue = [];
+    currentPlayingSongId = '';
+    sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'skipAll' } });
   }
 
   function shuffleQueue() {
@@ -117,10 +125,6 @@
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     songQueue = shuffled;
-    sendBus({
-      type: 'song-control',
-      command: { type: 'loadQueue', songs: songQueue }
-    });
   }
 
   async function addManualSong() {
@@ -166,12 +170,16 @@
           if (msg.songId === currentPlayingSongId) {
             currentPlayingSongId = '';
           }
-          if (songQueue.find((s) => s.id === msg.songId)) {
-            songQueue = songQueue.filter((s) => s.id !== msg.songId);
+          songQueue = songQueue.filter((s) => s.id !== msg.songId);
+          const next = songQueue[0] ?? null;
+          if (next) {
+            currentPlayingSongId = next.id;
             sendBus({
               type: 'song-control',
-              command: { type: 'removeFromQueue', songId: msg.songId }
+              page: activeMusicPage,
+              command: { type: 'load', song: next }
             });
+            sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
           }
         }
       } catch {
@@ -225,6 +233,27 @@
     sendBus({ type: 'control', op: 'blackSilence' });
   }
 
+  async function onRefreshToken(account: 'bot' | 'broadcaster') {
+    refreshTokenBusy = true;
+    try {
+      const res = await fetch('/api/twitch/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account })
+      });
+      if (res.ok) {
+        refreshTokenStatus = `${account === 'bot' ? 'Bot' : 'Broadcaster'} token refreshed`;
+      } else {
+        const data = await res.json();
+        refreshTokenStatus = `Refresh failed: ${data.error ?? 'unknown'}`;
+      }
+    } catch (e) {
+      refreshTokenStatus = `Refresh failed: ${e}`;
+    }
+    refreshTokenBusy = false;
+    setTimeout(() => (refreshTokenStatus = ''), 3000);
+  }
+
   async function onSaveConfig() {
     if (!configData) return;
     try {
@@ -241,7 +270,11 @@
             artistWidgetX: 20,
             artistWidgetY: 20,
             rightPanelX: 1520,
-            rightPanelY: 0
+            rightPanelY: 0,
+            wheelX: '50%',
+            wheelY: '50%',
+            wheelWidth: '60vmin',
+            wheelHeight: '60vmin'
           };
           sendBus({ type: 'overlayPositions', positions });
         }
@@ -300,6 +333,15 @@
   <h2>Controls</h2>
   <button onclick={onCancelSpeech}>Cancel Speech</button>
   <button onclick={onBlackSilence}>Black Silence</button>
+  <button onclick={() => onRefreshToken('bot')} disabled={refreshTokenBusy}
+    >Refresh Bot Token</button
+  >
+  <button onclick={() => onRefreshToken('broadcaster')} disabled={refreshTokenBusy}
+    >Refresh Broadcaster Token</button
+  >
+  {#if refreshTokenStatus}
+    <span class="save-status">{refreshTokenStatus}</span>
+  {/if}
 </section>
 
 <section>
@@ -328,25 +370,69 @@
     </div>
 
     <div class="song-playback-controls">
+      <div class="control-row">
+        <label>
+          <input
+            type="radio"
+            name="musicPage"
+            value="overlay"
+            checked={activeMusicPage === 'overlay'}
+            onchange={() => (activeMusicPage = 'overlay')}
+          />
+          Overlay
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="musicPage"
+            value="startingsoon"
+            checked={activeMusicPage === 'startingsoon'}
+            onchange={() => (activeMusicPage = 'startingsoon')}
+          />
+          Starting Soon
+        </label>
+      </div>
       <button onclick={sendPlay}>Play</button>
       <button onclick={sendPause}>Pause</button>
       <button onclick={sendSkip}>Skip</button>
-      <label>
-        Vol
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          bind:value={volume}
-          oninput={() => sendBus({ type: 'song-control', command: { type: 'setVolume', volume } })}
-        />
-        {Math.round(volume * 100)}%
-      </label>
+      <button onclick={sendSkipAll}>Skip All</button>
+      <div class="control-row">
+        <label>
+          Vol
+          <input type="range" min="0" max="1" step="0.01" bind:value={volume} />
+          {Math.round(volume * 100)}%
+        </label>
+        <button
+          onclick={() =>
+            sendBus({
+              type: 'song-control',
+              page: activeMusicPage,
+              command: { type: 'setVolume', volume }
+            })}>Update</button
+        >
+      </div>
+      <div class="control-row">
+        <label>
+          Rate
+          <input type="range" min="0" max="2" step="0.05" bind:value={rate} />
+          {rate.toFixed(2)}x
+        </label>
+        <button
+          onclick={() =>
+            sendBus({
+              type: 'song-control',
+              page: activeMusicPage,
+              command: { type: 'setRate', rate }
+            })}>Update</button
+        >
+      </div>
     </div>
 
-    <h3>Available ({availableSongs.length})
-      <button class="add-all-btn" onclick={addAllToQueue} disabled={availableSongs.length === 0}>Add All</button>
+    <h3>
+      Available ({availableSongs.length})
+      <button class="add-all-btn" onclick={addAllToQueue} disabled={availableSongs.length === 0}
+        >Add All</button
+      >
     </h3>
     <div class="song-list">
       {#each availableSongs as song}
@@ -358,7 +444,8 @@
       {/each}
     </div>
 
-    <h3>Queue ({songQueue.length})
+    <h3>
+      Queue ({songQueue.length})
       <button onclick={shuffleQueue} disabled={songQueue.length < 2}>Shuffle</button>
     </h3>
     <div class="song-list queue">
@@ -367,12 +454,18 @@
           <span class="song-index">{i + 1}.</span>
           <span class="song-name">{song.name}</span>
           <span class="song-artist">by {song.coverArtist}</span>
-          <button onclick={() => moveInQueue(i, Math.max(0, i - 1))} disabled={i === 0 || song.id === currentPlayingSongId}>↑</button>
+          <button
+            onclick={() => moveInQueue(i, Math.max(0, i - 1))}
+            disabled={i === 0 || song.id === currentPlayingSongId}>↑</button
+          >
           <button
             onclick={() => moveInQueue(i, Math.min(songQueue.length - 1, i + 1))}
             disabled={i === songQueue.length - 1 || song.id === currentPlayingSongId}>↓</button
           >
-          <button onclick={() => removeFromQueue(song.id)} disabled={song.id === currentPlayingSongId}>×</button>
+          <button
+            onclick={() => removeFromQueue(song.id)}
+            disabled={song.id === currentPlayingSongId}>×</button
+          >
         </div>
       {/each}
     </div>
@@ -475,7 +568,15 @@
 
   .song-playback-controls {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.5em;
+  }
+
+  .song-playback-controls .control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .song-list {

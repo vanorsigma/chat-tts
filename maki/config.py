@@ -14,6 +14,8 @@ class MakiConfig(BaseModel):
     openrouter_api_key: str
     maki_model: str
     evaluator_model: str
+    deep_reasoning_model: str
+    deep_reasoning_max_tokens: int
     max_tokens: int
     communication_bus_url: str
     screenshot_display: int
@@ -31,7 +33,7 @@ class BotToken(BaseModel):
 
 
 def captain_base_url() -> str:
-    env = os.getenv("CAPTAIN_BASE_URL", "http://localhost:5173")
+    env = os.getenv("CAPTAIN_BASE_URL", "http://localhost:4173")
     return env.rstrip("/")
 
 

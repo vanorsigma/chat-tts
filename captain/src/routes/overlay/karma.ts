@@ -38,7 +38,6 @@ export class KarmaContainer implements OverlayObserver {
   private updateGlobalKarma: (karma: number) => void;
   private collection: ScaleSpriteCollection | null = null;
   private showTimeout: NodeJS.Timeout | null = null;
-  private textTimeout: NodeJS.Timeout | null = null;
   private clip: Sound | null = null;
 
   constructor(
@@ -84,9 +83,6 @@ export class KarmaContainer implements OverlayObserver {
     if (this.collection == null) return;
     if (this.showTimeout) {
       clearTimeout(this.showTimeout);
-    }
-    if (this.textTimeout) {
-      clearTimeout(this.textTimeout);
     }
 
     const currentAngle = this.collection.handle.rotation;
@@ -144,7 +140,7 @@ export class KarmaContainer implements OverlayObserver {
       this.undrawCollection(this.collection!, true, () => this.resetScale());
     }, 5000);
 
-    this.textTimeout = setTimeout(() => {
+    setTimeout(() => {
       const tl = gsap.timeline({
         onComplete: () => {
           this.app.stage.removeChild(newKarmaText);

@@ -12,6 +12,8 @@ makiConfig:
   openrouterApiKey: ''
   makiModel: 'google/gemini-2.5-flash-lite'
   evaluatorModel: 'qwen/qwen3-coder-30b-a3b-instruct'
+  deepReasoningModel: 'google/gemini-3.6-flash'
+  deepReasoningMaxTokens: 4096
   maxTokens: 1024
   searchApiKey: ''
   communicationBusUrl: 'ws://localhost:3001/senders'
@@ -114,9 +116,11 @@ checkInConfig:
 
 stockMarketConfig:
   cycleIntervalMs: 15000
-  instantSuccessChance: 0.05
-  checkinShares: 100
-  endstreamDefaultPrice: 1
+  checkinGrantPoints: 1000
+  approvedStocks:
+    - HEART
+  buyFailSteepness: 8
+  overpayFactor: 0.1
 
 soundEffects:
   - tag: '(metalpipes)'

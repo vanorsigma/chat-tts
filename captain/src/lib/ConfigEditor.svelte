@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { FieldSchema } from '$lib/config/schema';
+  import type { FieldSchema, Preset } from '$lib/config/schema';
 
   export let schema: FieldSchema[];
   export let data: Record<string, unknown>;
@@ -27,6 +27,14 @@
     data = data;
   }
 
+  function applyPreset(fieldKey: string, preset: Preset) {
+    if (data[fieldKey] === undefined) {
+      data[fieldKey] = {};
+    }
+    data[fieldKey] = { ...(data[fieldKey] as Record<string, unknown>), ...preset.values };
+    data = data;
+  }
+
   function enableOptional(key: string) {
     data[key] = {};
     data = data;
@@ -43,6 +51,12 @@
       obj[f.key] = f.default ?? '';
     }
     return obj;
+  }
+
+  $: for (const f of schema) {
+    if (f.dependsOn && !data[f.dependsOn] && data[f.key] !== undefined) {
+      disableOptional(f.key);
+    }
   }
 </script>
 
@@ -89,6 +103,7 @@
           <label>
             <input
               type="checkbox"
+              disabled={field.dependsOn ? !data[field.dependsOn] : false}
               checked={data[field.key] !== undefined}
               on:change={(e) => {
                 if (e.currentTarget.checked) {
@@ -100,8 +115,20 @@
             />
             {field.label}
             {field.required ? '(required)' : ''}
+            {#if field.dependsOn && !data[field.dependsOn]}
+              (requires {field.dependsOn})
+            {/if}
           </label>
         </div>
+        {#if field.presets?.length}
+          <div class="preset-row">
+            {#each field.presets as p}
+              <button type="button" class="preset-btn" on:click={() => applyPreset(field.key, p)}
+                >{p.label}</button
+              >
+            {/each}
+          </div>
+        {/if}
         {#if data[field.key] && field.objectFields}
           <div class="nested-fields">
             {#each field.objectFields as child}
@@ -494,6 +521,27 @@
     flex-direction: row;
     align-items: center;
     gap: 0.3em;
+  }
+
+  .preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3em;
+    margin-bottom: 0.5em;
+  }
+
+  .preset-btn {
+    background: #448;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 2px 8px;
+    font-size: 0.85em;
+  }
+
+  .preset-btn:hover {
+    background: #55a;
   }
 
   .nested-fields {

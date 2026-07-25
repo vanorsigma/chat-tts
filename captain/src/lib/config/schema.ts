@@ -1,3 +1,8 @@
+export interface Preset {
+  label: string;
+  values: Record<string, unknown>;
+}
+
 export interface FieldSchema {
   key: string;
   kind:
@@ -17,8 +22,10 @@ export interface FieldSchema {
   placeholder?: string;
   help?: string;
   required?: boolean;
+  dependsOn?: string;
   listObjectFields?: FieldSchema[];
   objectFields?: FieldSchema[];
+  presets?: Preset[];
 }
 
 export const configSchema: FieldSchema[] = [
@@ -73,6 +80,13 @@ export const configSchema: FieldSchema[] = [
         label: 'Evaluator Model',
         default: 'qwen/qwen3-coder-30b-a3b-instruct'
       },
+      {
+        key: 'deepReasoningModel',
+        kind: 'text',
+        label: 'Deep Reasoning Model',
+        default: 'google/gemini-3.6-flash'
+      },
+      { key: 'deepReasoningMaxTokens', kind: 'number', label: 'Deep Reasoning Max Tokens', default: 4096, min: 1, step: 1 },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
       {
         key: 'communicationBusUrl',
@@ -227,6 +241,13 @@ export const configSchema: FieldSchema[] = [
     key: 'remoteChatTTS',
     kind: 'optional-object',
     label: 'Remote Chat TTS',
+    objectFields: []
+  },
+  {
+    key: 'delegateVoiceToOverlay',
+    kind: 'optional-object',
+    label: 'Delegate voice command to Overlay',
+    dependsOn: 'remoteChatTTS',
     objectFields: []
   },
   {
@@ -517,27 +538,32 @@ export const configSchema: FieldSchema[] = [
         step: 1000
       },
       {
-        key: 'instantSuccessChance',
+        key: 'checkinGrantPoints',
         kind: 'number',
-        label: 'Instant success chance',
-        default: 0.05,
+        label: 'Check-in grant VD',
+        default: 1000,
         min: 0,
-        max: 1,
-        step: 0.01
+        step: 10
       },
       {
-        key: 'checkinShares',
-        kind: 'number',
-        label: 'Check-in shares',
-        default: 100,
-        min: 0,
-        step: 1
+        key: 'approvedStocks',
+        kind: 'list-of-text',
+        label: 'Approved stocks',
+        default: ['HEART']
       },
       {
-        key: 'endstreamDefaultPrice',
+        key: 'buyFailSteepness',
         kind: 'number',
-        label: 'Endstream default price',
-        default: 1,
+        label: 'Buy fail steepness',
+        default: 8,
+        min: 0,
+        step: 0.1
+      },
+      {
+        key: 'overpayFactor',
+        kind: 'number',
+        label: 'Overpay factor',
+        default: 0.1,
         min: 0,
         step: 0.01
       }
@@ -623,6 +649,21 @@ export const configSchema: FieldSchema[] = [
     key: 'overlayPositionsConfig',
     kind: 'optional-object',
     label: 'Overlay widget positions',
+    presets: [
+      {
+        label: 'Wheel: center',
+        values: { wheelX: '50%', wheelY: '50%', wheelWidth: '60vmin', wheelHeight: '60vmin' }
+      },
+      {
+        label: 'Wheel: small bottom-right',
+        values: {
+          wheelX: 'calc(100% - 200px)',
+          wheelY: 'calc(100% - 180px)',
+          wheelWidth: '280px',
+          wheelHeight: '280px'
+        }
+      }
+    ],
     objectFields: [
       {
         key: 'artistWidgetX',
@@ -677,6 +718,34 @@ export const configSchema: FieldSchema[] = [
         min: 0,
         max: 1080,
         step: 1
+      },
+      {
+        key: 'wheelX',
+        kind: 'text',
+        label: 'Wheel X',
+        default: '50%',
+        placeholder: 'e.g. 50%, 100px'
+      },
+      {
+        key: 'wheelY',
+        kind: 'text',
+        label: 'Wheel Y',
+        default: '50%',
+        placeholder: 'e.g. 50%, calc(100% - 300px)'
+      },
+      {
+        key: 'wheelWidth',
+        kind: 'text',
+        label: 'Wheel width',
+        default: '60vmin',
+        placeholder: 'e.g. 90vmin, 280px, 50%'
+      },
+      {
+        key: 'wheelHeight',
+        kind: 'text',
+        label: 'Wheel height',
+        default: '60vmin',
+        placeholder: 'e.g. 90vmin, 280px, 50%'
       }
     ]
   },

@@ -2,6 +2,7 @@
 Guess 7tv emotes
 """
 
+import http.client
 import logging
 import random
 import sys
@@ -89,15 +90,29 @@ def create_emote_window_from_emote_set_id(
     emotes = get_emotes_from_emote_set_id(emote_set_id)
     window_references = []
     for _ in range(no_windows):
-        emote = random.choice(emotes)
-        request = urllib.request.Request(
-            url=emote.url, data=None, headers={"User-Agent": HEADERS}
-        )
-        with urllib.request.urlopen(request) as response:
-            returned_bytes: bytes = response.read()
-        window_references.append(
-            EmoteWindow(emote.name, returned_bytes, emote.animated)
-        )
+        for attempt in range(3):
+            emote = random.choice(emotes)
+            try:
+                request = urllib.request.Request(
+                    url=emote.url, data=None, headers={"User-Agent": HEADERS}
+                )
+                with urllib.request.urlopen(request, timeout=15) as response:
+                    returned_bytes: bytes = response.read()
+                window_references.append(
+                    EmoteWindow(emote.name, returned_bytes, emote.animated)
+                )
+                break
+            except (
+                urllib.error.URLError,
+                http.client.IncompleteRead,
+                OSError,
+            ) as exc:
+                logger.warning(
+                    "Failed to download emote %s (attempt %d): %s",
+                    emote.name,
+                    attempt + 1,
+                    exc,
+                )
 
     return window_references
 

@@ -100,11 +100,14 @@ class BidObserver implements OverlayObserver {
 
   async onMessage(message: ChatMessage): Promise<void> {
     const splits = message.text.split(' ');
-    if (splits[0] === '%endbid' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
+    if (
+      splits[0].toLowerCase() === '%endbid' &&
+      (message.userInfo.isMod || message.userInfo.isBroadcaster)
+    ) {
       this.clearBid();
       return;
     }
-    if (splits[0] !== '%bid') return;
+    if (splits[0].toLowerCase() !== '%bid') return;
 
     const userDefinedPredicate = this.bidInstance.options.predicate;
 

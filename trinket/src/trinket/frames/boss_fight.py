@@ -158,6 +158,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self, channel_name: str, max_health: int, emotes: list[SevenTVEmoteData]
     ):
         super().__init__()
+        self._closed = False
         self.emotes = emotes
         self.current_emotes = [
             self.choose_random_emote() for _ in range(self.EMOTE_QUEUE)
@@ -232,10 +233,11 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         Callback whenever twitch sends a matching message.
         Call this in the IRC thread.
         """
-        self.irc_msg_callback_queue.put(message)
+        if not self._closed:
+            self.irc_msg_callback_queue.put(message)
 
     def _dev_chat_callback(self, message: str) -> None:
-        if self.current_emotes[0][0] in message:
+        if not self._closed and self.current_emotes[0][0] in message:
             self.irc_msg_callback_queue.put(message)
 
     def _handle_irc_message_callback(self, message: str) -> None:
@@ -260,6 +262,8 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         Also updates the health bar.
         Also handles IRC message callbacks
         """
+        if self._closed:
+            return
         while True:
             try:
                 msg = self.irc_msg_callback_queue.get_nowait()
@@ -285,13 +289,10 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self.update()
 
     def closeEvent(self, event):
+        self._closed = True
         self.boss_tick.stop()
-        if self.irc is not None and self.irc_thread is not None:
-            if self.irc_thread.is_alive():
-                logger.info("IRC thread still alive, joining...")
-                self.irc.disconnect()
-                self.irc_thread.join()
-                self.irc.reactor.process_once()
+        if self.irc is not None:
+            self.irc.disconnect()
         unregister_chat_listener(self._dev_chat_callback)
         super().closeEvent(event)
 

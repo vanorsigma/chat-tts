@@ -46,7 +46,7 @@ echo -n "Common regex suffix to strip: "
 read SUFFIX
 
 
-yt-dlp -x --audio-format m4a -o "%(title)s.%(ext)s" "$PLAYLIST_URL"
+yt-dlp --cookies-from-browser firefox -x --audio-format m4a -o "%(title)s.%(ext)s" "$PLAYLIST_URL"
 for file in *.m4a; do
     new_name=$(echo "$file" | tr '[:upper:]' '[:lower:]')
     new_name=$(echo "$new_name" | tr ' ' '_')

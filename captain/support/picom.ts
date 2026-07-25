@@ -34,43 +34,45 @@ function sendToPicom(line: string): Promise<void> {
   });
 }
 
-function connectToBus() {
-  const ws = new WebSocket(`${BUS_URL}/receivers`);
+export function startPicomService() {
+  function connectToBus() {
+    const ws = new WebSocket(`${BUS_URL}/receivers`);
 
-  ws.on('open', () => {
-    console.log(`[PicomCtl] connected to receiver bus at ${BUS_URL}`);
-  });
+    ws.on('open', () => {
+      console.log(`[PicomCtl] connected to receiver bus at ${BUS_URL}`);
+    });
 
-  ws.on('message', async (raw) => {
-    try {
-      const msg = JSON.parse(raw.toString());
-      if (!isPicomShaderMessage(msg)) return;
+    ws.on('message', async (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (!isPicomShaderMessage(msg)) return;
 
-      const line = `${msg.op} ${msg.shader}\n`;
-      console.log(`[PicomCtl] -> ${line.trim()}`);
-      await sendToPicom(line);
+        const line = `${msg.op} ${msg.shader}\n`;
+        console.log(`[PicomCtl] -> ${line.trim()}`);
+        await sendToPicom(line);
 
-      if (msg.op === 'ENABLE' && typeof msg.durationMs === 'number' && msg.durationMs > 0) {
-        setTimeout(async () => {
-          const disableLine = `DISABLE ${msg.shader}\n`;
-          console.log(`[PicomCtl] -> ${disableLine.trim()}`);
-          await sendToPicom(disableLine);
-        }, msg.durationMs);
+        if (msg.op === 'ENABLE' && typeof msg.durationMs === 'number' && msg.durationMs > 0) {
+          setTimeout(async () => {
+            const disableLine = `DISABLE ${msg.shader}\n`;
+            console.log(`[PicomCtl] -> ${disableLine.trim()}`);
+            await sendToPicom(disableLine);
+          }, msg.durationMs);
+        }
+      } catch {
+        // ignore malformed messages
       }
-    } catch {
-      // ignore malformed messages
-    }
-  });
+    });
 
-  ws.on('close', () => {
-    console.warn('[PicomCtl] bus closed, reconnecting in 2s');
-    setTimeout(connectToBus, 2000);
-  });
+    ws.on('close', () => {
+      console.warn('[PicomCtl] bus closed, reconnecting in 2s');
+      setTimeout(connectToBus, 2000);
+    });
 
-  ws.on('error', (err) => {
-    console.warn('[PicomCtl] bus error:', err.message);
-    // close handler will reconnect
-  });
+    ws.on('error', (err) => {
+      console.warn('[PicomCtl] bus error:', err.message);
+      // close handler will reconnect
+    });
+  }
+
+  connectToBus();
 }
-
-connectToBus();

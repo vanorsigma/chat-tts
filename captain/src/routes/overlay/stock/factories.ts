@@ -7,8 +7,13 @@ function emitNow<T>(initial: T) {
   const pub = createPubSub<T>();
   let _value = initial;
   return {
-    get value() { return _value; },
-    set value(v: T) { _value = v; pub.notify(v); },
+    get value() {
+      return _value;
+    },
+    set value(v: T) {
+      _value = v;
+      pub.notify(v);
+    },
     subscribe: (fn: (v: T) => void): Unsubscribe => {
       fn(_value);
       return pub.subscribe(fn);
@@ -27,13 +32,18 @@ export interface ConstantProviderOpts extends StockProviderBaseOpts {
   value: number;
 }
 
-function baseProvider(opts: StockProviderBaseOpts, overrides: Partial<StockProvider>): StockProvider {
+function baseProvider(
+  opts: StockProviderBaseOpts,
+  overrides: Partial<StockProvider>
+): StockProvider {
   const provider: StockProvider = {
     symbol: opts.symbol,
     label: opts.label,
     icon: opts.icon,
     color: opts.color,
-    get current() { return 0; },
+    get current() {
+      return 0;
+    },
     subscribe: () => () => {},
     ...overrides
   };
@@ -44,7 +54,9 @@ function baseProvider(opts: StockProviderBaseOpts, overrides: Partial<StockProvi
 export function createConstantProvider(opts: ConstantProviderOpts): StockProvider {
   const store = emitNow(opts.value);
   return baseProvider(opts, {
-    get current() { return store.value; },
+    get current() {
+      return store.value;
+    },
     subscribe: store.subscribe
   });
 }
@@ -64,11 +76,15 @@ export function createHttpPollingProvider(opts: HttpPollingProviderOpts): StockP
       const res = await fetch(opts.url);
       const json = await res.json();
       store.value = opts.extract(json);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   return baseProvider(opts, {
-    get current() { return store.value; },
+    get current() {
+      return store.value;
+    },
     subscribe: (fn) => {
       const unsub = store.subscribe(fn);
       if (!intervalId) {
@@ -98,11 +114,15 @@ export function createWebSocketProvider(opts: WebSocketProviderOpts): StockProvi
     try {
       const val = opts.extract(raw);
       if (val !== null) store.value = val;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   return baseProvider(opts, {
-    get current() { return store.value; },
+    get current() {
+      return store.value;
+    },
     subscribe: (fn) => {
       const unsub = store.subscribe(fn);
       return () => {
@@ -119,7 +139,9 @@ export interface ComputedProviderOpts extends StockProviderBaseOpts {
 
 export function createComputedProvider(opts: ComputedProviderOpts): StockProvider {
   return baseProvider(opts, {
-    get current() { return opts.compute(); },
+    get current() {
+      return opts.compute();
+    },
     subscribe: () => () => {}
   });
 }

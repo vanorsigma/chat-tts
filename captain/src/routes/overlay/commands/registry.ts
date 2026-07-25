@@ -20,8 +20,6 @@ export const ALL_COMMANDS = [
   '%buy',
   '%sell',
   '%stocks',
-  '%buyorders',
-  '%sellorders',
   '%endstream',
   '%gamba',
   '%selfthought',
@@ -40,7 +38,8 @@ export const ALL_COMMANDS = [
   '%distract',
   '%endbid',
   '%refreshVoice',
-  '%grayscale'
+  '%grayscale',
+  '%resetcooldown'
 ] as const;
 
 export type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -67,8 +66,6 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%buy': 'stockMarket',
   '%sell': 'stockMarket',
   '%stocks': 'stockMarket',
-  '%buyorders': 'stockMarket',
-  '%sellorders': 'stockMarket',
   '%endstream': 'endstream',
   '%gamba': 'stockMarket',
   '%selfthought': 'selfThought',
@@ -87,7 +84,8 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%rotate': 'distract',
   '%distract': 'distract',
   '%refreshVoice': 'voice',
-  '%grayscale': 'grayscale'
+  '%grayscale': 'grayscale',
+  '%resetcooldown': 'moderation'
 };
 
 export const REQUIRES_ARGS = new Set<ChatCommand>([
@@ -121,23 +119,26 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
   '%pa': '%pa <audioUrl>',
   '%playsound': '%playsound <audioUrl>',
   '%playaudio': '%playaudio <audioUrl>',
-  '%buy': '%buy <symbol> <quantity>',
-  '%sell': '%sell <symbol> <quantity>',
+  '%buy': '%buy <symbol> <points> [overpay]',
+  '%sell': '%sell <symbol> <shares>',
   '%gamba': '%gamba <amount>',
   '%selfthought': '%selfthought <message>',
   '%settitle': '%settitle <newTitle>',
   '%givekarma': '%givekarma <amount>',
   '%block': '%block <%command>',
   '%unblock': '%unblock <%command>',
-  '%kill': '%kill <username>'
+  '%kill': '%kill <username>',
+  '%resetcooldown': '%resetcooldown [username|all]'
 };
 
-function isChatCommand(rawStr: string): rawStr is ChatCommand {
-  return (ALL_COMMANDS as readonly string[]).includes(rawStr);
-}
-
 export function asChatCommand(rawStr: string): ChatCommand | null {
-  if (isChatCommand(rawStr)) return rawStr;
-  if (isChatCommand(`%${rawStr}`)) return `%${rawStr}` as ChatCommand;
+  const lowered = rawStr.toLowerCase();
+  for (const cmd of ALL_COMMANDS) {
+    if (cmd.toLowerCase() === lowered) return cmd;
+  }
+  const withPercent = `%${lowered}`;
+  for (const cmd of ALL_COMMANDS) {
+    if (cmd.toLowerCase() === withPercent) return cmd;
+  }
   return null;
 }

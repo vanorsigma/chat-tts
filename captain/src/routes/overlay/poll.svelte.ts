@@ -2,6 +2,8 @@ import { COMMAND_HELP } from './commands/registry';
 import type { OverlayDispatchers } from './dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 
+const WHITELISTED_POLL_USERS = ['vanorgamma'];
+
 export interface PollOption {
   id?: string;
   name: string;
@@ -22,13 +24,19 @@ export interface Poll {
 function getPollParameters(
   message: string
 ): { title: string; duration: number; choices: string[] } | null {
-  const rest = message.replace('%poll', '').trim();
+  const rest = message.replace(/^%poll/i, '').trim();
   const splits = rest.split(';');
   if (splits.length < 3) return null;
 
   const title = splits[0];
   const duration = Number(splits[1]);
   const choices = splits.slice(2).filter(Boolean);
+
+  console.debug('Raw poll parameters: ', {
+    title,
+    duration,
+    choices
+  });
 
   if (
     !title ||
@@ -49,7 +57,15 @@ export async function pollCommandHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage
 ): Promise<void> {
-  if (!(message.userInfo.isMod || message.userInfo.isVip || message.userInfo.isBroadcaster)) {
+  if (
+    !(
+      message.userInfo.isMod ||
+      message.userInfo.isVip ||
+      message.userInfo.isBroadcaster ||
+      WHITELISTED_POLL_USERS.includes(message.userInfo.userName)
+    )
+  ) {
+    console.log(`${message.userInfo.userName} is not an approved user of %poll, skipping...`);
     return;
   }
 

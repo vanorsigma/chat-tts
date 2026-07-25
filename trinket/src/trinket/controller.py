@@ -100,8 +100,7 @@ class TrinketController:
         self.warning_frame.close()
 
         windows_emote = create_emote_window_from_emote_set_id(self.EMOTE_SET_ID, emotes)
-        # windows_song = make_song_windows(songs)
-        windows_song = []
+        windows_song = make_song_windows(songs)
 
         boss_fight_windows = [
             make_boss_fight(self.EMOTE_SET_ID) for _ in range(boss_fights)

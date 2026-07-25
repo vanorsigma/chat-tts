@@ -5,16 +5,18 @@ import { gambaStore } from './gamba.svelte';
 interface QueuedSpin {
   ctx: GambaContext;
   items: GambaItem[];
+  multiplier: number;
 }
 
-let queue: QueuedSpin[] = [];
+const queue: QueuedSpin[] = [];
 let busy = false;
 
 export function enqueueGambaSpin(
   ctx: GambaContext,
-  items?: GambaItem[]
+  multiplier = 1,
+  items = DEFAULT_GAMBA_ITEMS
 ): void {
-  queue.push({ ctx, items: items ?? DEFAULT_GAMBA_ITEMS });
+  queue.push({ ctx, items, multiplier });
   if (!busy) {
     processNext();
   }
@@ -31,12 +33,13 @@ function processNext() {
   }
   busy = true;
   const spin = queue.shift()!;
-  const item = pickWeighted(spin.items);
+  const scaledItems = spin.items.map((i) => i.scaledBy(spin.multiplier));
+  const item = pickWeighted(scaledItems);
 
   const onDone = () => {
     busy = false;
     processNext();
   };
 
-  gambaStore.spin(spin.items, item, spin.ctx, onDone);
+  gambaStore.spin(scaledItems, item, spin.ctx, onDone);
 }

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from memory import Memory
+    from triggers.base import TriggerContext
 
 
 @dataclass
@@ -19,5 +20,5 @@ class MakiDeps:
     communication: Communication
     screenshot: ScreenshotTool
     memory: Memory
-    autonomous: bool = False
+    trigger_context: TriggerContext | None = None
     recall_context: str = field(default="")

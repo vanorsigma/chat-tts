@@ -21,6 +21,7 @@ class RotateFrame(QOpenGLWidget):  # pylint: disable=too-few-public-methods
         super().__init__()
         if speed == 0:
             raise ValueError("speed must be non-zero")
+        self._closing = False
         self.speed = speed
         self.angle = 0
         self.setWindowTitle("Thingy")
@@ -44,12 +45,19 @@ class RotateFrame(QOpenGLWidget):  # pylint: disable=too-few-public-methods
         self.angle_timer.start(int(1000 / 60))  # 60fps rotations
 
     def update_angle(self):
+        if self._closing:
+            return
         self.angle = self.angle + self.speed * 0.1
         if self.angle >= 360 or self.angle <= -360:
             self.angle_timer.stop()
             self.close()
             return
         self.update()
+
+    def closeEvent(self, event):
+        self._closing = True
+        self.angle_timer.stop()
+        super().closeEvent(event)
 
     def paintEvent(self, _event):  # pylint: disable=invalid-name
         transform = QTransform()

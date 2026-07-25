@@ -3,10 +3,14 @@ Models for the receiver. This models the communication stuff received
 by the WebSocket.
 """
 
+import json
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Literal, Union
+from typing import Any, Literal, Optional, Union
 
 from dataclasses_json import DataClassJsonMixin, config
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -38,8 +42,10 @@ class RotateSubcommand(DataClassJsonMixin):
 
 
 def _subcommand_deserializer(
-    value: dict[Any, Any],
+    value: Union[dict[Any, Any], CancelSubcommand, DistractSubcommand, RotateSubcommand],
 ) -> Union[CancelSubcommand, DistractSubcommand, RotateSubcommand]:
+    if isinstance(value, (CancelSubcommand, DistractSubcommand, RotateSubcommand)):
+        return value
     match value.get("type"):
         case "cancel":
             return CancelSubcommand.from_dict(value)
@@ -57,8 +63,21 @@ class Command(DataClassJsonMixin):
     A trinket command from the websocket
     """
 
-    type: Literal["trinket"] = "trinket"
     command: Union[CancelSubcommand, DistractSubcommand, RotateSubcommand] = field(
-        default_factory=CancelSubcommand,
         metadata=config(decoder=_subcommand_deserializer),
     )
+    type: Literal["trinket"] = "trinket"
+
+    @classmethod
+    def try_from_bus_message(cls, raw: str) -> Optional["Command"]:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(data, dict) or data.get("type") != "trinket":
+            return None
+        try:
+            return cls.from_dict(data)
+        except (KeyError, ValueError, TypeError):
+            logger.exception("malformed trinket command")
+            return None

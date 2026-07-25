@@ -3,8 +3,9 @@ import type { ChatMessage } from '@twurple/chat';
 import type { Commands } from '../index';
 import { enqueueGambaSpin } from '../../gamba/queue';
 import { requireUsername } from './shared';
+import { checkCostAddIfEnough } from '../middleware';
 
-export function gambaHandler(
+export async function gambaHandler(
   commands: Commands,
   dispatcher: OverlayDispatchers,
   message: ChatMessage
@@ -35,8 +36,32 @@ export function gambaHandler(
     return;
   }
 
+  const arg = message.text.split(' ')[1];
+  const amount = Number(arg);
+  if (!arg || Number.isNaN(amount) || amount <= 0) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'usage: %gamba <amount> (100 = baseline)',
+      message.id
+    );
+    return;
+  }
+
+  if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, message.id)))
+    return;
+
   commands.gambaUserCooldowns.set('__global__', now);
   commands.gambaUserCooldowns.set(username, now);
 
-  enqueueGambaSpin({ dispatcher, channelId: message.channelId!, username });
+  dispatcher.sendMessageAsUser(
+    message.channelId!,
+    `@${username} staked ${amount}VD on the wheel`,
+    message.id
+  );
+
+  const multiplier = amount / 100;
+  enqueueGambaSpin(
+    { dispatcher, channelId: message.channelId!, username, bet: amount, commands },
+    multiplier
+  );
 }

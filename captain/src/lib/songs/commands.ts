@@ -3,15 +3,16 @@ import type { SongData } from './types';
 
 export interface CommandHandlers {
   load: (song: SongData) => void;
-  play: () => void;
+  play: (volume?: number, rate?: number) => void;
   pause: () => void;
   skip: (skippedSongId?: string | null, nextSong?: SongData | null) => void;
   seek: (ms: number) => void;
   setRate: (rate: number) => void;
   setVolume: (volume: number) => void;
-  loadQueue: (songs: SongData[]) => void;
+  loadQueue: (songs: SongData[], rate?: number, volume?: number) => void;
   removeFromQueue: (songId: string) => void;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
+  skipAll: () => void;
 }
 
 export function handleCommand(msg: SongControlMessage, handlers: CommandHandlers) {
@@ -21,7 +22,7 @@ export function handleCommand(msg: SongControlMessage, handlers: CommandHandlers
       handlers.load(cmd.song);
       break;
     case 'play':
-      handlers.play();
+      handlers.play(cmd.volume, cmd.rate);
       break;
     case 'pause':
       handlers.pause();
@@ -39,13 +40,16 @@ export function handleCommand(msg: SongControlMessage, handlers: CommandHandlers
       handlers.setVolume(cmd.volume);
       break;
     case 'loadQueue':
-      handlers.loadQueue(cmd.songs);
+      handlers.loadQueue(cmd.songs, cmd.rate, cmd.volume);
       break;
     case 'removeFromQueue':
       handlers.removeFromQueue(cmd.songId);
       break;
     case 'reorderQueue':
       handlers.reorderQueue(cmd.fromIndex, cmd.toIndex);
+      break;
+    case 'skipAll':
+      handlers.skipAll();
       break;
   }
 }

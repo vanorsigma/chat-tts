@@ -6,6 +6,8 @@ import logging
 import os
 import sys
 import time
+from functools import lru_cache
+from typing import Any
 
 import aiohttp
 import aiohttp.web
@@ -42,7 +44,7 @@ KOKORO_VOICES = [
 ]
 
 OPENROUTER_MODEL = "hexgrad/kokoro-82m"
-CAPTAIN_BASE_URL = os.getenv("CAPTAIN_BASE_URL", "http://localhost:5173").rstrip("/")
+CAPTAIN_BASE_URL = os.getenv("CAPTAIN_BASE_URL", "http://localhost:4173").rstrip("/")
 PORT = int(os.getenv("KOKORO_PORT", "8001"))
 DEFAULT_VOICE = "af_heart"
 DEFAULT_RESPONSE_FORMAT = "mp3"
@@ -51,6 +53,11 @@ _config_lock = asyncio.Lock()
 _cached_key: str | None = None
 _cached_key_ts: float = 0
 _CACHE_TTL = 300.0
+
+
+@lru_cache(maxsize=128)
+def _tts_cache(voice: str, message_lower: str) -> dict[str, Any]:
+    return {"audio": None, "content_type": None, "generation_id": None}
 
 
 async def fetch_openrouter_key() -> str:
@@ -62,7 +69,7 @@ async def fetch_openrouter_key() -> str:
             return _cached_key
 
         url = f"{CAPTAIN_BASE_URL}/api/config"
-        print(f"[Kokoro] Fetching config from {url}")
+        print(f"Fetching config from {url}")
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 resp.raise_for_status()
@@ -71,7 +78,7 @@ async def fetch_openrouter_key() -> str:
         maki_cfg = data.get("makiConfig") or {}
         key = maki_cfg.get("openrouterApiKey")
         if not key:
-            print("[Kokoro] ERROR: openrouterApiKey not found in captain config")
+            print("ERROR: openrouterApiKey not found in captain config")
             logging.error("openrouterApiKey not found in captain config at %s", url)
             raise RuntimeError(
                 "openrouterApiKey not found. "
@@ -80,11 +87,13 @@ async def fetch_openrouter_key() -> str:
 
         _cached_key = key
         _cached_key_ts = now
-        print("[Kokoro] OpenRouter API key loaded (cached)")
+        print("OpenRouter API key loaded (cached)")
         return key
 
 
-async def handle_tts(request: aiohttp.web.Request) -> aiohttp.web.Response:
+async def handle_tts(
+    request: aiohttp.web.Request,
+) -> aiohttp.web.StreamResponse:  # noqa: F811
     try:
         body = json.loads(await request.read())
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -98,9 +107,25 @@ async def handle_tts(request: aiohttp.web.Request) -> aiohttp.web.Response:
     speed = body.get("speed", 1.0)
     response_format = body.get("response_format", DEFAULT_RESPONSE_FORMAT)
 
-    print(
-        f"[Kokoro] TTS: prompt='{prompt[:50]}...' voice={voice} fmt={response_format}"
-    )
+    print(f"TTS: prompt='{prompt[:50]}...' voice={voice} fmt={response_format}")
+
+    entry = _tts_cache(voice, prompt.lower())
+    if entry["audio"] is not None:
+        print(f"TTS cache hit: voice={voice}")
+        headers_out = {
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-cache",
+            "X-Cache-Hit": "true",
+        }
+        if entry["generation_id"]:
+            headers_out["X-Generation-Id"] = entry["generation_id"]
+        return aiohttp.web.Response(
+            body=entry["audio"],
+            content_type=entry["content_type"],
+            headers=headers_out,
+        )
+
+    print(f"TTS cache miss: voice={voice}")
 
     try:
         api_key = await fetch_openrouter_key()
@@ -113,6 +138,7 @@ async def handle_tts(request: aiohttp.web.Request) -> aiohttp.web.Response:
         "input": prompt,
         "voice": voice,
         "response_format": response_format,
+        "stream": True,
     }
     if speed != 1.0:
         openrouter_body["speed"] = speed
@@ -141,9 +167,8 @@ async def handle_tts(request: aiohttp.web.Request) -> aiohttp.web.Response:
                     "Content-Type",
                     "audio/mpeg" if response_format == "mp3" else "audio/pcm",
                 )
-                audio_bytes = await resp.read()
-
                 generation_id = resp.headers.get("X-Generation-Id")
+
                 headers_out = {
                     "Access-Control-Allow-Origin": "*",
                     "Cache-Control": "no-cache",
@@ -151,14 +176,27 @@ async def handle_tts(request: aiohttp.web.Request) -> aiohttp.web.Response:
                 if generation_id:
                     headers_out["X-Generation-Id"] = generation_id
 
-                print(
-                    f"[Kokoro] TTS done: {len(audio_bytes)} bytes, gen={generation_id}"
-                )
-                return aiohttp.web.Response(
-                    body=audio_bytes,
-                    content_type=content_type,
+                stream_resp = aiohttp.web.StreamResponse(
+                    status=200,
                     headers=headers_out,
                 )
+                stream_resp.content_type = content_type
+                await stream_resp.prepare(request)
+
+                buf = bytearray()
+                async for chunk in resp.content.iter_any():
+                    buf.extend(chunk)
+                    await stream_resp.write(chunk)
+                    await stream_resp.drain()
+
+                entry["audio"] = bytes(buf)
+                entry["content_type"] = content_type
+                entry["generation_id"] = generation_id
+                print(f"TTS cached: voice={voice} ({len(buf)} bytes)")
+
+                print(f"TTS done: {len(buf)} bytes, gen={generation_id}")
+                await stream_resp.write_eof()
+                return stream_resp
     except aiohttp.ClientError as e:
         logging.error("OpenRouter request failed: %s", e)
         return aiohttp.web.Response(text=f"upstream error: {e}", status=502)
@@ -169,7 +207,7 @@ async def handle_voices(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 async def main():
-    from bus_logging import install_bus_logging
+    from shared.bus_logging import install_bus_logging
 
     install_bus_logging("[Kokoro]")
 

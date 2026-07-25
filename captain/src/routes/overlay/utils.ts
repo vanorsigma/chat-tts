@@ -11,9 +11,9 @@ export async function makeApplication(root: HTMLDivElement): Promise<Application
 
 export function properRandom(): number {
   if ('crypto' in window) {
-    const array = new Uint8Array(1);
+    const array = new Uint32Array(1);
     crypto.getRandomValues(array);
-    return array[0] / 255.0;
+    return array[0] / 0x100000000;
   }
   return Math.random();
 }

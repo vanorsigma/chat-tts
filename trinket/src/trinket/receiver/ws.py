@@ -40,11 +40,11 @@ class TTSWebsocketClient:  # pylint: disable=too-few-public-methods
             try:
                 result = self.ws.recv()
                 if self.on_message:
-                    self.on_message(Command.from_json(result))
+                    command = Command.try_from_bus_message(result)
+                    if command is not None:
+                        self.on_message(command)
             except WebSocketTimeoutException:
                 continue
-            except (ValueError, TypeError):
-                logger.exception("cannot deserialize command")
 
     def run_forever(self) -> None:
         """

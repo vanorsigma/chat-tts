@@ -6,6 +6,29 @@ export const TOGGLE_COOLDOWN = 2 * 60 * 1000;
 export const PEOPLE_WHO_CHECKED_IN: string[] = [];
 export const TOGGLE_EXPIRY: Map<string, NodeJS.Timeout> = new Map();
 
+export function resetAllOverlayCooldowns(commands: {
+  cooldowns: Map<string, number>;
+  gambaUserCooldowns: Map<string, number>;
+  buyUserCooldowns: Map<string, number>;
+}) {
+  commands.cooldowns.clear();
+  commands.gambaUserCooldowns.clear();
+  commands.buyUserCooldowns.clear();
+  for (const t of TOGGLE_EXPIRY.values()) clearTimeout(t);
+  TOGGLE_EXPIRY.clear();
+}
+
+export function resetUserCooldowns(
+  commands: {
+    gambaUserCooldowns: Map<string, number>;
+    buyUserCooldowns: Map<string, number>;
+  },
+  username: string
+) {
+  commands.gambaUserCooldowns.delete(username);
+  commands.buyUserCooldowns.delete(username);
+}
+
 let _checkCostAddIfEnoughLock: Promise<boolean> = Promise.resolve(true);
 export async function checkCostAddIfEnough(
   dispatcher: OverlayDispatchers,

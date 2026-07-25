@@ -21,6 +21,13 @@ const TOKEN_FILES: Record<string, string> = {
 
 const _tokenCache: Record<string, TokenData | null> = {};
 
+type TokenRefreshBroadcaster = (msg: { type: 'tokenRefreshed'; account: string }) => void;
+let _tokenRefreshBroadcaster: TokenRefreshBroadcaster | null = null;
+
+export function setTokenRefreshBroadcaster(fn: TokenRefreshBroadcaster) {
+  _tokenRefreshBroadcaster = fn;
+}
+
 function loadTokenData(name: 'broadcaster' | 'bot'): TokenData | null {
   const cached = _tokenCache[name];
   if (cached) return cached;
@@ -78,6 +85,10 @@ function buildProvider(
         } catch (e) {
           console.error(`Failed to save refreshed ${name} tokens:`, e);
         }
+
+        if (name === 'bot' && _tokenRefreshBroadcaster) {
+          _tokenRefreshBroadcaster({ type: 'tokenRefreshed', account: 'bot' });
+        }
       });
 
       provider.addUser(
@@ -119,4 +130,25 @@ export function getBotApi(): { api: ApiClient; userId: string } | null {
   const built = buildProvider('bot');
   if (!built) return null;
   return { api: new ApiClient({ authProvider: built.provider }), userId: built.userId };
+}
+
+export async function refreshTokenNow(
+  name: 'bot' | 'broadcaster'
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const built = buildProvider(name);
+  if (!built) {
+    return { ok: false, error: `No ${name} tokens available` };
+  }
+  if (!(built.provider instanceof RefreshingAuthProvider)) {
+    return { ok: false, error: `${name} token has no refreshToken — static auth` };
+  }
+  try {
+    await built.provider.refreshAccessTokenForUser(built.userId);
+    console.log(`[TwitchAuth] Manually refreshed ${name} token`);
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[TwitchAuth] Failed to manually refresh ${name} token:`, e);
+    return { ok: false, error: msg };
+  }
 }

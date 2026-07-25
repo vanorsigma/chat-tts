@@ -174,7 +174,7 @@ export async function grayscaleHandler(
     );
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `grayscale ON, -${getOverlayConfig().grayscale.cost}`,
+      `-${getOverlayConfig().grayscale.cost}`,
       message.id
     );
   }

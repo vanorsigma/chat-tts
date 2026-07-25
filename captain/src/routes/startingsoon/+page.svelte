@@ -14,6 +14,7 @@
   import ArtistWidget from '$lib/songs/ArtistWidget.svelte';
   import Visualizer from './Visualizer.svelte';
   import { StartingSoonBulletContainer, type StartingSoonArtEntry } from './container';
+  import { Application } from 'pixi.js';
   import { makeApplication } from '../overlay/utils';
 
   let channelName = $state('vanorsigma');
@@ -31,38 +32,45 @@
 
   let rotationDeg = $state(0);
   let currentRate = $state(0);
-  let currentLetter = $state('');
+  let currentLetter = $state(false);
+  let spamLetterText = $state('Spam anything (5s at 1.00x)');
   let remainingMs = $state(0);
   let progressPct = $state(0);
   let artistWidgetFlying = $state(false);
+  let artistWidgetIndeterminate = $state(false);
 
   let animFrame: number;
 
   let startingSoonImages: StartingSoonArtEntry[] = $state([]);
   let bulletDiv: HTMLDivElement;
   let bulletBackend: StartingSoonBulletContainer | null = null;
-  let gameApplication: import('pixi.js').Application | null = null;
+  let gameApplication: Application | null = null;
   let analyser: AnalyserNode | null = $state(null);
   let audioCtx: AudioContext | null = null;
   let previousSource: MediaElementAudioSourceNode | null = null;
 
   function loadSong(song: SongData) {
     currentSong = song;
-    currentLetter = '';
+    currentLetter = false;
     discSpinning = false;
     completeMessage = '';
     artistWidgetFlying = false;
 
-    audioEngine.load(song.audioUrl, song.id);
+    audioEngine.load(song.audioUrl, song.id, song.durationMs);
     audioEngine.play();
     discSpinning = true;
 
     if (currentIndex === 0) {
-      spamTracker.start();
-      currentLetter = spamTracker.getTargetLetter();
+      const started = spamTracker.start();
+      if (started) {
+        currentLetter = true;
+        spamLetterText = 'Spam anything (5s at 1.00x)';
+      } else {
+        currentRate = audioEngine.getState().rate;
+      }
     } else {
       spamTracker.stop();
-      onRateChanged(1);
+      currentRate = audioEngine.getState().rate;
     }
 
     bus.sendState({
@@ -70,26 +78,19 @@
       songId: song.id,
       positionMs: 0,
       durationMs: audioEngine.getState().durationMs,
-      rate: 0,
+      rate: audioEngine.getState().rate,
       playing: true,
-      queueHead: songQueue[currentIndex]?.id ?? null,
-      song
+      queueHead: songQueue[currentIndex]?.id ?? null
     });
   }
 
   function nextSong() {
-    const curId = currentSong?.id;
-    if (curId) {
-      const idx = songQueue.findIndex((s) => s.id === curId);
-      if (idx >= 0) {
-        songQueue.splice(idx, 1);
-        songQueue = [...songQueue];
-        if (idx < songQueue.length) {
-          currentIndex = idx;
-          loadSong(songQueue[currentIndex]);
-          return;
-        }
-      }
+    if (currentSong?.id) {
+      bus.sendSongComplete({
+        type: 'song-complete',
+        songId: currentSong.id,
+        elapsedMs: audioEngine.getState().positionMs
+      });
     }
     artistWidgetFlying = false;
     currentSong = null;
@@ -115,7 +116,7 @@
 
   function onDiscComplete() {
     completeMessage = 'Stop spamming!';
-    currentLetter = '';
+    currentLetter = false;
     showVisuals = true;
     bus.sendSpamComplete({
       type: 'spam-complete',
@@ -133,9 +134,14 @@
     }
     if (currentSong) {
       const pos = audioEngine.getState().positionMs;
-      const dur = audioEngine.getState().durationMs || 1;
-      remainingMs = Math.max(0, dur - pos);
-      progressPct = Math.min(100, (pos / dur) * 100);
+      const dur = audioEngine.getState().durationMs;
+      if (dur > 0) {
+        remainingMs = Math.max(0, dur - pos);
+        progressPct = Math.min(100, (pos / dur) * 100);
+        artistWidgetIndeterminate = false;
+      } else {
+        artistWidgetIndeterminate = true;
+      }
       if (!artistWidgetFlying && pos > 500) {
         artistWidgetFlying = true;
       }
@@ -179,16 +185,7 @@
         /* ignore */
       }
 
-      try {
-        const listRes = await fetch('/api/song/list');
-        songQueue = await listRes.json();
-        if (songQueue.length > 0) {
-          currentIndex = 0;
-        }
-        console.log(`Song list loaded: ${songQueue.length} songs`);
-      } catch {
-        /* ignore */
-      }
+      /* song list is managed by Captain — no local fetch */
 
       try {
         const imgRes = await fetch('/api/config/startingsoon');
@@ -214,6 +211,9 @@
     console.log('Spam tracker configured');
     spamTracker.onRateChanged(onRateChanged);
     spamTracker.onDiscCompleted(onDiscComplete);
+    spamTracker.onCountdownTick((s) => {
+      spamLetterText = `Spam anything (${s}s at 1.00x)`;
+    });
 
     console.log('Audio engine progress tick registered');
     audioEngine.onProgressTick(() => {
@@ -240,17 +240,12 @@
           elapsedMs: audioEngine.getState().durationMs
         });
       }
-      if (currentIndex + 1 < songQueue.length) {
-        currentIndex++;
-        loadSong(songQueue[currentIndex]);
-      } else {
-        artistWidgetFlying = false;
-        currentSong = null;
-        discSpinning = false;
-        completeMessage = '';
-        audioEngine.unload();
-        spamTracker.stop();
-      }
+      artistWidgetFlying = false;
+      currentSong = null;
+      discSpinning = false;
+      completeMessage = '';
+      audioEngine.unload();
+      spamTracker.stop();
     });
 
     console.log('Bus receiver WS handler attached');
@@ -258,30 +253,56 @@
       try {
         const msg = JSON.parse(data);
         if (isSongControlMessage(msg)) {
+          if (msg.page && msg.page !== 'startingsoon') return;
           handleCommand(msg, {
             load: (song: SongData) => {
               songQueue = [song];
               currentIndex = 0;
               loadSong(song);
             },
-            play: () => audioEngine.play(),
+            play: (volume?: number, _rate?: number) => {
+              if (volume !== undefined) audioEngine.setVolume(volume);
+              audioEngine.play();
+            },
             pause: () => audioEngine.pause(),
             skip: () => nextSong(),
             seek: (ms: number) => audioEngine.seek(ms),
-            setRate: () => {},
+            setRate: (rate: number) => {
+              audioEngine.setRate(rate);
+              currentRate = rate;
+              bus.sendState({
+                type: 'song-state',
+                songId: currentSong?.id ?? null,
+                positionMs: audioEngine.getState().positionMs,
+                durationMs: audioEngine.getState().durationMs,
+                rate,
+                playing: audioEngine.getState().playing,
+                queueHead: songQueue[currentIndex]?.id ?? null
+              });
+            },
             setVolume: (v: number) => audioEngine.setVolume(v),
-            loadQueue: (songs: SongData[]) => {
+            loadQueue: (songs: SongData[], rate?: number, volume?: number) => {
               songQueue = songs;
               const curId = currentSong?.id;
               if (curId) {
                 const idx = songQueue.findIndex((s) => s.id === curId);
                 if (idx >= 0) {
                   currentIndex = idx;
+                  if (rate !== undefined) {
+                    audioEngine.setRate(rate);
+                    currentRate = rate;
+                  }
+                  if (volume !== undefined) audioEngine.setVolume(volume);
                   return;
                 }
               }
               currentIndex = 0;
               if (songQueue[currentIndex]) loadSong(songQueue[currentIndex]);
+              if (rate !== undefined) {
+                audioEngine.setRate(rate);
+                currentRate = rate;
+              }
+              if (volume !== undefined) audioEngine.setVolume(volume);
             },
             removeFromQueue: (id: string) => {
               const idx = songQueue.findIndex((s) => s.id === id);
@@ -297,6 +318,16 @@
               if (item) songQueue.splice(to, 0, item);
               songQueue = [...songQueue];
               currentIndex = songQueue.findIndex((s) => s.id === currentSong?.id);
+            },
+            skipAll: () => {
+              audioEngine.unload();
+              songQueue = [];
+              currentIndex = 0;
+              currentSong = null;
+              discSpinning = false;
+              artistWidgetFlying = false;
+              completeMessage = '';
+              spamTracker.stop();
             }
           });
         } else if (isFakerMessage(msg)) {
@@ -304,17 +335,12 @@
             createFakeMessage(msg.text, msg.displayName, PUBLIC_TARGET_CHANNEL_ID)
           );
         } else if (isSongCompleteMessage(msg) && msg.songId === currentSong?.id) {
-          if (currentIndex + 1 < songQueue.length) {
-            currentIndex++;
-            loadSong(songQueue[currentIndex]);
-          } else {
-            artistWidgetFlying = false;
-            currentSong = null;
-            discSpinning = false;
-            completeMessage = '';
-            audioEngine.unload();
-            spamTracker.stop();
-          }
+          artistWidgetFlying = false;
+          currentSong = null;
+          discSpinning = false;
+          completeMessage = '';
+          audioEngine.unload();
+          spamTracker.stop();
         }
       } catch {
         /* ignore */
@@ -374,7 +400,7 @@
   </div>
 
   {#if currentLetter}
-    <div class="spam-letter">Spam "{currentLetter}"!</div>
+    <div class="spam-letter">{spamLetterText}</div>
   {/if}
 
   {#if completeMessage}
@@ -388,6 +414,7 @@
       {remainingMs}
       flying={artistWidgetFlying}
       {progressPct}
+      indeterminate={artistWidgetIndeterminate}
     />
   </div>
 </div>

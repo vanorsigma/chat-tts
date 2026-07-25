@@ -6,8 +6,11 @@ import { KikiAPI, type KikiResponse } from '../kikiapi';
 import { LRUCache } from '$lib/LRUcache';
 import { getSubTier } from '$lib/api/subtiers';
 import { karmaStore, pinStore } from '../stores';
+import { getOverlayConfig, isDelegateVoiceToOverlay } from '../constants';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
+import { shouldSkipMessage } from '$lib/messageGuard';
+import type { SpeakTTS } from '$lib/remoteTTSMessages';
 
 const PADDING = 5;
 const CACHE_SIZE = 30;
@@ -23,6 +26,7 @@ export class ChatBulletContainer implements OverlayObserver {
   private kiki: KikiAPI;
   private bulletProperties: ChatBulletProperties[] = [];
   private enabled: boolean = true;
+  private busWs?: WebSocket;
   private cache = new LRUCache<Texture[]>(CACHE_SIZE);
   private subTierCache = new LRUCache<number>(CACHE_SIZE);
 
@@ -45,6 +49,10 @@ export class ChatBulletContainer implements OverlayObserver {
 
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
+  }
+
+  setBusSocket(ws: WebSocket) {
+    this.busWs = ws;
   }
 
   private removeBullet(bullet: ChatBulletProperties) {
@@ -97,7 +105,15 @@ export class ChatBulletContainer implements OverlayObserver {
   }
 
   async onMessage(message: ChatMessage) {
-    if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
+    if (
+      shouldSkipMessage({
+        text: message.text,
+        userName: message.userInfo.userName,
+        isBot: message.userInfo.badges.has('bot-badge'),
+        ignorePrefix: getOverlayConfig().ignorePrefix
+      })
+    )
+      return;
     if (!this.isEnabled) return;
 
     const parts = await splitMessage(message.emoteOffsets, message.text);
@@ -123,6 +139,21 @@ export class ChatBulletContainer implements OverlayObserver {
       }
     } else {
       this.spawnBullet(displayName, parts, null, color);
+    }
+
+    if (isDelegateVoiceToOverlay() && this.busWs?.readyState === WebSocket.OPEN) {
+      this.busWs.send(
+        JSON.stringify({
+          type: 'tts',
+          command: {
+            type: 'speak',
+            username: message.userInfo.userName,
+            message: message.text,
+            isMod: message.userInfo.isMod,
+            isVip: message.userInfo.isVip
+          }
+        } as SpeakTTS)
+      );
     }
   }
 
@@ -171,19 +202,6 @@ export class ChatBulletContainer implements OverlayObserver {
 
       if (kikiResponse.rating > 0.1 || kikiResponse.rating < -0.1)
         karmaStore.updateKarma(kikiResponse.rating, 'Kiki');
-    } else {
-      const overloadText = new Text({
-        text: 'you overloaded kiki!',
-        style: new TextStyle({
-          fontFamily: 'Arial',
-          fontSize: 24,
-          fill: 'pink'
-        })
-      });
-
-      overloadText.x = 0;
-      overloadText.y = y + 40;
-      container.addChild(overloadText);
     }
 
     for (const part of parts) {

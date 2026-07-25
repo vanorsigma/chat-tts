@@ -60,11 +60,11 @@ export async function givePointsHandler(dispatcher: OverlayDispatchers, message:
 export function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
   if (!username) return;
-  const target = (message.text.split(' ').at(1)?.toLowerCase()) ?? username;
+  const target = message.text.split(' ').at(1)?.toLowerCase() ?? username;
 
   (async () => {
     const points = (await getPointsForUser(target)) ?? 0;
-    dispatcher.sendMessageAsUser(message.channelId!, `${target} has ${points} meowDollars`);
+    dispatcher.sendMessageAsUser(message.channelId!, `${target} has ${points} vanorDollars`);
   })();
 }
 
@@ -83,7 +83,7 @@ export async function checkInHandler(
 
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `vedalWave @${username} here's +${getOverlayConfig().checkIn.points} meow`,
+    `vedalWave @${username} here's +${getOverlayConfig().checkIn.points} vanorDollars`,
     message.id
   );
   PEOPLE_WHO_CHECKED_IN.push(username);
@@ -96,7 +96,7 @@ export async function checkInHandler(
     message.id
   ))!;
 
-  GLOBAL_STOCK_MARKET.checkin(username);
+  await GLOBAL_STOCK_MARKET.checkin(username);
 
   if (sender) checkinUser(username, sender);
 }

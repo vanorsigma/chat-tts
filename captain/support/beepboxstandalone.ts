@@ -1,15 +1,102 @@
 // Browserless beepbox
 import process from 'node:process';
+import { Writable } from 'node:stream';
+import { spawn, ChildProcess } from 'node:child_process';
 import { StreamAudioContext as AudioContext } from '@descript/web-audio-js';
 import { Synth } from 'beepbox/esm/synth/synth';
-import Speaker from 'speaker';
 import WebSocket from 'ws';
 
 const baseUrl = 'http://localhost:4173';
 const wsUrl = 'ws://localhost:3001/receivers';
 
+class PipeWireSpeaker extends Writable {
+  private proc: ChildProcess | null = null;
+  private channels: number;
+  private bitDepth: number;
+  private sampleRate: number;
+  private float: boolean;
+  private pending: Array<{ chunk: Buffer; cb: (err?: Error | null) => void }> = [];
+  private spawnThrottled = false;
+
+  constructor(opts: { channels: number; bitDepth: number; sampleRate: number; float?: boolean }) {
+    super();
+    this.channels = opts.channels;
+    this.bitDepth = opts.bitDepth;
+    this.sampleRate = opts.sampleRate;
+    this.float = opts.float ?? false;
+  }
+
+  private ensureProcess() {
+    if (this.spawnThrottled) return;
+    if (this.proc && !this.proc.stdin!.destroyed && this.proc.exitCode === null) return;
+
+    const intFormats: Record<number, string> = { 8: 's8', 16: 's16', 24: 's24', 32: 's32' };
+    const fmt = this.float && this.bitDepth === 32 ? 'f32' : intFormats[this.bitDepth] || 's16';
+
+    this.proc = spawn(
+      'pw-cat',
+      [
+        '--playback',
+        '--raw',
+        '--rate',
+        String(this.sampleRate),
+        '--channels',
+        String(this.channels),
+        '--format',
+        fmt,
+        '-'
+      ],
+      {
+        env: {
+          ...process.env,
+          PIPEWIRE_NODE_NAME: 'beepbox',
+          PIPEWIRE_PROPS: '{"application.name":"Beepbox","media.name":"Beepbox Player"}'
+        },
+        stdio: ['pipe', 'inherit', 'inherit']
+      }
+    );
+
+    this.proc.on('error', (err) => {
+      console.error('pw-cat error:', err.message);
+    });
+
+    this.proc.on('exit', (code, signal) => {
+      if (code !== 0 && signal !== 'SIGTERM') {
+        console.warn(`pw-cat exited (code=${code}, signal=${signal}), will respawn in 2s`);
+        this.spawnThrottled = true;
+        setTimeout(() => {
+          this.spawnThrottled = false;
+        }, 2000);
+      }
+      this.proc = null;
+    });
+
+    for (const { chunk, cb } of this.pending) {
+      this.proc.stdin!.write(chunk, cb);
+    }
+    this.pending = [];
+  }
+
+  _write(chunk: Buffer, _encoding: string, callback: (error?: Error | null) => void) {
+    this.ensureProcess();
+    if (this.proc && this.proc.stdin && !this.proc.stdin.destroyed) {
+      this.proc.stdin.write(chunk, callback);
+    } else {
+      this.pending.push({ chunk, cb: callback });
+    }
+  }
+
+  _destroy(error: Error | null, callback: (error: Error | null) => void) {
+    if (this.proc) {
+      this.proc.kill();
+      this.proc = null;
+    }
+    callback(error);
+  }
+}
+
 let offlineContext = new AudioContext();
-const speaker = new Speaker({
+const speaker = new PipeWireSpeaker({
   channels: offlineContext.numberOfChannels,
   bitDepth: offlineContext.format['bitDepth'],
   sampleRate: offlineContext.sampleRate

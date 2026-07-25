@@ -7,7 +7,11 @@ export const DEFAULT_POSITIONS: OverlayPositionsConfig = {
   rightPanelX: 1520,
   rightPanelY: 0,
   pinX: 760,
-  pinY: 40
+  pinY: 40,
+  wheelX: '50%',
+  wheelY: '50%',
+  wheelWidth: '90vmin',
+  wheelHeight: '90vmin'
 };
 
 export const positionStore = writable<OverlayPositionsConfig>(DEFAULT_POSITIONS);

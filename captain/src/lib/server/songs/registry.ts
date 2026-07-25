@@ -7,12 +7,19 @@ import { env } from '$env/dynamic/private';
 const providers: SongProvider[] = [
   new FilesystemSongProvider(),
   new YouTubeSongProvider({ id: 'yt', label: 'YouTube', mode: 'individual' }),
-  new NeuroKaraokeSongProvider(),
+  new NeuroKaraokeSongProvider()
 ];
 
 const playlistUrl = env.YOUTUBE_PLAYLIST_URL;
 if (playlistUrl) {
-  providers.push(new YouTubeSongProvider({ id: 'ytpl', label: 'YouTube Playlist', mode: 'playlist', playlistUrl }));
+  providers.push(
+    new YouTubeSongProvider({
+      id: 'ytpl',
+      label: 'YouTube Playlist',
+      mode: 'playlist',
+      playlistUrl
+    })
+  );
 }
 
 export function getSongProviders(): SongProvider[] {

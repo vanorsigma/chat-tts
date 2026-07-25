@@ -54,6 +54,8 @@ class ConsoleReceiver:
                     listener(message)
                 continue
             try:
-                self.on_message(Command.from_json(line))
+                command = Command.try_from_bus_message(line)
+                if command is not None:
+                    self.on_message(command)
             except (ValueError, TypeError):
                 logger.exception("cannot deserialize command")

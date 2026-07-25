@@ -30,4 +30,10 @@ export const pinStore = createPinStore();
 
 export { positionStore, DEFAULT_POSITIONS } from './positions.svelte';
 
-export { createBiddingStore, createCheckInStore, createKarmaStore, createMakiStore, createPinStore };
+export {
+  createBiddingStore,
+  createCheckInStore,
+  createKarmaStore,
+  createMakiStore,
+  createPinStore
+};

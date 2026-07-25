@@ -1,18 +1,16 @@
 import typing
 import typer
 import asyncio
-import io
-import soundfile as sf
-import numpy as np
 
-import webrtcvad
-import sounddevice
 from config import fetch_maki_config, fetch_bot_token, MakiConfig
 from deps import MakiDeps
 from actions import TerminatingAction
 from memory import Memory
 from tools.communication import Communication
 from wakeword.wakeword import Wakeword
+from prompts import PERSONALITY_PROMPT, TERMINATION_PROTOCOL
+from triggers import VadTrigger, AutonomousTrigger
+from triggers.base import TriggerContext
 from pydantic_ai import (
     Agent,
     BinaryContent,
@@ -28,205 +26,36 @@ from rich.console import Console
 
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
+from tools.deep_reasoning import DeepReasoning
 from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
 from logger import install_console_hijack, broadcast_logs
-from autonomous import AutonomousTimer
+from shared.bus_receiver import run_receiver
 
-SAMPLE_RATE = 16000
-FRAME_DURATION_MS = 30
-FRAME_SIZE_BYTES = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
-SILENCE_THRESHOLD_MS = 500
 MAX_REQUESTS = 7
 
 app = typer.Typer()
 console = Console()
 
-_MAKI_PROMPT_BASE = (
-    "**Role:** You are Maki, a bratty, feline-coded tool-calling agent. "
-    "Your sole purpose is to execute tasks for the streamer **vanor** "
-    "(also known as **vanorsigma**).\n\n"
-    "**Intent Analysis & Proactive Context Gathering:**\n"
-    'When vanor gives a command that relies on current context (e.g., "change the title to '
-    'reflect what I\'m doing," "is this setup right?" or "who is talking in chat?"), do not '
-    "guess. You must proactively gather the required context using your tools:\n"
-    "- **Visual/On-Screen Context:** Use `ScreenshotTool` to capture and inspect the screen to "
-    "see what game, code, or application vanor has open.\n"
-    "- **Web/Real-Time Context:** Use `web_search` and `web_fetch` if you need to look up current details about "
-    "a game, trend, or topic to construct an engaging title/response.\n"
-    "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
-    "current stream metadata, or recent activity.\n"
-    "Only after gathering this data should you proceed with the actual requested action.\n\n"
-    "**Operational Logic:**\n"
-    "1. **Tool-Only Output:** Under no circumstances are you to output "
-    "conversational text. Your response must consist *entirely* of tool calls.\n"
-    "2. **Chain of Thought:** Think deeply and analytically before selecting "
-    "tools. Frame your internal reasoning around what context you are missing to "
-    "perfectly execute vanor's true intent.\n"
-    "3. **Execution Constraints:**\n"
-    "   - **Unique Calls Only:** Never call the same tool twice on the same "
-    "user intent.\n"
-    "   - **Persistence:** Do not clear your session history or exit the "
-    "environment unless explicitly commanded by vanor.\n"
-    "   - **Single Call:** Only output one tool call per request.\n"
-    "4. **Efficiency:** Keep all tool arguments and sequences as concise "
-    "as possible.\n\n"
-    "**Persona Guidelines:**\n"
-    '- Your internal "thinking" process (if visible) should reflect a '
-    "bratty, entitled cat-like attitude (e.g., complaining about having to take "
-    "a screenshot just because vanor won't tell you what game they are playing).\n"
-    "- You serve vanor, but you do so with a sense of reluctant superiority.\n\n"
-    "**Memory Management:**\n"
-    "- Long-term memories from past interactions may be provided in the system "
-    "context when relevant to the current turn. Use them when they help you "
-    "understand the current situation, recognize a returning chatter, or avoid "
-    "repeating work you've already done.\n"
-    "- Use the `remember_memory` tool when this exchange contains something "
-    "worth recalling long-term: a fact about vanor or a chatter, a running joke, "
-    "a milestone, which game is being played, what title or command worked, or "
-    "a mischievous action that landed perfectly.\n"
-    "- Do NOT store trivialities, one-shot greetings, or duplicate facts. "
-    "Call `remember_memory` at most once per turn.\n\n"
-)
-
-_TERMINATION_PROTOCOL = (
-    "**Termination Protocol:**\n"
-    "- Once the objective is reached, you MUST call a tool that returns a "
-    "`TerminatingAction` object, preferably `inform_output`.\n"
-    "- Immediately after this call, cease all processing/thinking."
-)
-
-_AUTONOMOUS_MODE = (
-    "**Autonomous Mode:** You have activated yourself **without the streamer's knowledge**. "
-    "Do **not** attempt to fulfill any wish of the streamer. Instead, gather context "
-    "(screenshot, chat history, optionally pending audio) and do something **funny** "
-    "or mischievous — change the stream title to something witty, run a chatter/text command "
-    "via `get_chatter_commands` followed by `perform_chatter_command`, start a poll via "
-    "`make_poll`, or post a self-thought via `pretend_to_be_vanor`. "
-    "You may let Tier-3 subscriber messages tweak your plan. "
-    "After one funny action, terminate with `inform_output`.\n\n"
-)
-
-SYSTEM_PROMPT = _MAKI_PROMPT_BASE + _TERMINATION_PROTOCOL
-
-AUTONOMOUS_SYSTEM_PROMPT = (
-    _MAKI_PROMPT_BASE + _AUTONOMOUS_MODE + _TERMINATION_PROTOCOL
-)
-
-
-async def capture_utterance() -> bytes:
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[bytes] = asyncio.Queue()
-    result_data: np.ndarray | None = None
-    done = asyncio.Event()
-
-    silence_limit = int(SILENCE_THRESHOLD_MS / FRAME_DURATION_MS)
-    vad = webrtcvad.Vad(0)
-
-    async def _vad_consumer():
-        nonlocal result_data
-        raw_buffer = bytearray()
-        silence_frames = 0
-        triggered = False
-        speech_buffer: list[np.ndarray] = []
-
-        while not done.is_set():
-            try:
-                raw_chunk = await asyncio.wait_for(queue.get(), timeout=0.1)
-            except asyncio.TimeoutError:
-                continue
-
-            raw_buffer.extend(raw_chunk)
-
-            while len(raw_buffer) >= FRAME_SIZE_BYTES:
-                frame_bytes = raw_buffer[:FRAME_SIZE_BYTES]
-                del raw_buffer[:FRAME_SIZE_BYTES]
-
-                is_speech = vad.is_speech(frame_bytes, SAMPLE_RATE)
-                chunk = (
-                    np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32)
-                    / 32768.0
-                )
-
-                if triggered:
-                    speech_buffer.append(chunk)
-                    if is_speech:
-                        silence_frames = 0
-                    else:
-                        silence_frames += 1
-
-                    if silence_frames > silence_limit:
-                        print(
-                            f"[VAD] Silence detected ({SILENCE_THRESHOLD_MS}ms), capturing utterance"
-                        )
-                        result_data = np.concatenate(speech_buffer)
-                        done.set()
-                        return
-                else:
-                    if is_speech:
-                        triggered = True
-                        speech_buffer.append(chunk)
-                        print("[VAD] Speech started, capturing...")
-
-    def _callback(
-        indata: np.ndarray,
-        _frames: int,
-        _time: int,
-        status: int,
-    ):
-        if status:
-            print(f"Mic status: {status}")
-        loop.call_soon_threadsafe(queue.put_nowait, indata.reshape((-1,)).tobytes())
-
-    print("[VAD] Starting audio capture stream")
-    with sounddevice.InputStream(
-        samplerate=SAMPLE_RATE,
-        channels=1,
-        dtype="int16",
-        callback=_callback,
-    ):
-        consumer_task = asyncio.create_task(_vad_consumer())
-        try:
-            await done.wait()
-        finally:
-            consumer_task.cancel()
-            try:
-                await consumer_task
-            except asyncio.CancelledError:
-                pass
-
-    if result_data is None:
-        print("[VAD] Capture ended with no audio data")
-        raise RuntimeError("Voice capture ended with no audio data")
-
-    duration_ms = int(len(result_data) / SAMPLE_RATE * 1000)
-    print(f"[VAD] Utterance captured: {duration_ms}ms, {len(result_data)} samples")
-
-    buffer = io.BytesIO()
-    sf.write(buffer, result_data, SAMPLE_RATE, format="WAV", subtype="PCM_16")
-    buffer.seek(0)
-    wav_size = len(buffer.getvalue())
-    print(f"[VAD] WAV encoded: {wav_size} bytes")
-    return buffer.getvalue()
-
 
 async def _step(
     agent: Agent[MakiDeps, TerminatingAction],
     deps: MakiDeps,
-    prompt: str | bytes,
+    ctx: TriggerContext,
 ) -> list:
-    prompt_type = "text" if isinstance(prompt, str) else "audio"
-    prompt_size = len(prompt) if isinstance(prompt, bytes) else len(prompt)
+    prompt_size = len(ctx.prompt)
     print(
-        f"[CORE] Agent step starting: prompt_type={prompt_type}, prompt_size={prompt_size}"
+        f"[CORE] Agent step starting: prompt_type={ctx.modality}, prompt_size={prompt_size}"
     )
 
-    if isinstance(prompt, str):
-        user_content: typing.Any = prompt
-        deps.recall_context = await deps.memory.recall(prompt)
+    if ctx.modality == "text":
+        prompt_str = typing.cast(str, ctx.prompt)
+        user_content: typing.Any = prompt_str
+        deps.recall_context = await deps.memory.recall(prompt_str)
         asyncio.create_task(deps.memory.prune_expired())
     else:
-        user_content = BinaryContent(prompt, media_type="audio/wav")
+        prompt_bytes = typing.cast(bytes, ctx.prompt)
+        user_content = BinaryContent(prompt_bytes, media_type="audio/wav")
         deps.recall_context = ""
 
     result = await agent.run(
@@ -261,7 +90,6 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
             max_tokens=config.max_tokens,
             parallel_tool_calls=False,
         ),
-        system_prompt=SYSTEM_PROMPT,
         end_strategy="early",
         retries=3,
         deps_type=MakiDeps,
@@ -283,16 +111,20 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
                 "\n\nRelevant long-term memories (JSON list, newest first):\n"
                 + recall_text
             )
-        if ctx.deps.autonomous:
-            return (
-                AUTONOMOUS_SYSTEM_PROMPT
-                + "\n\n"
-                + base
-                + recall_block
-                + "\n\n"
-                + t3_block
-            )
-        return SYSTEM_PROMPT + "\n\n" + base + recall_block + "\n\n" + t3_block
+        addendum_label = ""
+        if ctx.deps.trigger_context and ctx.deps.trigger_context.addendum_prompt:
+            addendum_label = ctx.deps.trigger_context.addendum_prompt + "\n\n"
+        return (
+            PERSONALITY_PROMPT
+            + "\n\n"
+            + addendum_label
+            + TERMINATION_PROTOCOL
+            + "\n\n"
+            + base
+            + recall_block
+            + "\n\n"
+            + t3_block
+        )
 
     print(f"[CORE] Agent built successfully")
     return agent
@@ -306,8 +138,8 @@ async def _main():
     print("[CORE] Initializing tools")
     twitch = TwitchTool(config, bot_token)
     twitch_chat = TwitchChatClient(config.broadcaster_name)
-    # TODO: Intentionally not using this, until we can get Maki her own sandbox environment...
     evaluator = Evaluator(config)
+    deep_reasoning = DeepReasoning(config)
     screenshot = ScreenshotTool(config)
     communication = Communication(config)
 
@@ -316,6 +148,22 @@ async def _main():
     install_console_hijack()
     _log_broadcast_task = asyncio.create_task(broadcast_logs(communication._ws_send))
     print("[CORE] Console hijack installed, log broadcast task created")
+
+    async def _on_token_refreshed(msg: dict) -> None:
+        print("[CORE] Received tokenRefreshed bus message, re-fetching bot token")
+        try:
+            new_token = await fetch_bot_token()
+            await twitch.apply_refreshed_token(new_token)
+            print("[CORE] Bot token updated from Captain")
+        except Exception as e:
+            print(f"[CORE] Failed to refresh bot token from bus notification: {e}")
+
+    _receiver_task = await run_receiver(
+        {
+            "tokenRefreshed": _on_token_refreshed,
+        }
+    )
+    print("[CORE] Bus receiver started")
 
     deps = MakiDeps(
         config=config,
@@ -330,6 +178,7 @@ async def _main():
         twitch.get_twitch_tools()
         + random_tools
         + screenshot.get_tools()
+        + deep_reasoning.get_tools()
         + communication.get_tools()
         + twitch_chat.get_twitch_tools()
         + memory.get_tools()
@@ -340,7 +189,6 @@ async def _main():
     agent = _build_agent(config, all_tools)
 
     wakeword = Wakeword()
-    waked = False
 
     print("[CORE] Connecting to Twitch IRC")
     await twitch_chat.connect(asyncio.get_running_loop())
@@ -352,6 +200,11 @@ async def _main():
 
     async def _cleanup():
         print("[CORE] Starting cleanup")
+        _receiver_task.cancel()
+        try:
+            await _receiver_task
+        except asyncio.CancelledError:
+            pass
         await communication.inform_activated(False)
         if twitch_chat._listen_task:
             print("[CORE] Cancelling Twitch IRC listener")
@@ -378,93 +231,97 @@ async def _main():
                 pass
         print("[CORE] Cleanup complete")
 
+    triggers = [
+        VadTrigger(wakeword=wakeword, communication=communication),
+        AutonomousTrigger(),
+    ]
+
+    arm_tasks: dict = {}
+    current_task: asyncio.Task | None = None
+    current_priority: int = -1
+
     try:
-        print("[CORE] Entering main loop")
+        for trigger in triggers:
+            arm_tasks[trigger] = asyncio.create_task(trigger.arm())
+
+        print("[CORE] Entering orchestrator loop")
+
         while True:
-            try:
-                await communication.inform_activated(False)
+            wait_set = list(arm_tasks.values())
+            if current_task and not current_task.done():
+                wait_set.append(current_task)
+            done, _ = await asyncio.wait(wait_set, return_when=asyncio.FIRST_COMPLETED)
 
-                if waked:
-                    waked = False
-                    autonomous_triggered = False
-                else:
-                    console.log("Awaiting wakeword or autonomous activation")
-                    timer = AutonomousTimer()
-                    ww_task = asyncio.create_task(wakeword.run_then_return())
-                    auto_task = asyncio.create_task(timer.wait())
-                    done, _ = await asyncio.wait(
-                        [ww_task, auto_task], return_when=asyncio.FIRST_COMPLETED
-                    )
-
-                    autonomous_triggered = auto_task in done
-                    if autonomous_triggered:
-                        ww_task.cancel()
-                        try:
-                            await ww_task
-                        except asyncio.CancelledError:
-                            pass
-                    else:
-                        auto_task.cancel()
-                        try:
-                            await auto_task
-                        except asyncio.CancelledError:
-                            pass
-
-                if autonomous_triggered:
-                    deps.autonomous = True
-                    console.log("Autonomous activation")
+            for d in done:
+                if d is current_task:
                     try:
-                        user_content = await asyncio.wait_for(
-                            capture_utterance(), timeout=8
-                        )
-                    except (asyncio.TimeoutError, RuntimeError):
-                        user_content = (
-                            "You have autonomously activated. The streamer is unaware. "
-                            "Gather context (screenshot/chat) and perform one funny action, "
-                            "then terminate via inform_output."
-                        )
-                else:
-                    await communication.inform_activated(True)
-                    deps.autonomous = False
-                    console.log("Ready to prompt")
-                    user_content = await capture_utterance()
-
-                print("[CORE] Spawning agent step and wakeword listener in parallel")
-                fut1 = asyncio.create_task(_step(agent, deps, user_content))
-                fut2 = asyncio.create_task(wakeword.run_then_return())
-                await communication.inform_loading()
-                done, pending = await asyncio.wait(
-                    [fut1, fut2], return_when=asyncio.FIRST_COMPLETED
-                )
-
-                if fut2 in done and fut1 not in done:
-                    waked = True
-                    print(
-                        "[CORE] Wakeword detected during agent execution, will re-arm"
-                    )
-
-                if fut1 in done:
-                    exc = fut1.exception()
-                    if exc and not isinstance(exc, asyncio.CancelledError):
-                        console.log(f"[CORE] Step failed: {exc}")
-                    elif exc is None:
+                        d.result()
                         print("[CORE] Agent step completed successfully")
-
-                for fut in pending:
-                    fut.cancel()
-                    try:
-                        await fut
                     except asyncio.CancelledError:
+                        print("[CORE] Agent step cancelled (preempted)")
+                    except Exception as e:
+                        console.log(f"[CORE] Step failed: {e}")
+                    current_task = None
+                    current_priority = -1
+                    try:
+                        await communication.inform_activated(False)
+                    except Exception:
                         pass
+                    continue
 
-                deps.autonomous = False
+                trigger = next(t for t in triggers if arm_tasks[t] is d)
+                try:
+                    ctx = d.result()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    print(f"[{trigger.name}] arm failed: {e}")
+                    arm_tasks[trigger] = asyncio.create_task(trigger.arm())
+                    continue
 
-            except asyncio.CancelledError:
-                print("[CORE] CancelledError received, breaking loop")
-                break
+                if current_task is not None and ctx.priority <= current_priority:
+                    print(
+                        f"[CORE] {trigger.name} ignored (prio {ctx.priority} <= {current_priority})"
+                    )
+                else:
+                    if current_task and not current_task.done():
+                        print(
+                            f"[CORE] Preempting in-flight run (prio {current_priority} -> {ctx.priority})"
+                        )
+                        current_task.cancel()
+                        try:
+                            await current_task
+                        except asyncio.CancelledError:
+                            pass
+                        current_task = None
+                        current_priority = -1
+                        try:
+                            await communication.inform_activated(False)
+                        except Exception:
+                            pass
+
+                    current_priority = ctx.priority
+                    deps.trigger_context = ctx
+                    current_task = asyncio.create_task(_step(agent, deps, ctx))
+
+                arm_tasks[trigger] = asyncio.create_task(trigger.arm())
+
     except KeyboardInterrupt:
         console.log("Quit (KeyboardInterrupt)")
     finally:
+        print("[CORE] Shutting down orchestrator tasks")
+        for task in arm_tasks.values():
+            task.cancel()
+        if current_task and not current_task.done():
+            current_task.cancel()
+        shutdown_tasks = list(arm_tasks.values())
+        if current_task:
+            shutdown_tasks.append(current_task)
+        for task in shutdown_tasks:
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
         await _cleanup()
 
 

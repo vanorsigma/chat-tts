@@ -3,10 +3,13 @@
   import { gambaStore } from './gamba.svelte';
   import type { GambaWheelState } from './gamba.svelte';
   import type { GambaItem } from './gamba';
+  import { positionStore } from '../stores/positions.svelte';
+  import { properRandom } from '../utils';
 
   let { wheelState }: { wheelState: GambaWheelState } = $props();
 
   let resultText = $state('');
+  let username = $derived(wheelState.context?.username ?? '');
 
   // const SPIN_DURATION = 30_000;
   const SPIN_DURATION = 5;
@@ -16,15 +19,26 @@
     segments = wheelState.items;
   });
 
+  let segData = $derived.by(() => {
+    const totalWeight = segments.reduce((s, seg) => s + seg.weight, 0);
+    let acc = 0;
+    return segments.map((seg) => {
+      const span = (seg.weight / totalWeight) * 360;
+      const d = { item: seg, start: acc, span, end: acc + span, center: acc + span / 2 };
+      acc += span;
+      return d;
+    });
+  });
+
   function doSpin() {
     if (!wheelState || !segments.length) return;
     resultText = '';
 
-    const winIndex = segments.indexOf(wheelState.result!);
-    const segmentAngle = 360 / segments.length;
-    const randomOffset = (Math.random() - 0.5) * segmentAngle * 0.8;
-    const targetAngle =
-      360 * 12 + (270 - (winIndex * segmentAngle + segmentAngle / 2 + randomOffset));
+    const winItem = wheelState.result!;
+    const winIndex = segments.indexOf(winItem);
+    const winSeg = segData[winIndex];
+    const randomOffset = (properRandom() - 0.5) * winSeg.span * 0.8;
+    const targetAngle = 360 * 12 + (270 - (winSeg.center + randomOffset));
 
     const onDone = wheelState.onDone;
 
@@ -36,7 +50,7 @@
       onComplete: () => {
         const item = wheelState.result;
         const ctx = wheelState.context;
-        resultText = item?.label ?? '';
+        resultText = item?.getLabel() ?? '';
         setTimeout(async () => {
           gambaStore.clear();
           if (item && ctx) {
@@ -56,30 +70,39 @@
 </script>
 
 {#if segments.length > 0}
-  <div class="gamba-wheel-container">
-    <div class="wheel-wrapper">
-      <div class="pointer">▼</div>
-      <svg
-        viewBox="0 0 400 400"
-        width="70vmin"
-        height="70vmin"
-        class="wheel-svg"
-        style="transform: rotate(0deg)"
-      >
-        {#each segments as segment, i}
-          {@const anglePer = 360 / segments.length}
-          {@const alpha = anglePer / 2}
-          {@const labelR = 110}
-          {@const labelX = 200 + labelR * Math.cos((alpha * Math.PI) / 180)}
-          {@const labelY = 200 + labelR * Math.sin((alpha * Math.PI) / 180)}
-          {@const worldAngle = (i * anglePer + alpha) % 360}
-          {@const flip = Math.cos((worldAngle * Math.PI) / 180) < 0}
-          {@const textRot = alpha + (flip ? 180 : 0)}
-          <g transform="rotate({i * anglePer}, 200, 200)">
+  <div
+    class="gamba-widget"
+    style="left:{$positionStore.wheelX}; top:{$positionStore.wheelY}; width:{$positionStore.wheelWidth}; height:{$positionStore.wheelHeight};"
+  >
+    <div class="gamba-wheel-container">
+      {#if username}
+        <div class="spinner-label">{username}</div>
+      {/if}
+      <div class="wheel-wrapper">
+        <div class="pointer">▼</div>
+        <svg
+          viewBox="0 0 400 400"
+          width="100%"
+          height="100%"
+          class="wheel-svg"
+          style="transform: rotate(0deg)"
+        >
+          {#each segData as seg, i}
+            {@const a0 = (seg.start * Math.PI) / 180}
+            {@const a1 = (seg.end * Math.PI) / 180}
+            {@const aMid = (seg.center * Math.PI) / 180}
+            {@const large = seg.span > 180 ? 1 : 0}
+            {@const x0 = 200 + 180 * Math.cos(a0)}
+            {@const y0 = 200 + 180 * Math.sin(a0)}
+            {@const x1 = 200 + 180 * Math.cos(a1)}
+            {@const y1 = 200 + 180 * Math.sin(a1)}
+            {@const labelR = 110}
+            {@const labelX = 200 + labelR * Math.cos(aMid)}
+            {@const labelY = 200 + labelR * Math.sin(aMid)}
+            {@const flip = Math.cos(aMid) < 0}
+            {@const textRot = seg.center + (flip ? 180 : 0)}
             <path
-              d="M200,200 L380,200 A180,180 0 0,1 {200 +
-                180 * Math.cos(anglePer * (Math.PI / 180))},{200 +
-                180 * Math.sin(anglePer * (Math.PI / 180))} Z"
+              d={`M200,200 L${x0},${y0} A180,180 0 ${large},1 ${x1},${y1} Z`}
               fill={`hsl(${(i * 360) / segments.length}, 60%, ${i % 2 === 0 ? 55 : 70}%)`}
               stroke="white"
               stroke-width="2"
@@ -93,30 +116,45 @@
               font-size="14"
               font-weight="bold"
               style="text-shadow: 0 0 4px rgba(0,0,0,0.8); pointer-events: none;"
-              transform="rotate({textRot}, {labelX}, {labelY})">{segment.label}</text
+              transform={`rotate(${textRot}, ${labelX}, ${labelY})`}>{seg.item.getLabel()}</text
             >
-          </g>
-        {/each}
-        <circle cx="200" cy="200" r="25" fill="white" stroke="#333" stroke-width="1" />
-      </svg>
+          {/each}
+          <circle cx="200" cy="200" r="25" fill="white" stroke="#333" stroke-width="1" />
+        </svg>
+      </div>
+      {#if resultText}
+        <div class="result">{resultText}</div>
+      {/if}
     </div>
-    {#if resultText}
-      <div class="result">{resultText}</div>
-    {/if}
   </div>
 {/if}
 
 <style>
+  .gamba-widget {
+    position: absolute;
+    z-index: 500;
+    container-type: inline-size;
+    transform: translate(-50%, -50%);
+  }
+
   .gamba-wheel-container {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 500;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    justify-content: center;
+    gap: 3cqi;
+  }
+
+  .spinner-label {
+    font-size: 4cqi;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 3px black;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 0.3em 1em;
+    border-radius: 0.3em;
   }
 
   .wheel-wrapper {
@@ -124,24 +162,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
   }
 
   .pointer {
     position: absolute;
-    top: -10px;
+    top: -0.3em;
     z-index: 10;
-    font-size: 32px;
+    font-size: 5cqi;
     color: red;
-    text-shadow: 0 0 5px white;
+    text-shadow: 0 0 0.15em white;
   }
 
   .result {
-    font-size: 48px;
+    font-size: 8cqi;
     font-weight: bold;
     color: white;
     text-shadow: 2px 2px 4px black;
     background: rgba(0, 0, 0, 0.7);
-    padding: 10px 30px;
-    border-radius: 10px;
+    padding: 0.2em 0.5em;
+    border-radius: 0.2em;
   }
 </style>

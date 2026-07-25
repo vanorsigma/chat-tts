@@ -6,7 +6,10 @@ export const POST: RequestHandler = async () => {
   try {
     const ok = await lockPrediction();
     if (!ok) {
-      return json({ error: 'No active prediction to lock, or API not initialized' }, { status: 400 });
+      return json(
+        { error: 'No active prediction to lock, or API not initialized' },
+        { status: 400 }
+      );
     }
     return json({ ok: true });
   } catch (e) {

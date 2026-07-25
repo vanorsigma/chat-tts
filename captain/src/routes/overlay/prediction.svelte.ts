@@ -23,7 +23,7 @@ export interface Prediction {
 function getPredictionParameters(
   message: string
 ): { title: string; autoLockAfter: number; outcomes: string[] } | null {
-  const rest = message.replace('%prediction', '').trim();
+  const rest = message.replace(/^%prediction/i, '').trim();
   const splits = rest.split(';');
   if (splits.length < 4) return null;
 

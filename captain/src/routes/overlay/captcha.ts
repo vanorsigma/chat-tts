@@ -3,6 +3,9 @@ import { checkCostAddIfEnough } from './commands/middleware';
 import type { ChatMessage } from '@twurple/chat';
 import { karmaStore } from './stores';
 import { getOverlayConfig } from './constants';
+import type { CommandsLike } from './gamba/gamba';
+import { CAPTCHA_GAMBA_ITEMS } from './gamba/gamba';
+import { enqueueGambaSpin } from './gamba/queue';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -15,8 +18,12 @@ export function startCaptchaLoop(
   dispatcher: OverlayDispatchers,
   captchaElement: HTMLDivElement,
   setText: (val: string | null) => void,
-  setPosition: (top: number, left: number) => void
+  setPosition: (top: number, left: number) => void,
+  commands: CommandsLike
 ) {
+  const minMs = 10 * 60 * 1000;
+  const maxMs = 30 * 60 * 1000;
+
   function loop() {
     setTimeout(
       () => {
@@ -28,13 +35,13 @@ export function startCaptchaLoop(
             (window.innerWidth - Number(getComputedStyle(captchaElement).width.replace('px', '')))
         );
 
-        const captcha = new CaptchaObserver(dispatcher, () => {
+        const captcha = new CaptchaObserver(dispatcher, commands, () => {
           setText(null);
           loop();
         });
         setText(captcha.value);
       },
-      Math.max(1000, Math.random() * 10 * 60 * 1000)
+      minMs + Math.random() * (maxMs - minMs)
     );
   }
 
@@ -44,13 +51,15 @@ export function startCaptchaLoop(
 export class CaptchaObserver implements OverlayObserver {
   private answer: string;
   private dispatcher: OverlayDispatchers;
+  private commands: CommandsLike;
   private onSolve: () => void;
   private alreadyClaimed: Set<string> = new Set();
   private solved: boolean = false;
 
-  constructor(dispatcher: OverlayDispatchers, onSolve: () => void) {
+  constructor(dispatcher: OverlayDispatchers, commands: CommandsLike, onSolve: () => void) {
     this.answer = [...Array(6).keys()].map((_) => choose(characters.split(''))).join('');
     this.dispatcher = dispatcher;
+    this.commands = commands;
     this.dispatcher.addObserver(this);
     this.onSolve = onSolve;
     setTimeout(() => {
@@ -81,9 +90,21 @@ export class CaptchaObserver implements OverlayObserver {
       );
       this.dispatcher.sendMessageAsUser(
         message.channelId!,
-        `${username} claimed ${getOverlayConfig().captcha.points}!`
+        `${username} claimed ${getOverlayConfig().captcha.points}! Rolling gatcha...`
       );
       karmaStore.updateKarma(getOverlayConfig().captcha.karma, 'Captcha');
+
+      enqueueGambaSpin(
+        {
+          dispatcher: this.dispatcher,
+          channelId: message.channelId!,
+          username,
+          bet: 0,
+          commands: this.commands
+        },
+        1,
+        CAPTCHA_GAMBA_ITEMS
+      );
 
       if (!this.solved) {
         this.solved = true;

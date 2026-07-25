@@ -12,6 +12,7 @@ import {
 import { Synth } from 'beepbox/esm/synth/synth';
 import { deleteSong, getSong, initDbIfRequired, listSongs, saveSong } from '../src/lib/server/db';
 import { startWebsocketServer } from './websocket';
+import { startPicomService } from './picom';
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -170,4 +171,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 startWebsocketServer();
-// client.login(token);
+startPicomService();
+client.login(token);

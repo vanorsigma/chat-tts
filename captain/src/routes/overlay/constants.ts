@@ -1,7 +1,13 @@
 const disabledSections = new Set<string>();
 
+let delegateVoiceToOverlay = false;
+
 export function isSectionDisabled(sectionKey: string): boolean {
   return disabledSections.has(sectionKey);
+}
+
+export function isDelegateVoiceToOverlay(): boolean {
+  return delegateVoiceToOverlay;
 }
 
 const _overlayConfig = {
@@ -25,16 +31,18 @@ const _overlayConfig = {
   mistake: { cost: 5000, user: 'mr_auto', karma: -1000 },
   showImage: { cost: 10000, user: 'mayoigo_qwq', cooldownMs: 60000, karma: -200 },
   playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
-  grayscale: { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 10000 },
+  resetCooldown: { cost: 20000 },
+  grayscale: { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 120000 },
   selfThought: { cost: 5000, karma: -200 },
   goodNightKiss: { cost: 5000, user: 'pastel8844', karma: -300, timeoutDurationSec: 1800 },
   setTitle: { cost: 1000, karmaRequirement: 100, karmaModifier: -0.3, user: 'sekatsu1' },
   checkIn: { points: 999.99 },
   stockMarket: {
     cycleIntervalMs: 15000,
-    instantSuccessChance: 0.05,
-    checkinShares: 100,
-    endstreamDefaultPrice: 1
+    checkinGrantPoints: 1000,
+    approvedStocks: ['HEART'],
+    buyFailSteepness: 8,
+    overpayFactor: 0.1
   },
   karma: {
     min: -5000,
@@ -88,7 +96,8 @@ const _overlayConfig = {
     rightPanelX: 1520,
     rightPanelY: 0
   },
-  makiConfig: { textSpeed: 30 }
+  makiConfig: { textSpeed: 30 },
+  ignorePrefix: '~'
 };
 
 export function getOverlayConfig() {
@@ -134,6 +143,9 @@ const COMMAND_SECTION_API_KEYS = new Set([
 export function applyOverlayConfig(raw?: Record<string, unknown>): void {
   if (!raw) return;
 
+  _overlayConfig.ignorePrefix = (raw.ignorePrefix as string) ?? _overlayConfig.ignorePrefix;
+  delegateVoiceToOverlay = !!raw.delegateVoiceToOverlay;
+
   const sectionMap: Record<string, keyof typeof _overlayConfig> = {
     moderationConfig: 'moderation',
     blackSilenceConfig: 'blackSilence',
@@ -142,6 +154,7 @@ export function applyOverlayConfig(raw?: Record<string, unknown>): void {
     mistakeConfig: 'mistake',
     showImageConfig: 'showImage',
     playAudioConfig: 'playAudio',
+    resetCooldownConfig: 'resetCooldown',
     selfThoughtConfig: 'selfThought',
     goodNightKissConfig: 'goodNightKiss',
     setTitleConfig: 'setTitle',

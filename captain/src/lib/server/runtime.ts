@@ -6,9 +6,16 @@ import { setBroadcastFn } from './logger';
 import { Controller } from '$lib/controllers';
 import { ParseableConfig } from '$lib/config';
 import { createFakeMessage } from '$lib/bus/fakeMessage';
-import type { FakerMessage, FakerSubMessage, FakerBitsMessage, ControlMessage } from '$lib/bus/messages';
+import type {
+  FakerMessage,
+  FakerSubMessage,
+  FakerBitsMessage,
+  ControlMessage
+} from '$lib/bus/messages';
 import { setSubTier, addBitBoost } from './db';
 import { isRemoteTTSMessage, type RemoteTTSMessages } from '$lib/remoteTTSMessages';
+import { setTokenRefreshBroadcaster } from './twitchAuth';
+import { startBotTokenRefresher } from './tokenRefreshScheduler';
 
 const BUS_URL = 'ws://localhost:3001';
 const CONFIG_PATH = join(process.cwd(), 'config.yml');
@@ -82,6 +89,12 @@ function connectToBus() {
   senderWs = new WebSocket(`${BUS_URL}/senders`);
   senderWs.on('open', () => {
     wireLogger();
+    setTokenRefreshBroadcaster((msg) => {
+      if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+        senderWs.send(JSON.stringify(msg));
+      }
+    });
+    startBotTokenRefresher();
     console.log('Connected to the sender bus');
     if (_pendingConfig) {
       const raw = _pendingConfig;

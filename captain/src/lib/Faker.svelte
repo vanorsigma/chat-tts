@@ -29,13 +29,11 @@
 
 <div class="faker-container">
   <div class="tabs">
-    <button class:active={activeTab === 'chat'} on:click={() => activeTab = 'chat'}>
+    <button class:active={activeTab === 'chat'} on:click={() => (activeTab = 'chat')}>
       Chat
     </button>
-    <button class:active={activeTab === 'sub'} on:click={() => activeTab = 'sub'}>
-      Sub
-    </button>
-    <button class:active={activeTab === 'bits'} on:click={() => activeTab = 'bits'}>
+    <button class:active={activeTab === 'sub'} on:click={() => (activeTab = 'sub')}> Sub </button>
+    <button class:active={activeTab === 'bits'} on:click={() => (activeTab = 'bits')}>
       Bits
     </button>
   </div>
@@ -45,13 +43,17 @@
       <input
         type="text"
         bind:value={chatUser}
-        on:keydown={(e) => { if (e.key === 'Enter') sendChat(); }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendChat();
+        }}
         placeholder="Username (optional)"
       />
       <input
         type="text"
         bind:value={chatMsg}
-        on:keydown={(e) => { if (e.key === 'Enter') sendChat(); }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendChat();
+        }}
         placeholder="Sample Message Here"
       />
       <button on:click={sendChat}>Send Message</button>
@@ -63,7 +65,9 @@
       <input
         type="text"
         bind:value={subUser}
-        on:keydown={(e) => { if (e.key === 'Enter') sendSub(); }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendSub();
+        }}
         placeholder="Username (optional)"
       />
       <select bind:value={subTier}>
@@ -80,13 +84,17 @@
       <input
         type="text"
         bind:value={bitsUser}
-        on:keydown={(e) => { if (e.key === 'Enter') sendBits(); }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendBits();
+        }}
         placeholder="Username (optional)"
       />
       <input
         type="number"
         bind:value={bitsAmount}
-        on:keydown={(e) => { if (e.key === 'Enter') sendBits(); }}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendBits();
+        }}
         placeholder="Bits amount"
       />
       <button on:click={sendBits}>Send Bits</button>
@@ -126,7 +134,8 @@
     gap: 1em;
   }
 
-  .row > input, .row > select {
+  .row > input,
+  .row > select {
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 5px;
@@ -144,7 +153,7 @@
     flex: 1;
   }
 
-  .row > input[type="number"] {
+  .row > input[type='number'] {
     width: 100px;
   }
 </style>

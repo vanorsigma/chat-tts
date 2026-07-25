@@ -2,79 +2,202 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import { requireUsername } from './shared';
 import { GLOBAL_STOCK_MARKET } from '../../stock/market';
+import { timeoutSecondsForFailChance } from '../chance';
+import { PEOPLE_WHO_CHECKED_IN } from '../middleware';
+import type { Commands } from '..';
 
-export async function buyHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function buyHandler(
+  commands: Commands,
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage
+) {
   const username = requireUsername(message);
   if (!username) return;
 
   const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
-  if (args.length < 3) {
+  if (args.length < 2) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      'usage: %buy <stock> <amount> <price>',
+      'usage: %buy <symbol> <points> [overpay] (or "all" for all vanorDollars)',
       message.id
     );
     return;
   }
 
   const stock = args[0].toUpperCase();
-  const amount = Number(args[1]);
-  const price = Number(args[2]);
+  const pointsArg = args[1];
+  const overpayArg = args[2];
+  const overpay = overpayArg ? Number(overpayArg) : 0;
+  if (overpayArg !== undefined && (Number.isNaN(overpay) || overpay < 0)) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'invalid overpay amount', message.id);
+    return;
+  }
 
-  if (Number.isNaN(amount) || amount <= 0 || Number.isNaN(price) || price <= 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'invalid amount or price', message.id);
+  if (PEOPLE_WHO_CHECKED_IN.length < 5) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'no one has checked in yet', message.id);
+    return;
+  }
+
+  if (!GLOBAL_STOCK_MARKET.approvedStocks().includes(stock)) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `unknown stock: ${stock}. approved: ${GLOBAL_STOCK_MARKET.approvedStocks().join(', ')}`,
+      message.id
+    );
+    return;
+  }
+
+  const skipChance = message.userInfo.isBroadcaster;
+  const now = Date.now();
+  const userCooldownMs = 60_000;
+  const lastUser = commands.gambaUserCooldowns.get(username) ?? 0;
+  if (now < lastUser + userCooldownMs) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `%buy is on cooldown for you (wait ${Math.ceil((lastUser + userCooldownMs - now) / 1000)}s)`,
+      message.id
+    );
     return;
   }
 
   try {
-    const result = await GLOBAL_STOCK_MARKET.buy(username, stock, amount, price);
-    let feedback = `bought ${result.matched} shares of ${stock}`;
-    if (result.instant) {
-      feedback += ' (filled instantly, paid by Kiki!)';
+    const result =
+      pointsArg === 'all'
+        ? await GLOBAL_STOCK_MARKET.buyAll(username, stock, skipChance)
+        : await (() => {
+            const pts = Number(pointsArg);
+            if (Number.isNaN(pts) || pts <= 0) return null;
+            return GLOBAL_STOCK_MARKET.buy(username, stock, pts, skipChance, overpay);
+          })();
+
+    if (!result) {
+      dispatcher.sendMessageAsUser(message.channelId!, 'invalid points amount', message.id);
+      return;
     }
-    if (result.placed) {
-      feedback += `, order for ${result.placed.amount} shares at ${result.placed.price} placed`;
+
+    if (!result.ok) {
+      if (result.error) {
+        dispatcher.sendMessageAsUser(message.channelId!, `buy failed: ${result.error}`, message.id);
+        return;
+      }
+
+      const failChance = result.failChance ?? 0;
+      const timeoutSec = timeoutSecondsForFailChance(failChance);
+      const channelId = message.channelId!;
+      const userId = message.userInfo.userId;
+      commands.gambaUserCooldowns.set(username, now);
+      dispatcher.sendMessageAsUser(
+        channelId,
+        `@${username} fumbled %buy ${stock} (${failChance}% fail chance, investing: ${result.invested ?? '?'} VD) -> timeout ${timeoutSec}s`,
+        message.id
+      );
+      try {
+        await dispatcher.timeoutUser(channelId, userId, 'stock buy failed', timeoutSec);
+      } catch (e) {
+        console.warn(`failed to timeout ${username}:`, e);
+      }
+      return;
     }
-    dispatcher.sendMessageAsUser(message.channelId!, feedback, message.id);
+
+    commands.gambaUserCooldowns.set(username, now);
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `@${username} invested ${result.invested}VD in ${stock} @ ${result.price!.toFixed(2)} ${stock}`,
+      message.id
+    );
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     dispatcher.sendMessageAsUser(message.channelId!, `buy failed: ${errMsg}`, message.id);
   }
 }
 
+function formatProfitSign(profit: number): string {
+  return profit >= 0 ? '+' : '';
+}
+
 export async function sellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
   if (!username) return;
 
-  const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
-  if (args.length < 3) {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      'usage: %sell <stock> <amount> <price>',
-      message.id
-    );
+  if (PEOPLE_WHO_CHECKED_IN.length === 0) {
+    dispatcher.sendMessageAsUser(message.channelId!, 'no one has checked in yet', message.id);
     return;
   }
 
-  const stock = args[0].toUpperCase();
-  const amount = Number(args[1]);
-  const price = Number(args[2]);
+  const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
 
-  if (Number.isNaN(amount) || amount <= 0 || Number.isNaN(price) || price <= 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'invalid amount or price', message.id);
-    return;
+  function isNumber(s: string): boolean {
+    return !Number.isNaN(Number(s)) && Number(s) > 0;
   }
 
   try {
-    const result = await GLOBAL_STOCK_MARKET.sell(username, stock, amount, price);
-    let feedback = `sold ${result.matched} shares of ${stock}`;
-    if (result.instant) {
-      feedback += ' (filled instantly, paid by Kiki!)';
+    let result;
+
+    if (args.length === 0) {
+      result = await GLOBAL_STOCK_MARKET.sell(username);
+    } else if (args.length === 1) {
+      if (args[0] === 'all') {
+        result = await GLOBAL_STOCK_MARKET.sellAll(username);
+      } else if (isNumber(args[0])) {
+        result = await GLOBAL_STOCK_MARKET.sellAmount(username, undefined, Number(args[0]));
+      } else {
+        result = await GLOBAL_STOCK_MARKET.sell(username, args[0].toUpperCase());
+      }
+    } else if (args.length === 2) {
+      if (args[1] === 'all') {
+        result = await GLOBAL_STOCK_MARKET.sellAll(username, args[0].toUpperCase());
+      } else if (isNumber(args[1])) {
+        result = await GLOBAL_STOCK_MARKET.sellAmount(
+          username,
+          args[0].toUpperCase(),
+          Number(args[1])
+        );
+      } else {
+        dispatcher.sendMessageAsUser(
+          message.channelId!,
+          'usage: %sell [stock] [amount|all]',
+          message.id
+        );
+        return;
+      }
+    } else {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        'usage: %sell [stock] [amount|all]',
+        message.id
+      );
+      return;
     }
-    if (result.placed) {
-      feedback += `, sell order for ${result.placed.amount} shares at ${result.placed.price} placed`;
+
+    if (!result.ok) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `sell failed: ${result.error ?? 'unknown error'}`,
+        message.id
+      );
+      return;
     }
-    dispatcher.sendMessageAsUser(message.channelId!, feedback, message.id);
+
+    const details = result.details!;
+    if (details.length === 1) {
+      const d = details[0];
+      const sign = formatProfitSign(d.profit);
+      const partial = d.remaining ? ` (${d.remaining}VD left)` : '';
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `@${username} sold ${d.stock} for ${d.returned}VD (${sign}${d.profit}${partial} | bought @ ${d.oldPrice.toFixed(2)} ${d.stock}, sold @ ${d.newPrice.toFixed(2)} ${d.stock})`,
+        message.id
+      );
+    } else {
+      const totalProfit = details.reduce((sum, d) => sum + d.profit, 0);
+      const sign = formatProfitSign(totalProfit);
+      const stocks = [...new Set(details.map((d) => d.stock))].join(', ');
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `@${username} sold ${details.length} holdings (${stocks}) for ${result.totalReturned}VD (${sign}${totalProfit})`,
+        message.id
+      );
+    }
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     dispatcher.sendMessageAsUser(message.channelId!, `sell failed: ${errMsg}`, message.id);
@@ -85,50 +208,24 @@ export async function stocksHandler(dispatcher: OverlayDispatchers, message: Cha
   const username = requireUsername(message);
   if (!username) return;
 
-  const pos = GLOBAL_STOCK_MARKET.userPositions(username);
-  const shareLines = Object.entries(pos.shares).map(([stock, shares]) => `${shares}x ${stock}`);
+  const pos = await GLOBAL_STOCK_MARKET.getHoldings(username);
 
-  const buyLines = pos.buyOrders.map((o) => `buy ${o.amount}x ${o.stock} @ ${o.price}`);
-  const sellLines = pos.sellOrders.map((o) => `sell ${o.amount}x ${o.stock} @ ${o.price}`);
-
-  const lines: string[] = [];
-  if (shareLines.length) lines.push(`Shares: ${shareLines.join(', ')}`);
-  if (buyLines.length) lines.push(`Buy orders: ${buyLines.join(', ')}`);
-  if (sellLines.length) lines.push(`Sell orders: ${sellLines.join(', ')}`);
-
-  if (lines.length === 0) {
+  if (pos.holdings.length === 0) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `${username} has no stocks or orders`,
+      `${username} has no stock holdings`,
       message.id
     );
-  } else {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `${username}: ${lines.join(' | ')}`,
-      message.id
-    );
-  }
-}
-
-export async function buyOrdersHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
-  const orders = GLOBAL_STOCK_MARKET.randomBuyOrders(5);
-  if (orders.length === 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'no buy orders', message.id);
     return;
   }
-  const lines = orders.map((o) => `${o.user}: ${o.amount}x ${o.stock} @ ${o.price}`);
-  dispatcher.sendMessageAsUser(message.channelId!, `Buy orders: ${lines.join(' | ')}`, message.id);
-}
 
-export async function sellOrdersHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
-  const orders = GLOBAL_STOCK_MARKET.randomSellOrders(5);
-  if (orders.length === 0) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'no sell orders', message.id);
-    return;
-  }
-  const lines = orders.map((o) => `${o.user}: ${o.amount}x ${o.stock} @ ${o.price}`);
-  dispatcher.sendMessageAsUser(message.channelId!, `Sell orders: ${lines.join(' | ')}`, message.id);
+  const lines = pos.holdings.map((h) => {
+    const cur = h.currentPrice?.toFixed(2) ?? '?';
+    const p = h.profit !== null ? `${formatProfitSign(h.profit)}${h.profit}` : '?';
+    return `${h.stock} (now ${cur}): ${h.investedPoints}VD(${p}) @ ${h.buyPrice.toFixed(2)} ${h.stock}`;
+  });
+
+  dispatcher.sendMessageAsUser(message.channelId!, `${username}: ${lines.join(' | ')}`, message.id);
 }
 
 export async function endStreamHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
@@ -144,15 +241,9 @@ export async function endStreamHandler(dispatcher: OverlayDispatchers, message: 
     return;
   }
 
-  const payouts = await GLOBAL_STOCK_MARKET.close();
-  const totalPayout = payouts.reduce((sum, p) => sum + p.total, 0);
-  const userCount = new Set(payouts.map((p) => p.user)).size;
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `stream ended! paid out ${totalPayout} to ${userCount} users across ${payouts.length} holdings`,
+    'stream session ended. stock holdings remain open.',
     message.id
   );
 }
-
-
-

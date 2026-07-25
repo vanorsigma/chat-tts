@@ -60,7 +60,7 @@
   import type { OverlayPositionsConfig } from '$lib/config';
   import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
-  import { isOverlayPositionsMessage } from '$lib/bus/messages';
+  import { isOverlayPositionsMessage, isTokenRefreshedMessage } from '$lib/bus/messages';
   import { gambaStore } from './gamba/gamba.svelte';
   import GambaWheel from './gamba/GambaWheel.svelte';
   import { SubTracker } from './subTracker';
@@ -85,6 +85,7 @@
   let heartrateGraphParent: HTMLDivElement;
   let dispatchers: OverlayDispatchers | null = null;
   let commands: Commands | null = null;
+  let tokenRefreshInFlight = false;
 
   let currentMakiMessage: string = $state('');
   let currentMakiDuration: number = $state(0);
@@ -145,13 +146,13 @@
   let overlayQueue: string[] = [];
   let queueIndex = 0;
   let wasPlayingBeforeSilence = false;
-  let lastSentSongId: string | null = null;
 
   let overlaySong: SongData | null = $state(null);
   let overlaySongRate = $state(0.5);
   let overlaySongProgress = $state(0);
   let overlayRemainingMs = $state(0);
   let overlaySongFlying = $state(false);
+  let overlaySongIndeterminate = $state(false);
 
   let currentPin = $state<{ username: string; text: string; kamoji: string; emoji: string } | null>(
     null
@@ -316,6 +317,18 @@
     }, 5000);
   }
 
+  async function buildBotApiClient(): Promise<ApiClient> {
+    console.log('Fetching bot token from /api/twitch/bot-token');
+    const res = await fetch('/api/twitch/bot-token');
+    if (!res.ok) {
+      throw new Error('Failed to load bot token. Run `npx tsx authflow.ts bot` first.');
+    }
+    const data = await res.json();
+    const provider = new StaticAuthProvider(PUBLIC_TWITCH_APP_ID, data.accessToken, data.scope);
+    console.log('Bot token fetched, ApiClient built');
+    return new ApiClient({ authProvider: provider });
+  }
+
   function formatDuration(ms: number): string {
     if (ms <= 0) return '';
     const totalSec = Math.ceil(ms / 1000);
@@ -382,50 +395,62 @@
       /* ignore */
     }
 
-    ws.addEventListener('message', (event: MessageEvent) => {
+    ws.addEventListener('message', async (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
         if (isSongStateMessage(data)) {
           const ss = data;
-          if (ss.song) overlaySong = ss.song;
-          else if (ss.songId === null) overlaySong = null;
-          overlaySongRate = ss.rate;
-          overlaySongProgress = (ss.positionMs / ss.durationMs) * 100;
-          overlayRemainingMs = Math.max(0, ss.durationMs - ss.positionMs);
+          if (ss.songId === null) overlaySong = null;
           if (ss.songId && ss.positionMs > 500) overlaySongFlying = true;
           if (!ss.songId) overlaySongFlying = false;
         }
         if (isOverlayPositionsMessage(data)) {
           positionStore.set({ ...DEFAULT_POSITIONS, ...data.positions });
         }
-        if (isSongCompleteMessage(data) && overlaySong && data.songId === overlaySong.id) {
-          if (queueIndex + 1 < overlayQueue.length) {
-            queueIndex++;
-            songAudioEngine!.load(
-              `/api/song/audio/${overlayQueue[queueIndex]}`,
-              overlayQueue[queueIndex]
-            );
-            songAudioEngine!.play();
-          } else {
-            songAudioEngine!.unload();
-            overlayQueue = [];
-            queueIndex = 0;
-            overlaySong = null;
-            overlaySongFlying = false;
+        if (isTokenRefreshedMessage(data) && data.account === 'bot') {
+          console.log(
+            `Received tokenRefreshed (account=${data.account}) from bus, refreshing ApiClient`
+          );
+          if (tokenRefreshInFlight) {
+            console.log('Token refresh already in flight, skipping duplicate');
+            return;
           }
+          if (!dispatchers) {
+            console.log('Overlay not yet initialized, deferring token refresh');
+            return;
+          }
+          tokenRefreshInFlight = true;
+          try {
+            const newApi = await buildBotApiClient();
+            dispatchers.updateApi(newApi);
+            console.log('Overlay ApiClient refreshed after tokenRefreshed');
+          } catch (e) {
+            console.warn('Failed to refresh overlay ApiClient:', e);
+          } finally {
+            tokenRefreshInFlight = false;
+          }
+        }
+        if (isSongCompleteMessage(data) && overlaySong && data.songId === overlaySong.id) {
+          songAudioEngine!.unload();
+          overlayQueue = [];
+          queueIndex = 0;
+          overlaySong = null;
+          overlaySongFlying = false;
         }
         const engine = songAudioEngine;
         if (isSongControlMessage(data) && engine) {
+          if (data.page && data.page !== 'overlay') return;
           handleCommand(data, {
             load: (song: SongData) => {
               overlayQueue = [song.id];
               queueIndex = 0;
               overlaySong = song;
-              engine.load(song.audioUrl, song.id);
+              engine.load(song.audioUrl, song.id, song.durationMs);
             },
-            play: () => {
+            play: (volume?: number, rate?: number) => {
               console.log('Audio engine is going to play');
-              engine.setRate(1.0); // NOTE: by default, this is 0
+              if (volume !== undefined) engine.setVolume(volume);
+              if (rate !== undefined) engine.setRate(rate);
               engine.play();
             },
             pause: () => {
@@ -453,8 +478,7 @@
                 overlaySong = nextSong;
                 overlaySongFlying = true;
                 queueIndex = Math.max(0, overlayQueue.indexOf(nextSong.id));
-                engine.load(nextSong.audioUrl, nextSong.id);
-                engine.setRate(1.0);
+                engine.load(nextSong.audioUrl, nextSong.id, nextSong.durationMs);
                 engine.play();
               } else {
                 engine.unload();
@@ -467,7 +491,7 @@
             seek: (ms: number) => engine.seek(ms),
             setRate: (rate: number) => engine.setRate(rate),
             setVolume: (volume: number) => engine.setVolume(volume),
-            loadQueue: (songs: SongData[]) => {
+            loadQueue: (songs: SongData[], rate?: number, volume?: number) => {
               overlayQueue = songs.map((s) => s.id);
               const curId = overlaySong?.id;
               if (curId) {
@@ -475,14 +499,18 @@
                 if (idx >= 0) {
                   queueIndex = idx;
                   if (songs[idx]) overlaySong = songs[idx];
+                  if (rate !== undefined) engine.setRate(rate);
+                  if (volume !== undefined) engine.setVolume(volume);
                   return;
                 }
               }
               queueIndex = 0;
               overlaySong = songs[0] ?? null;
               if (overlayQueue[0]) {
-                engine.load(songs[0].audioUrl, overlayQueue[0]);
+                engine.load(songs[0].audioUrl, overlayQueue[0], songs[0].durationMs);
               }
+              if (rate !== undefined) engine.setRate(rate);
+              if (volume !== undefined) engine.setVolume(volume);
             },
             removeFromQueue: (songId: string) => {
               const idx = overlayQueue.indexOf(songId);
@@ -499,6 +527,13 @@
               overlayQueue = [...overlayQueue];
               const newIdx = overlayQueue.indexOf(overlaySong?.id ?? '');
               if (newIdx >= 0) queueIndex = newIdx;
+            },
+            skipAll: () => {
+              engine.unload();
+              overlayQueue = [];
+              queueIndex = 0;
+              overlaySong = null;
+              overlaySongFlying = false;
             }
           });
         }
@@ -536,23 +571,15 @@
 
     let gameApplication = await makeApplication(chatBulletContainer);
     console.log('Pixi application ready');
-    const botTokenRes = await fetch('/api/twitch/bot-token');
-    if (!botTokenRes.ok) {
-      throw new Error('Failed to load bot token. Run `npx tsx authflow.ts bot` first.');
-    }
-    const botToken = await botTokenRes.json();
-    const botAuthProvider = new StaticAuthProvider(
-      PUBLIC_TWITCH_APP_ID,
-      botToken.accessToken,
-      botToken.scope
-    );
-    let apiClient = new ApiClient({ authProvider: botAuthProvider });
+    const apiClient = await buildBotApiClient();
+    console.log('Initial ApiClient built');
 
     dispatchers = new OverlayDispatchers(client, apiClient, modelUpdater, PUBLIC_TWITCH_BOT_ID);
     console.log('Dispatchers created');
 
     maxwellContainerInstance = new MaxwellContainer(gameApplication);
     chatBulletBackend = new ChatBulletContainer(dispatchers, PUBLIC_KIKI_API, gameApplication);
+    chatBulletBackend.setBusSocket(busWs);
     console.log('Chat bullet container created');
     const _ = new KarmaContainer(dispatchers, gameApplication, karmaStore.updateKarma);
     console.log('Karma container created');
@@ -560,7 +587,7 @@
     commands = new Commands(dispatchers);
     commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);
-    let _subTracker = new SubTracker(dispatchers);
+    let _subTracker = new SubTracker(dispatchers, commands);
     twitchClient.connect();
     console.log('Twitch connected');
 
@@ -570,7 +597,10 @@
     songAudioEngine = createAudioEngine();
     songAudioEngine.onProgressTick(() => {
       const s = songAudioEngine!.getState();
-      const songChanged = s.songId !== lastSentSongId;
+      overlaySongRate = s.rate;
+      overlaySongProgress = s.durationMs ? (s.positionMs / s.durationMs) * 100 : 0;
+      overlayRemainingMs = Math.max(0, s.durationMs - s.positionMs);
+      overlaySongIndeterminate = !s.durationMs;
       const msg: SongStateMessage = {
         type: 'song-state',
         songId: s.songId,
@@ -578,10 +608,8 @@
         durationMs: s.durationMs,
         rate: s.rate,
         playing: s.playing,
-        queueHead: overlayQueue[0] ?? null,
-        ...(songChanged && overlaySong ? { song: overlaySong } : {})
+        queueHead: overlayQueue[0] ?? null
       };
-      lastSentSongId = s.songId;
       busWs.send(JSON.stringify(msg));
     });
     songAudioEngine.onSongEnded(() => {
@@ -594,20 +622,11 @@
           })
         );
       }
-      if (queueIndex + 1 < overlayQueue.length) {
-        queueIndex++;
-        songAudioEngine!.load(
-          `/api/song/audio/${overlayQueue[queueIndex]}`,
-          overlayQueue[queueIndex]
-        );
-        songAudioEngine!.play();
-      } else {
-        songAudioEngine!.unload();
-        overlayQueue = [];
-        queueIndex = 0;
-        overlaySong = null;
-        overlaySongFlying = false;
-      }
+      songAudioEngine!.unload();
+      overlayQueue = [];
+      queueIndex = 0;
+      overlaySong = null;
+      overlaySongFlying = false;
     });
     songAudioEngine.play();
 
@@ -618,7 +637,8 @@
       (top, left) => {
         captchaTop = top;
         captchaLeft = left;
-      }
+      },
+      commands!
     );
 
     makiStore.subscribe((message, duration, activated, thinking) => {
@@ -686,6 +706,7 @@
       remainingMs={overlayRemainingMs}
       flying={overlaySongFlying}
       progressPct={overlaySongProgress}
+      indeterminate={overlaySongIndeterminate}
     />
   </div>
   <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements"> </iframe>

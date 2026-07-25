@@ -181,8 +181,6 @@ class TwitchTool:
         my_info = await anext(self.twitch.get_users())
         self.moderator_id = my_info.id
 
-        self.twitch.user_auth_refresh_callback = self._save_token
-
         print(
             f"[TWITCH-API] Connected as {my_info.display_name} (id={self.moderator_id}) moderating {target_user_info.display_name} (id={self.broadcaster_id})"
         )
@@ -210,13 +208,17 @@ class TwitchTool:
         print(f"[TWITCH-API] Subscriber badge map: {len(result)} versions")
         return result
 
-    async def _save_token(self, auth_token: str, refresh_token: str):
-        print("[TWITCH-API] Saving refreshed tokens to twitch_tokens.txt")
-        with open("twitch_tokens.txt", "w") as f:
-            f.write(f"{refresh_token}\n{auth_token}")
-        self.bot_token.access_token = auth_token
-        self.bot_token.refresh_token = refresh_token
-        print("[TWITCH-API] Tokens saved")
+    async def apply_refreshed_token(self, new_token: BotToken) -> None:
+        self.bot_token = new_token
+        if self.twitch is not None:
+            target_scopes = [
+                AuthScope.MODERATOR_READ_CHATTERS,
+                AuthScope.MODERATOR_MANAGE_BANNED_USERS,
+                AuthScope.USER_WRITE_CHAT,
+            ]
+            await self.twitch.set_user_authentication(
+                new_token.access_token, target_scopes, new_token.refresh_token
+            )
 
     async def _get_chatter_list(self) -> dict[str, str]:
         await self._lazy_init()
@@ -321,10 +323,9 @@ class TwitchTool:
         print(f"[TOOL] Sent command {command} successfully")
 
     async def change_title(self, title: str) -> None:
-        """Twitch Tool: Changes the stream title. Some common titles, maintain the deprecating style, but do not use directly:
-        - lobotomizing my corp
-        - worst dev stream in existence
-        - cooking mapo tofu with no skills
+        """Twitch Tool: Changes the stream title. Maintain the deprecating style, but do not use directly:
+        - worst <something> stream in existence
+        - playing <something> with no skills
 
         Args:
             title: A title to change to. 1 to 60 charactes only

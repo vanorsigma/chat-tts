@@ -80,13 +80,19 @@ export interface KarmaUpdateMessage {
   label?: string;
 }
 
+export interface TokenRefreshedMessage {
+  type: 'tokenRefreshed';
+  account: 'bot' | 'broadcaster';
+}
+
 export type ClientToServer = FakerMessage | FakerSubMessage | FakerBitsMessage | ControlMessage;
 
 export type ServerToClient =
   | LogMessage
   | PollUpdateMessage
   | PredictionUpdateMessage
-  | KarmaUpdateMessage;
+  | KarmaUpdateMessage
+  | TokenRefreshedMessage;
 
 export type BusMessage = ClientToServer | ServerToClient;
 
@@ -144,6 +150,14 @@ export function isPredictionUpdateMessage(obj: unknown): obj is PredictionUpdate
 export function isKarmaUpdateMessage(obj: unknown): obj is KarmaUpdateMessage {
   return (
     typeof obj === 'object' && obj !== null && (obj as KarmaUpdateMessage).type === 'karma-update'
+  );
+}
+
+export function isTokenRefreshedMessage(obj: unknown): obj is TokenRefreshedMessage {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    (obj as TokenRefreshedMessage).type === 'tokenRefreshed'
   );
 }
 

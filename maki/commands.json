@@ -1,11 +1,11 @@
 [
     {
         "name": "%blacksilence",
-        "description": "Cancels TTS playback and disables TTS for a duration. Costs 500 meowDollars."
+        "description": "Cancels TTS playback and disables TTS for a duration."
     },
     {
         "name": "%maxwell",
-        "description": "Spawns the animated Maxwell bread cat that bounces around the overlay. Costs 100 meowDollars."
+        "description": "Spawns the animated Maxwell bread cat that bounces around the overlay."
     },
     {
         "name": "%distract",
@@ -21,10 +21,22 @@
     },
     {
         "name": "%prediction",
-        "description": "Creates a Twitch prediction. Format: %prediction <title>;<durationSec>;<option1>;<option2>. Mod/VIP/broadcaster only."
+        "description": "Use this command if the user said, 'predict' or 'prediction'. Creates a Twitch prediction. Format: %prediction <title>;<durationSec>;<outcome1>;<outcome2>. Semi-colon delimited. Duration 15-1800 seconds. Exactly 2 outcomes required, each 1-25 characters. Title max 45 characters. Only moderator, VIP, or broadcaster can use. 10 second cooldown. Non-broadcaster users have a random chance to fail."
+    },
+    {
+        "name": "%poll",
+        "description": "Creates a Twitch poll. Format: %poll <title>;<durationSec>;<choice1>;<choice2>[;<choice3>;<choice4>;<choice5>]. Semi-colon delimited. Duration 15-1800 seconds. 2 to 5 choices, each 1-25 characters. Title max 60 characters. Only moderator, VIP, or broadcaster can use. 10 second cooldown. Non-broadcaster users have a random chance to fail."
     },
     {
         "name": "%mistake",
-        "description": "Increments the mistake counter on the overlay. Costs 5000 meowDollars, applies -1000 karma."
+        "description": "Increments the mistake counter on the overlay."
+    },
+    {
+        "name": "%grayscale",
+        "description": "Makes the entire screen gray."
+    },
+    {
+        "name": "%selfthought",
+        "description": "Speak as Vanor."
     }
 ]

@@ -9,7 +9,12 @@
   const TEXT = 'Starting soon';
   const REPEATED_TEXT = TEXT.repeat(Math.ceil(BAR_COUNT / TEXT.length)).slice(0, BAR_COUNT);
 
-  function getBarHeight(i: number, dataArray: Uint8Array, bufferLength: number, maxHeight: number): number {
+  function getBarHeight(
+    i: number,
+    dataArray: Uint8Array,
+    bufferLength: number,
+    maxHeight: number
+  ): number {
     const t0 = i / BAR_COUNT;
     const t1 = (i + 1) / BAR_COUNT;
 

@@ -2,17 +2,19 @@ import type { SongData } from './types';
 
 export interface SongControlMessage {
   type: 'song-control';
+  page?: 'overlay' | 'startingsoon';
   command:
-    | { type: 'play'; songId?: string }
+    | { type: 'play'; songId?: string; volume?: number; rate?: number }
     | { type: 'pause' }
     | { type: 'skip'; skippedSongId?: string | null; nextSong?: SongData | null }
     | { type: 'seek'; ms: number }
     | { type: 'setRate'; rate: number }
     | { type: 'load'; song: SongData }
-    | { type: 'loadQueue'; songs: SongData[] }
+    | { type: 'loadQueue'; songs: SongData[]; rate?: number; volume?: number }
     | { type: 'removeFromQueue'; songId: string }
     | { type: 'reorderQueue'; fromIndex: number; toIndex: number }
-    | { type: 'setVolume'; volume: number };
+    | { type: 'setVolume'; volume: number }
+    | { type: 'skipAll' };
 }
 
 export interface SongStateMessage {
@@ -23,7 +25,6 @@ export interface SongStateMessage {
   rate: number;
   playing: boolean;
   queueHead: string | null;
-  song?: SongData | null;
 }
 
 export interface SpamCompleteMessage {

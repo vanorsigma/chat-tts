@@ -21,8 +21,12 @@ export interface OverlaySubObserver {
   onSub?(channel: string, user: string, subInfo: ChatSubInfo, msg: UserNotice): void;
   onResub?(channel: string, user: string, subInfo: ChatSubInfo, msg: UserNotice): void;
   onSubGift?(channel: string, user: string, subInfo: ChatSubGiftInfo, msg: UserNotice): void;
-  onCommunitySub?(channel: string, user: string, subInfo: ChatCommunitySubInfo, msg: UserNotice): void;
-
+  onCommunitySub?(
+    channel: string,
+    user: string,
+    subInfo: ChatCommunitySubInfo,
+    msg: UserNotice
+  ): void;
 }
 
 export class OverlayDispatchers {
@@ -40,10 +44,16 @@ export class OverlayDispatchers {
     twitch.onSub((channel, user, subInfo, msg) => this.onSub(channel, user, subInfo, msg));
     twitch.onResub((channel, user, subInfo, msg) => this.onResub(channel, user, subInfo, msg));
     twitch.onSubGift((channel, user, subInfo, msg) => this.onSubGift(channel, user, subInfo, msg));
-    twitch.onCommunitySub((channel, user, subInfo, msg) => this.onCommunitySub(channel, user, subInfo, msg));
+    twitch.onCommunitySub((channel, user, subInfo, msg) =>
+      this.onCommunitySub(channel, user, subInfo, msg)
+    );
     this.api = api;
     this.botId = botId;
     this.modelUpdater = modelUpdater;
+  }
+
+  updateApi(api: ApiClient): void {
+    this.api = api;
   }
 
   addObserver(observer: OverlayObserver) {
@@ -111,13 +121,20 @@ export class OverlayDispatchers {
   }
 
   private onSubGift(channel: string, user: string, subInfo: ChatSubGiftInfo, msg: UserNotice) {
-    console.debug(`onSubGift: ${user} gifted by ${subInfo.gifter ?? 'anonymous'} in ${channel} (tier ${planToTier(subInfo.plan)})`);
+    console.debug(
+      `onSubGift: ${user} gifted by ${subInfo.gifter ?? 'anonymous'} in ${channel} (tier ${planToTier(subInfo.plan)})`
+    );
     for (const observer of this.subObservers) {
       observer.onSubGift?.(channel, user, subInfo, msg);
     }
   }
 
-  private onCommunitySub(channel: string, user: string, subInfo: ChatCommunitySubInfo, msg: UserNotice) {
+  private onCommunitySub(
+    channel: string,
+    user: string,
+    subInfo: ChatCommunitySubInfo,
+    msg: UserNotice
+  ) {
     console.debug(`onCommunitySub: ${user} gave ${subInfo.count} subs in ${channel}`);
     for (const observer of this.subObservers) {
       observer.onCommunitySub?.(channel, user, subInfo, msg);
@@ -201,7 +218,7 @@ export class OverlayDispatchers {
         await ctx.callApi({
           type: 'helix',
           url: 'chat/pins',
-          method: 'POST',
+          method: 'PUT',
           query: {
             broadcaster_id: channelId,
             moderator_id: this.botId,
@@ -211,8 +228,8 @@ export class OverlayDispatchers {
         });
       });
       console.log(`Pinned message ${messageId} for ${durationSeconds}s`);
-    } catch {
-      console.error(`Failed to pin message ${messageId}`);
+    } catch (e) {
+      console.error(`Failed to pin message ${messageId} due to ${e}`);
     }
   }
 }

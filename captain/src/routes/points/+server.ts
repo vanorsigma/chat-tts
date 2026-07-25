@@ -1,7 +1,20 @@
-import { getPointsForUser, setPointsForUser } from '$lib/server/db';
+import {
+  getPointsForUser,
+  setPointsForUser,
+  getTotalPoints,
+  getMedianPoints
+} from '$lib/server/db';
 import { error, text, type RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ url }) => {
+  if (url.searchParams.get('total') === '1') {
+    return text((await getTotalPoints()).toString());
+  }
+
+  if (url.searchParams.get('median') === '1') {
+    return text((await getMedianPoints()).toString());
+  }
+
   const username = url.searchParams.get('username')?.trim() ?? '';
   if (!username) {
     console.warn('Points GET missing username.');

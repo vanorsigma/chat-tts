@@ -9,6 +9,7 @@ import { TrinketController } from './trinket';
 import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatTTS';
 import { RemoteVoiceController, type VoiceController } from './voice';
 import { RefreshVoice } from '../commands';
+import { shouldSkipMessage } from '$lib/messageGuard';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -26,6 +27,7 @@ export class Controller implements ChatTTSOrchestrator {
   filters: string[];
 
   private ttsEnabled: boolean = true;
+  private delegateVoice: boolean;
 
   get enabled() {
     return this.ttsEnabled;
@@ -56,6 +58,7 @@ export class Controller implements ChatTTSOrchestrator {
     this.remoteChatTTSController = config.remoteChatTTS
       ? new RemoteChatTTSController(this)
       : undefined;
+    this.delegateVoice = !!config.delegateVoiceToOverlay;
     this.config = config;
     console.log('Controller created.');
   }
@@ -70,10 +73,6 @@ export class Controller implements ChatTTSOrchestrator {
     return false;
   }
 
-  private mustIgnore(ignore_prefix: string, message: string): boolean {
-    return message.trim().startsWith(ignore_prefix);
-  }
-
   private async _matchAndPlaySong(message: string) {
     const matches = [...message.matchAll(shortnameMatcher)];
     if (matches && matches[0] && matches[0].length > 0) {
@@ -83,58 +82,70 @@ export class Controller implements ChatTTSOrchestrator {
   }
 
   async updateWithMessage(message: ChatMessage) {
-    this._matchAndPlaySong(message.text);
+    try {
+      this._matchAndPlaySong(message.text);
 
-    const voice = this.voice ? await this.voice.getVoiceMapForUser(message.userInfo) : null;
-    const filtered =
-      (!message.userInfo.isMod && !message.userInfo.isVip
-        ? this.isFiltered(message.text)
-        : false) || this.mustIgnore(this.config.ignorePrefix, message.text);
-    if (voice) {
-      console.log(
-        `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
-      );
-    }
+      const voice = this.voice ? await this.voice.getVoiceMapForUser(message.userInfo) : null;
+      const filtered =
+        !message.userInfo.isMod && !message.userInfo.isVip ? this.isFiltered(message.text) : false;
+      if (voice) {
+        console.log(
+          `${message.userInfo.userName} (${voice.voice_name}, ${voice.pitch.toPrecision(2)}, ${voice.rate.toPrecision(2)}, Filtered: ${filtered}): ${message.text}`
+        );
+      }
 
-    const potentialCommand = this.commands.getCommand(message.text);
-    if (
-      potentialCommand &&
-      (!this.config.commandsDisabled || potentialCommand instanceof RefreshVoice)
-    ) {
-      potentialCommand.processCommandMessage(this, message);
-      return;
-    }
+      const potentialCommand = this.commands.getCommand(message.text);
+      if (
+        potentialCommand &&
+        (!this.config.commandsDisabled || potentialCommand instanceof RefreshVoice)
+      ) {
+        potentialCommand.processCommandMessage(this, message);
+        return;
+      }
 
-    if (filtered || !this.enabled) {
-      return;
-    }
+      if (this.delegateVoice) return;
 
-    if (message.text.startsWith('%')) {
-      return;
-    }
+      if (
+        shouldSkipMessage({
+          text: message.text,
+          userName: message.userInfo.userName,
+          isBot: message.userInfo.badges.has('bot-badge'),
+          ignorePrefix: this.config.ignorePrefix
+        })
+      )
+        return;
 
-    if (message.userInfo.userId === '1374180546') {
-      return;
-    }
+      if (filtered || !this.enabled) {
+        return;
+      }
 
-    if (
-      Math.random() < (this.config.distractConfig?.distractChance ?? 0) &&
-      this.trinketController
-    ) {
-      await this.trinketController.sendDistract();
-    }
+      if (
+        Math.random() < (this.config.distractConfig?.distractChance ?? 0) &&
+        this.trinketController
+      ) {
+        await this.trinketController.sendDistract();
+      }
 
-    if (this.voice && voice) {
-      await this.voice.processMessage(
-        message,
-        async (speed) => {
-          if (this.config.dynamicConfig.songPitchSpeedAffected) {
-            await this.songController?.changeSpeed(speed);
-          }
-        },
-        async () => {}
-      );
+      if (this.voice && voice) {
+        await this.voice.processMessage(
+          message,
+          async (speed) => {
+            if (this.config.dynamicConfig.songPitchSpeedAffected) {
+              await this.songController?.changeSpeed(speed);
+            }
+          },
+          async () => {}
+        );
+      }
+    } catch (err) {
+      console.error(`updateWithMessage failed: ${err}`);
     }
+  }
+
+  async speak(username: string, text: string, isMod: boolean, isVip: boolean) {
+    if (!this.voice || !this.enabled) return;
+    if (!isMod && !isVip && this.isFiltered(text)) return;
+    await this.voice.speak(username, text);
   }
 
   async start() {
@@ -144,7 +155,9 @@ export class Controller implements ChatTTSOrchestrator {
     });
 
     this.twitch.onMessage(async (_channel, _user, _text, msg) => {
-      await this.updateWithMessage(msg);
+      await this.updateWithMessage(msg).catch((err) =>
+        console.error(`onMessage handler failed: ${err}`)
+      );
     });
 
     this.twitch.connect();

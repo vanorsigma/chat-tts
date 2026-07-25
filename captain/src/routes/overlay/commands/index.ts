@@ -28,8 +28,6 @@ import {
   buyHandler,
   sellHandler,
   stocksHandler,
-  buyOrdersHandler,
-  sellOrdersHandler,
   endStreamHandler as stockEndStreamHandler
 } from './handlers/stockmarket';
 import {
@@ -38,7 +36,12 @@ import {
   giveKarmaHandler,
   togglesHandler
 } from './handlers/interactive';
-import { blockHandler, killHandler, restartHandler } from './handlers/moderation';
+import {
+  blockHandler,
+  killHandler,
+  restartHandler,
+  resetCooldownHandler
+} from './handlers/moderation';
 import { gambaHandler } from './handlers/gamba';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
@@ -50,6 +53,9 @@ import {
 } from './chance';
 import { addBitBoost, flushBitBoosts } from '$lib/api/bits';
 import { karmaStore } from '../stores';
+import { SKIPPED_USERNAMES } from '$lib/messageGuard';
+import { enqueueGambaSpin } from '../gamba/queue';
+import { SUB_BITS_GAMBA_ITEMS } from '../gamba/gamba';
 
 const PASS_THROUGH_COMMANDS = new Set(['%bid', '%endbid', '%distract', '%rotate', '%refreshVoice']);
 
@@ -72,17 +78,6 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
   '%pa',
   '%playsound',
   '%playaudio',
-  '%buy',
-  '%sell',
-  '%stocks',
-  '%buyorders',
-  '%sellorders',
-  '%endstream',
-  '%gamba',
-  '%selfthought',
-  '%goodnightkiss',
-  '%settitle',
-  '%givekarma',
   '%restart',
   '%undress',
   '%stars',
@@ -90,7 +85,14 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
   '%block',
   '%unblock',
   '%kill',
-  '%grayscale'
+  '%grayscale',
+  '%endstream',
+  '%gamba',
+  '%selfthought',
+  '%goodnightkiss',
+  '%settitle',
+  '%givekarma',
+  '%resetcooldown'
 ]);
 
 // Command name → key for commandChances lookup
@@ -111,6 +113,7 @@ export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   cooldowns: Map<string, number> = new Map();
   gambaUserCooldowns: Map<string, number> = new Map();
+  buyUserCooldowns: Map<string, number> = new Map();
   blacklist: Array<ChatCommand> = [];
   bitsBoosts: Map<string, number> = new Map();
 
@@ -215,6 +218,25 @@ export class Commands implements OverlayObserver {
     this.bitsBoosts.set(username, current + bits);
     console.log(`${username} cheered ${bits} bits (total boost: ${current + bits})`);
     await addBitBoost(username, bits);
+
+    const multiplier = bits / 100;
+    enqueueGambaSpin(
+      {
+        dispatcher: this.dispatchers!,
+        channelId: message.channelId!,
+        username,
+        bet: bits,
+        commands: this
+      },
+      multiplier,
+      SUB_BITS_GAMBA_ITEMS
+    );
+
+    this.dispatchers!.sendMessageAsUser(
+      message.channelId!,
+      `@${username} cheered ${bits} bits, spinning the gamba wheel!`,
+      message.id
+    );
   }
 
   getUserBitsBoost(username: string): number {
@@ -232,7 +254,8 @@ export class Commands implements OverlayObserver {
     message: ChatMessage,
     _commandName: ChatCommand
   ) {
-    if (message.userInfo.isBroadcaster) {
+    if (message.userInfo.isBroadcaster || SKIPPED_USERNAMES.has(message.userInfo.userName)) {
+      console.log(`Gate command trapdoor for ${message.userInfo.userName}`);
       this.dispatchCommand(commandIndicator, dispatcher, message);
       return;
     }
@@ -343,19 +366,13 @@ export class Commands implements OverlayObserver {
         });
         break;
       case '%buy':
-        buyHandler(dispatcher, message);
+        buyHandler(this, dispatcher, message);
         break;
       case '%sell':
         sellHandler(dispatcher, message);
         break;
       case '%stocks':
         stocksHandler(dispatcher, message);
-        break;
-      case '%buyorders':
-        buyOrdersHandler(dispatcher, message);
-        break;
-      case '%sellorders':
-        sellOrdersHandler(dispatcher, message);
         break;
       case '%endstream':
         stockEndStreamHandler(dispatcher, message);
@@ -382,6 +399,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%restart':
         restartHandler(dispatcher, message);
+        break;
+      case '%resetcooldown':
+        resetCooldownHandler(this, dispatcher, message);
         break;
       case '%undress':
         this.callOnlyIfPastCooldown('undress', dispatcher, message, () =>

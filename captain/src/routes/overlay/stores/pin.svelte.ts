@@ -26,11 +26,14 @@ export function createPinStore() {
   function set(pin: PinnedMessage) {
     if (timer) clearTimeout(timer);
     current = pin;
-    timer = setTimeout(() => {
-      current = null;
-      timer = null;
-      inform();
-    }, Math.max(0, pin.expiresAt - Date.now()));
+    timer = setTimeout(
+      () => {
+        current = null;
+        timer = null;
+        inform();
+      },
+      Math.max(0, pin.expiresAt - Date.now())
+    );
     inform();
   }
 

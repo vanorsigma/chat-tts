@@ -51,7 +51,7 @@ Starts on `http://0.0.0.0:8001` with two endpoints:
 ```
 POST /tts
 {"prompt": "Hello world", "voice": "af_heart", "speed": 1.0, "response_format": "mp3"}
-→ audio/mpeg bytes (or audio/pcm if response_format=pcm)
+→ chunked audio/mpeg bytes (or audio/pcm if response_format=pcm). Responses are streamed with Transfer-Encoding: chunked when not served from cache.
 ```
 
 ```

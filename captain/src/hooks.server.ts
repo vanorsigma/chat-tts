@@ -5,6 +5,14 @@ import { initializeTwitchPolls } from '$lib/server/twitchPolls';
 import { initializeTwitchRedeems } from '$lib/server/twitchRedeems';
 
 installConsoleHijack();
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
 console.log('Server starting...');
 initDbIfRequired().catch((e) => console.error('DB init failed:', e));
 initializeRuntime();

@@ -29,8 +29,12 @@ function startProgressTracking() {
   stopProgressTracking();
   progressInterval = setInterval(() => {
     if (state.audio && !state.audio.paused) {
-      state.positionMs = state.audio.currentTime * 1000;
-      state.durationMs = state.audio.duration * 1000 || 0;
+      if (Number.isFinite(state.audio.currentTime)) {
+        state.positionMs = state.audio.currentTime * 1000;
+      }
+      if (Number.isFinite(state.audio.duration) && state.audio.duration > 0) {
+        state.durationMs = state.audio.duration * 1000;
+      }
       onProgress?.();
     }
   }, SONG_PROGRESS_INTERVAL_MS);
@@ -44,7 +48,7 @@ function stopProgressTracking() {
 }
 
 export function createAudioEngine() {
-  function load(url: string, songId: string) {
+  function load(url: string, songId: string, durationMs?: number) {
     if (state.audio) {
       state.audio.pause();
       state.audio.src = '';
@@ -54,7 +58,9 @@ export function createAudioEngine() {
     audio.preservesPitch = false;
     audio.volume = state.volume;
     audio.addEventListener('loadedmetadata', () => {
-      state.durationMs = audio.duration * 1000;
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        state.durationMs = audio.duration * 1000;
+      }
       state.positionMs = 0;
     });
     audio.addEventListener('ended', () => {
@@ -65,9 +71,8 @@ export function createAudioEngine() {
     state.audio = audio;
     state.songId = songId;
     state.playing = false;
-    state.rate = 0;
     state.positionMs = 0;
-    state.durationMs = 0;
+    state.durationMs = durationMs ?? 0;
     onLoadCb?.(audio);
   }
 
@@ -107,8 +112,6 @@ export function createAudioEngine() {
     state.audio = null;
     state.songId = null;
     state.playing = false;
-    state.rate = 0;
-    state.volume = 0.5;
     state.positionMs = 0;
     state.durationMs = 0;
     stopProgressTracking();

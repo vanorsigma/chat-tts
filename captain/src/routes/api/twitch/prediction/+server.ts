@@ -7,7 +7,10 @@ export const POST: RequestHandler = async ({ request }) => {
   const { title, outcomes, autoLockAfter } = body;
 
   if (!title || !outcomes || !Array.isArray(outcomes) || outcomes.length !== 2) {
-    return json({ error: 'Invalid input: title required, exactly 2 outcomes required' }, { status: 400 });
+    return json(
+      { error: 'Invalid input: title required, exactly 2 outcomes required' },
+      { status: 400 }
+    );
   }
   for (const o of outcomes) {
     if (typeof o !== 'string' || o.length < 1 || o.length > 25) {

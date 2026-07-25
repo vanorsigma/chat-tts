@@ -1,44 +1,51 @@
-import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import { getOverlayConfig } from '../constants';
+import { PEOPLE_WHO_CHECKED_IN } from '../commands/middleware';
+import { GLOBAL_PROVIDER_REGISTRY } from './providers';
+import {
+  apiBuy,
+  apiSell,
+  apiGrantPoints,
+  apiGetHoldings,
+  type BuyResponse,
+  type SellResponse,
+  type GrantResponse,
+  type HoldingInfo
+} from '$lib/api/stock-market';
+import { getPointsForUser } from '$lib/api/points';
 
 export class StockMarketError extends Error {}
 
-export interface PendingOrder {
-  id: string;
-  user: string;
-  stock: string;
-  amount: number;
-  price: number;
-  timestamp: number;
+function currentPriceOrThrow(stock: string): number {
+  const price = GLOBAL_PROVIDER_REGISTRY.get(stock)?.current;
+  if (!price || price <= 0) {
+    throw new StockMarketError(`Stock not available: ${stock}`);
+  }
+  return price;
 }
 
-interface Holding {
-  shares: number;
+function currentPriceOrDefault(stock: string): number | null {
+  const price = GLOBAL_PROVIDER_REGISTRY.get(stock)?.current;
+  return price && price > 0 ? price : null;
 }
 
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10);
+type ScoredHolding = HoldingInfo & { _profitScore: number };
+
+function scoreHoldings(holdings: HoldingInfo[]): ScoredHolding[] {
+  return holdings
+    .map((h) => {
+      const price = currentPriceOrDefault(h.stock);
+      const profit =
+        price !== null ? ((price - h.buyPrice) / h.buyPrice) * h.investedPoints : -Infinity;
+      return { ...h, _profitScore: profit };
+    })
+    .sort((a, b) => b._profitScore - a._profitScore);
 }
 
-export interface PayoutInfo {
-  user: string;
-  stock: string;
-  shares: number;
-  payoutPerShare: number;
-  total: number;
-}
-
-export interface OrderBookSnapshot {
-  buys: PendingOrder[];
-  sells: PendingOrder[];
+export interface UserHoldings {
+  holdings: HoldingInfo[];
 }
 
 export class StockMarket {
-  private holdings = new Map<string, Map<string, Holding>>();
-  private buyOrders = new Map<string, PendingOrder[]>();
-  private sellOrders = new Map<string, PendingOrder[]>();
-  private lastSellPrice = new Map<string, number>();
-  private isClosed = false;
   private subscribers: Array<() => void> = [];
 
   subscribe(fn: () => void): () => void {
@@ -52,302 +59,178 @@ export class StockMarket {
     for (const sub of this.subscribers) sub();
   }
 
-  get closed(): boolean {
-    return this.isClosed;
+  approvedStocks(): string[] {
+    return getOverlayConfig().stockMarket.approvedStocks;
   }
 
-  grantShares(user: string, stock: string, amount: number): void {
-    if (this.isClosed) throw new StockMarketError('The market is closed');
-    this.ensureStock(stock);
-    this._grantShares(user, stock, amount);
-    this.notify();
-  }
-
-  checkin(user: string): void {
-    const stocks = this.allStockSymbols();
-    for (const stock of stocks) {
-      this._grantShares(user, stock, getOverlayConfig().stockMarket.checkinShares);
-    }
-  }
-
-  private allStockSymbols(): string[] {
-    const symbols = new Set<string>();
-    for (const key of this.buyOrders.keys()) symbols.add(key);
-    for (const key of this.sellOrders.keys()) symbols.add(key);
-    for (const [user, map] of this.holdings) {
-      for (const sym of map.keys()) symbols.add(sym);
-    }
-    return symbols.size > 0 ? Array.from(symbols) : ['HEART'];
-  }
-
-  private ensureStock(stock: string): void {
-    if (!this.buyOrders.has(stock)) this.buyOrders.set(stock, []);
-    if (!this.sellOrders.has(stock)) this.sellOrders.set(stock, []);
-  }
-
-  private getHoldings(user: string, stock: string): number {
-    return this.holdings.get(user)?.get(stock)?.shares ?? 0;
-  }
-
-  private _grantShares(user: string, stock: string, amount: number): void {
-    if (!this.holdings.has(user)) this.holdings.set(user, new Map());
-    const userMap = this.holdings.get(user)!;
-    const existing = userMap.get(stock);
-    userMap.set(stock, { shares: (existing?.shares ?? 0) + amount });
-  }
-
-  private removeShares(user: string, stock: string, amount: number): void {
-    const userMap = this.holdings.get(user);
-    if (!userMap) throw new StockMarketError('No holdings for user');
-    const holding = userMap.get(stock);
-    if (!holding || holding.shares < amount) throw new StockMarketError('Not enough shares');
-    holding.shares -= amount;
-    if (holding.shares <= 0) userMap.delete(stock);
-  }
-
-  async buy(
-    user: string,
-    stock: string,
-    amount: number,
-    price: number
-  ): Promise<{ matched: number; placed: PendingOrder | null; instant: boolean }> {
-    if (this.isClosed) throw new StockMarketError('The market is closed');
-    this.ensureStock(stock);
-
-    const totalCost = amount * price;
-
-    let buyerBalance = (await getPointsForUser(user)) ?? 0;
-    if (buyerBalance < totalCost) throw new StockMarketError('Insufficient points');
-
-    let remaining = amount;
-    let matched = 0;
-
-    const sells = this.sellOrders.get(stock)!;
-    const matchedSells: PendingOrder[] = [];
-
-    for (const sell of sells) {
-      if (remaining <= 0) break;
-      if (sell.price <= price) {
-        const matchAmount = Math.min(remaining, sell.amount);
-        const matchCost = matchAmount * sell.price;
-
-        const sellerPoints = (await getPointsForUser(sell.user)) ?? 0;
-        buyerBalance -= matchCost;
-        await setPointsForUser(user, buyerBalance);
-        await setPointsForUser(sell.user, sellerPoints + matchCost);
-
-        this._grantShares(user, stock, matchAmount);
-        this.removeShares(sell.user, stock, matchAmount);
-        this.lastSellPrice.set(stock, sell.price);
-
-        sell.amount -= matchAmount;
-        remaining -= matchAmount;
-        matched += matchAmount;
-
-        if (sell.amount <= 0) matchedSells.push(sell);
-      }
+  async buy(user: string, stock: string, points: number, skipChance = false, overpay = 0): Promise<BuyResponse> {
+    if (!this.approvedStocks().includes(stock)) {
+      throw new StockMarketError(`Unknown stock: ${stock}`);
     }
 
-    this.sellOrders.set(
-      stock,
-      sells.filter((s) => !matchedSells.includes(s))
+    const price = currentPriceOrThrow(stock);
+    const cfg = getOverlayConfig().stockMarket;
+
+    console.log(
+      `[stock-market] buy request: user=${user} stock=${stock} points=${points} price=${price} overpay=${overpay}`
     );
 
-    let instant = false;
-    let placed: PendingOrder | null = null;
-
-    if (remaining > 0) {
-      const chance = getOverlayConfig().stockMarket.instantSuccessChance;
-      if (Math.random() < chance) {
-        const instantCost = remaining * price;
-        buyerBalance -= instantCost;
-        await setPointsForUser(user, buyerBalance);
-        this._grantShares(user, stock, remaining);
-        this.lastSellPrice.set(stock, price);
-        instant = true;
-        matched += remaining;
-        remaining = 0;
-      } else {
-        const order: PendingOrder = {
-          id: generateId(),
-          user,
-          stock,
-          amount: remaining,
-          price,
-          timestamp: Date.now()
-        };
-        this.buyOrders.get(stock)!.push(order);
-        placed = order;
-      }
-    }
-
+    const result = await apiBuy({
+      username: user,
+      stock,
+      points,
+      price,
+      steepness: cfg.buyFailSteepness,
+      overpay,
+      overpayFactor: cfg.overpayFactor,
+      skipChance,
+      checkedInUsers: PEOPLE_WHO_CHECKED_IN
+    });
     this.notify();
-    return { matched, placed, instant };
+    return result;
   }
 
-  async sell(
-    user: string,
-    stock: string,
-    amount: number,
-    price: number
-  ): Promise<{ matched: number; placed: PendingOrder | null; instant: boolean }> {
-    if (this.isClosed) throw new StockMarketError('The market is closed');
-    this.ensureStock(stock);
+  async buyAll(user: string, stock: string, skipChance = false): Promise<BuyResponse> {
+    const points = (await getPointsForUser(user)) ?? 0;
+    if (points <= 0) {
+      return { ok: false, error: 'No points to invest' };
+    }
+    return this.buy(user, stock, points, skipChance);
+  }
 
-    const holdings = this.getHoldings(user, stock);
-    if (holdings < amount) throw new StockMarketError('Not enough shares');
-
-    let remaining = amount;
-    let matched = 0;
-
-    const buys = this.buyOrders.get(stock)!;
-    const matchedBuys: PendingOrder[] = [];
-
-    for (const buy of buys) {
-      if (remaining <= 0) break;
-      if (buy.price >= price) {
-        const matchAmount = Math.min(remaining, buy.amount);
-        const matchCost = matchAmount * price;
-
-        const buyerPoints = (await getPointsForUser(buy.user)) ?? 0;
-        const sellerPoints = (await getPointsForUser(user)) ?? 0;
-        await setPointsForUser(buy.user, buyerPoints + matchCost);
-        await setPointsForUser(user, sellerPoints + matchCost);
-
-        this.removeShares(user, stock, matchAmount);
-        this._grantShares(buy.user, stock, matchAmount);
-        this.lastSellPrice.set(stock, price);
-
-        buy.amount -= matchAmount;
-        remaining -= matchAmount;
-        matched += matchAmount;
-
-        if (buy.amount <= 0) matchedBuys.push(buy);
-      }
+  async sell(user: string, stock?: string): Promise<SellResponse> {
+    const raw = await apiGetHoldings(user);
+    let holdings = raw.holdings;
+    if (stock) {
+      holdings = holdings.filter((h) => h.stock === stock);
     }
 
-    this.buyOrders.set(
-      stock,
-      buys.filter((b) => !matchedBuys.includes(b))
+    if (holdings.length === 0) {
+      return { ok: false, error: 'No holdings to sell.' };
+    }
+
+    const scored = scoreHoldings(holdings);
+    const top = scored[0];
+    const price = currentPriceOrDefault(top.stock);
+    if (price === null) {
+      return { ok: false, error: `Stock not available: ${top.stock}` };
+    }
+
+    console.log(
+      `[stock-market] sell request: user=${user} id=${top.id} stock=${top.stock} price=${price}`
     );
 
-    let instant = false;
-    let placed: PendingOrder | null = null;
-
-    if (remaining > 0) {
-      const chance = getOverlayConfig().stockMarket.instantSuccessChance;
-      if (Math.random() < chance) {
-        await setPointsForUser(user, (await getPointsForUser(user))! + remaining * price);
-        this.removeShares(user, stock, remaining);
-        this.lastSellPrice.set(stock, price);
-        instant = true;
-        matched += remaining;
-        remaining = 0;
-      } else {
-        const order: PendingOrder = {
-          id: generateId(),
-          user,
-          stock,
-          amount: remaining,
-          price,
-          timestamp: Date.now()
-        };
-        this.sellOrders.get(stock)!.push(order);
-        placed = order;
-      }
-    }
-
+    const result = await apiSell({
+      username: user,
+      holdings: [{ id: top.id, price }]
+    });
     this.notify();
-    return { matched, placed, instant };
+    return result;
   }
 
-  userPositions(user: string): {
-    shares: Record<string, number>;
-    buyOrders: PendingOrder[];
-    sellOrders: PendingOrder[];
-  } {
-    const shares: Record<string, number> = {};
-    const userHoldings = this.holdings.get(user);
-    if (userHoldings) {
-      for (const [stock, h] of userHoldings) {
-        shares[stock] = h.shares;
+  async sellAll(user: string, stock?: string): Promise<SellResponse> {
+    const raw = await apiGetHoldings(user);
+    let holdings = raw.holdings;
+    if (stock) {
+      holdings = holdings.filter((h) => h.stock === stock);
+    }
+
+    if (holdings.length === 0) {
+      return { ok: false, error: 'No holdings to sell.' };
+    }
+
+    const sales = holdings.map((h) => {
+      const price = currentPriceOrDefault(h.stock);
+      if (price === null) {
+        throw new StockMarketError(`Stock not available: ${h.stock}`);
       }
-    }
+      return { id: h.id, price };
+    });
 
-    const buyOrders: PendingOrder[] = [];
-    const sellOrders: PendingOrder[] = [];
+    console.log(
+      `[stock-market] sellAll request: user=${user} count=${sales.length} stock=${stock ?? 'all'}`
+    );
 
-    for (const orders of this.buyOrders.values()) {
-      for (const o of orders) {
-        if (o.user === user) buyOrders.push(o);
-      }
-    }
-    for (const orders of this.sellOrders.values()) {
-      for (const o of orders) {
-        if (o.user === user) sellOrders.push(o);
-      }
-    }
-
-    return { shares, buyOrders, sellOrders };
-  }
-
-  randomBuyOrders(n: number = 5): PendingOrder[] {
-    const all: PendingOrder[] = [];
-    for (const orders of this.buyOrders.values()) all.push(...orders);
-    return this.shuffleTake(all, n);
-  }
-
-  randomSellOrders(n: number = 5): PendingOrder[] {
-    const all: PendingOrder[] = [];
-    for (const orders of this.sellOrders.values()) all.push(...orders);
-    return this.shuffleTake(all, n);
-  }
-
-  private shuffleTake<T>(arr: T[], n: number): T[] {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy.slice(0, n);
-  }
-
-  private async refundOrder(order: PendingOrder): Promise<void> {
-    const p = (await getPointsForUser(order.user)) ?? 0;
-    await setPointsForUser(order.user, p + order.amount * order.price);
-  }
-
-  async close(): Promise<PayoutInfo[]> {
-    this.isClosed = true;
-    const payouts: PayoutInfo[] = [];
-
-    for (const [user, userMap] of this.holdings) {
-      for (const [stock, h] of userMap) {
-        const price =
-          this.lastSellPrice.get(stock) ?? getOverlayConfig().stockMarket.endstreamDefaultPrice;
-        const total = h.shares * price;
-        const p = (await getPointsForUser(user)) ?? 0;
-        await setPointsForUser(user, p + total);
-        payouts.push({ user, stock, shares: h.shares, payoutPerShare: price, total });
-      }
-    }
-
-    this.holdings.clear();
-
-    for (const orders of this.buyOrders.values()) {
-      for (const o of orders) await this.refundOrder(o);
-    }
-    for (const orders of this.sellOrders.values()) {
-      for (const o of orders) {
-        this._grantShares(o.user, o.stock, o.amount);
-      }
-    }
-
-    this.buyOrders.clear();
-    this.sellOrders.clear();
+    const result = await apiSell({ username: user, holdings: sales });
     this.notify();
+    return result;
+  }
 
-    return payouts;
+  async sellAmount(user: string, stock: string | undefined, amount: number): Promise<SellResponse> {
+    const raw = await apiGetHoldings(user);
+    let holdings = raw.holdings;
+    if (stock) {
+      holdings = holdings.filter((h) => h.stock === stock);
+    }
+
+    if (holdings.length === 0) {
+      return { ok: false, error: 'No holdings to sell.' };
+    }
+
+    const scored = scoreHoldings(holdings);
+    const top = scored[0];
+    const price = currentPriceOrDefault(top.stock);
+    if (price === null) {
+      return { ok: false, error: `Stock not available: ${top.stock}` };
+    }
+
+    const sellAmt = Math.min(amount, top.investedPoints);
+
+    console.log(
+      `[stock-market] sellAmount request: user=${user} id=${top.id} stock=${top.stock} amount=${sellAmt} price=${price}`
+    );
+
+    const result = await apiSell({
+      username: user,
+      holdings: [{ id: top.id, price, amount: sellAmt }]
+    });
+    this.notify();
+    return result;
+  }
+
+  async grantPoints(user: string, stock: string, points: number): Promise<GrantResponse> {
+    const price = currentPriceOrThrow(stock);
+
+    console.log(
+      `[stock-market] grant request: user=${user} stock=${stock} points=${points} price=${price}`
+    );
+
+    const result = await apiGrantPoints({
+      username: user,
+      stock,
+      points,
+      price
+    });
+    this.notify();
+    return result;
+  }
+
+  async checkin(user: string): Promise<void> {
+    const cfg = getOverlayConfig().stockMarket;
+    for (const stock of this.approvedStocks()) {
+      await this.grantPoints(user, stock, cfg.checkinGrantPoints);
+    }
+    this.notify();
+  }
+
+  async getHoldings(user: string): Promise<UserHoldings> {
+    const raw = await apiGetHoldings(user);
+
+    const holdings: HoldingInfo[] = raw.holdings.map((h) => {
+      const price = currentPriceOrDefault(h.stock);
+      const marketValue = price ? Math.round(h.investedPoints * (price / h.buyPrice)) : null;
+      const profit =
+        price !== null ? Math.round(((price - h.buyPrice) / h.buyPrice) * h.investedPoints) : null;
+
+      return {
+        ...h,
+        currentPrice: price,
+        marketValue: marketValue ? Math.round(marketValue) : null,
+        profit
+      };
+    });
+
+    return { holdings };
   }
 }
 

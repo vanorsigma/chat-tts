@@ -1,7 +1,7 @@
 import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import type { Commands } from '../index';
-import { checkCostAddIfEnough } from '../middleware';
+import { checkCostAddIfEnough, resetAllOverlayCooldowns, resetUserCooldowns } from '../middleware';
 import { requireUsername } from './shared';
 import { getOverlayConfig } from '../../constants';
 import { asChatCommand } from '../registry';
@@ -188,6 +188,76 @@ export async function killHandler(dispatcher: OverlayDispatchers, message: ChatM
         originalMessageId
       );
     }
+  );
+}
+
+export async function resetCooldownHandler(
+  commands: Commands,
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage
+) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  const args = message.text.split(' ').slice(1);
+  const modifier = args[0]?.toLowerCase();
+
+  const isModOrBroadcaster = message.userInfo.isMod || message.userInfo.isBroadcaster;
+
+  if (modifier === 'all') {
+    if (!isModOrBroadcaster) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        'only moderators can reset all cooldowns',
+        message.id
+      );
+      return;
+    }
+
+    resetAllOverlayCooldowns(commands);
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      'All overlay cooldowns reset!',
+      message.id
+    );
+    return;
+  }
+
+  if (modifier) {
+    if (!isModOrBroadcaster) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        'only moderators can reset another user\'s cooldowns',
+        message.id
+      );
+      return;
+    }
+
+    resetUserCooldowns(commands, modifier);
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `@${modifier}'s cooldowns reset`,
+      message.id
+    );
+    return;
+  }
+
+  if (
+    !(await checkCostAddIfEnough(
+      dispatcher,
+      message.channelId!,
+      username,
+      -getOverlayConfig().resetCooldown.cost,
+      message.id
+    ))
+  )
+    return;
+
+  resetUserCooldowns(commands, username);
+  dispatcher.sendMessageAsUser(
+    message.channelId!,
+    `@${username}'s cooldowns reset (-${getOverlayConfig().resetCooldown.cost}VD)`,
+    message.id
   );
 }
 

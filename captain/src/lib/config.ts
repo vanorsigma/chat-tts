@@ -89,6 +89,10 @@ export interface OverlayPlayAudioConfig {
   karma: number;
 }
 
+export interface OverlayResetCooldownConfig {
+  cost: number;
+}
+
 export interface OverlaySelfThoughtConfig {
   cost: number;
   karma: number;
@@ -159,9 +163,10 @@ export interface OverlayRestartConfig {}
 
 export interface OverlayStockMarketConfig {
   cycleIntervalMs: number;
-  instantSuccessChance: number;
-  checkinShares: number;
-  endstreamDefaultPrice: number;
+  checkinGrantPoints: number;
+  approvedStocks: string[];
+  buyFailSteepness: number;
+  overpayFactor: number;
 }
 
 export interface OverlayCommandCooldownsConfig {
@@ -191,6 +196,10 @@ export interface OverlayPositionsConfig {
   rightPanelY: number;
   pinX: number;
   pinY: number;
+  wheelX?: string;
+  wheelY?: string;
+  wheelWidth?: string;
+  wheelHeight?: string;
 }
 
 export interface StartingSoonArtEntry {
@@ -208,6 +217,8 @@ export interface RemoteVoiceConfig {
 
 export interface RemoteChatTTSControllerConfig {}
 
+export interface DelegateVoiceToOverlayConfig {}
+
 export interface MakiConfigOptional {
   twitchClientId?: string;
   twitchClientSecret?: string;
@@ -215,6 +226,8 @@ export interface MakiConfigOptional {
   openrouterApiKey?: string;
   makiModel?: string;
   evaluatorModel?: string;
+  deepReasoningModel?: string;
+  deepReasoningMaxTokens?: number;
   maxTokens?: number;
   communicationBusUrl?: string;
   screenshotDisplay?: number;
@@ -228,6 +241,8 @@ export interface MakiConfig {
   openrouterApiKey: string;
   makiModel: string;
   evaluatorModel: string;
+  deepReasoningModel: string;
+  deepReasoningMaxTokens: number;
   maxTokens: number;
   communicationBusUrl: string;
   screenshotDisplay: number;
@@ -265,6 +280,7 @@ export class ParseableConfig {
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfigOptional;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
+  delegateVoiceToOverlay?: DelegateVoiceToOverlayConfig;
   ignorePrefix?: string;
   makiConfig?: MakiConfigOptional;
 
@@ -276,6 +292,7 @@ export class ParseableConfig {
   overlayMistakeConfig?: OverlayMistakeConfig;
   overlayShowImageConfig?: OverlayShowImageConfig;
   overlayPlayAudioConfig?: OverlayPlayAudioConfig;
+  overlayResetCooldownConfig?: OverlayResetCooldownConfig;
   overlaySelfThoughtConfig?: OverlaySelfThoughtConfig;
   overlayGoodNightKissConfig?: OverlayGoodNightKissConfig;
   overlaySetTitleConfig?: OverlaySetTitleConfig;
@@ -320,6 +337,7 @@ export class ParseableConfig {
     this.remoteVoiceConfig = arbitraryObject['remoteVoiceConfig'];
     this.distractConfig = arbitraryObject['distractConfig'];
     this.remoteChatTTS = arbitraryObject['remoteChatTTS'];
+    this.delegateVoiceToOverlay = arbitraryObject['delegateVoiceToOverlay'];
     this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
     this.makiConfig = arbitraryObject['makiConfig'];
 
@@ -331,6 +349,7 @@ export class ParseableConfig {
     this.overlayMistakeConfig = arbitraryObject['mistakeConfig'];
     this.overlayShowImageConfig = arbitraryObject['showImageConfig'];
     this.overlayPlayAudioConfig = arbitraryObject['playAudioConfig'];
+    this.overlayResetCooldownConfig = arbitraryObject['resetCooldownConfig'];
     this.overlaySelfThoughtConfig = arbitraryObject['selfThoughtConfig'];
     this.overlayGoodNightKissConfig = arbitraryObject['goodNightKissConfig'];
     this.overlaySetTitleConfig = arbitraryObject['setTitleConfig'];
@@ -376,98 +395,139 @@ export class ParseableConfig {
       dynamicConfig: {
         songPitchSpeedAffected: false
       },
-      distractConfig: this.distractConfig ? {
-        enabled: false,
-        distractCooldown: 900,
-        rotateCooldown: 300,
-        distractChance: 0.001,
-        rotateChance: 0.01,
-        ...this.distractConfig
-      } : undefined,
-      moderationConfig: this.overlayModerationConfig ? {
-        moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
-        unblockableCommands: [
-          '%restart',
-          '%block',
-          '%unblock',
-          '%endstream',
-          '%refreshVoice',
-          '%rotate',
-          '%distract'
-        ],
-        blockMinimumBid: 1000,
-        killCost: 2000,
-        ...this.overlayModerationConfig
-      } : undefined,
-      blackSilenceConfig: this.overlayBlackSilenceConfig ? {
-        user: 'nikitakik228',
-        durationMs: 10000,
-        cost: 500,
-        karma: 50,
-        ...this.overlayBlackSilenceConfig
-      } : undefined,
-      flashbangConfig: this.overlayFlashbangConfig ? { cost: 500, karma: -100, ...this.overlayFlashbangConfig } : undefined,
-      maxwellConfig: this.overlayMaxwellConfig ? {
-        cost: 100,
-        user: '5kuli',
-        cooldownMs: 30000,
-        limit: 100,
-        ...this.overlayMaxwellConfig
-      } : undefined,
-      grayscaleConfig: this.overlayGrayscaleConfig ? { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 10000, ...this.overlayGrayscaleConfig } : undefined,
-      mistakeConfig: this.overlayMistakeConfig ? { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig } : undefined,
-      showImageConfig: this.overlayShowImageConfig ? {
-        cost: 10000,
-        user: 'mayoigo_qwq',
-        cooldownMs: 60000,
-        karma: -200,
-        ...this.overlayShowImageConfig
-      } : undefined,
-      playAudioConfig: this.overlayPlayAudioConfig ? {
-        cost: 10000,
-        user: 'SpookiestSpooks',
-        karma: -100,
-        ...this.overlayPlayAudioConfig
-      } : undefined,
-      selfThoughtConfig: this.overlaySelfThoughtConfig ? { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig } : undefined,
-      goodNightKissConfig: this.overlayGoodNightKissConfig ? {
-        cost: 5000,
-        user: 'pastel8844',
-        karma: -300,
-        timeoutDurationSec: 1800,
-        ...this.overlayGoodNightKissConfig
-      } : undefined,
-      setTitleConfig: this.overlaySetTitleConfig ? {
-        cost: 1000,
-        karmaRequirement: 100,
-        karmaModifier: -0.3,
-        user: 'sekatsu1',
-        ...this.overlaySetTitleConfig
-      } : undefined,
-      karmaConfig: this.overlayKarmaConfig ? {
-        min: -5000,
-        max: 5000,
-        dingThreshold: 250,
-        decayRate: 0.01,
-        karmaMap: [
-          { command: '%rotate', karma: -100 },
-          { command: '%distract', karma: -200 }
-        ],
-        togglesKarma: [
-          { name: 'Hearts', karma: 5.0 },
-          { name: 'Stars', karma: 5.0 },
-          { name: 'Undress', karma: 50.0 }
-        ],
-        ...this.overlayKarmaConfig
-      } : undefined,
-      modelConfig: this.overlayModelConfig ? {
-        initialHeartrate: 50,
-        blushHrThreshold: 80,
-        despairHrThreshold: 50,
-        ...this.overlayModelConfig
-      } : undefined,
-      captchaConfig: this.overlayCaptchaConfig ? { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig } : undefined,
-      checkInConfig: this.overlayCheckInConfig ? { points: 999.99, ...this.overlayCheckInConfig } : undefined,
+      distractConfig: this.distractConfig
+        ? {
+            enabled: false,
+            distractCooldown: 900,
+            rotateCooldown: 300,
+            distractChance: 0.001,
+            rotateChance: 0.01,
+            ...this.distractConfig
+          }
+        : undefined,
+      moderationConfig: this.overlayModerationConfig
+        ? {
+            moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
+            unblockableCommands: [
+              '%restart',
+              '%block',
+              '%unblock',
+              '%endstream',
+              '%refreshVoice',
+              '%rotate',
+              '%distract'
+            ],
+            blockMinimumBid: 1000,
+            killCost: 2000,
+            ...this.overlayModerationConfig
+          }
+        : undefined,
+      blackSilenceConfig: this.overlayBlackSilenceConfig
+        ? {
+            user: 'nikitakik228',
+            durationMs: 10000,
+            cost: 500,
+            karma: 50,
+            ...this.overlayBlackSilenceConfig
+          }
+        : undefined,
+      flashbangConfig: this.overlayFlashbangConfig
+        ? { cost: 500, karma: -100, ...this.overlayFlashbangConfig }
+        : undefined,
+      maxwellConfig: this.overlayMaxwellConfig
+        ? {
+            cost: 100,
+            user: '5kuli',
+            cooldownMs: 30000,
+            limit: 100,
+            ...this.overlayMaxwellConfig
+          }
+        : undefined,
+      grayscaleConfig: this.overlayGrayscaleConfig
+        ? {
+            cost: 1000,
+            karma: -100,
+            shader: 'grayscale',
+            durationMs: 10000,
+            ...this.overlayGrayscaleConfig
+          }
+        : undefined,
+      mistakeConfig: this.overlayMistakeConfig
+        ? { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig }
+        : undefined,
+      showImageConfig: this.overlayShowImageConfig
+        ? {
+            cost: 10000,
+            user: 'mayoigo_qwq',
+            cooldownMs: 60000,
+            karma: -200,
+            ...this.overlayShowImageConfig
+          }
+        : undefined,
+      playAudioConfig: this.overlayPlayAudioConfig
+        ? {
+            cost: 10000,
+            user: 'SpookiestSpooks',
+            karma: -100,
+            ...this.overlayPlayAudioConfig
+          }
+        : undefined,
+      resetCooldownConfig: this.overlayResetCooldownConfig
+        ? { cost: 20000, ...this.overlayResetCooldownConfig }
+        : { cost: 20000 },
+      selfThoughtConfig: this.overlaySelfThoughtConfig
+        ? { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig }
+        : undefined,
+      goodNightKissConfig: this.overlayGoodNightKissConfig
+        ? {
+            cost: 5000,
+            user: 'pastel8844',
+            karma: -300,
+            timeoutDurationSec: 1800,
+            ...this.overlayGoodNightKissConfig
+          }
+        : undefined,
+      setTitleConfig: this.overlaySetTitleConfig
+        ? {
+            cost: 1000,
+            karmaRequirement: 100,
+            karmaModifier: -0.3,
+            user: 'sekatsu1',
+            ...this.overlaySetTitleConfig
+          }
+        : undefined,
+      karmaConfig: this.overlayKarmaConfig
+        ? {
+            min: -5000,
+            max: 5000,
+            dingThreshold: 250,
+            decayRate: 0.01,
+            karmaMap: [
+              { command: '%rotate', karma: -100 },
+              { command: '%distract', karma: -200 }
+            ],
+            togglesKarma: [
+              { name: 'Hearts', karma: 5.0 },
+              { name: 'Stars', karma: 5.0 },
+              { name: 'Undress', karma: 50.0 }
+            ],
+            ...this.overlayKarmaConfig
+          }
+        : undefined,
+      modelConfig: this.overlayModelConfig
+        ? {
+            initialHeartrate: 50,
+            blushHrThreshold: 80,
+            despairHrThreshold: 50,
+            ...this.overlayModelConfig
+          }
+        : undefined,
+      captchaConfig: this.overlayCaptchaConfig
+        ? { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig }
+        : undefined,
+      checkInConfig: this.overlayCheckInConfig
+        ? { points: 999.99, ...this.overlayCheckInConfig }
+        : undefined,
       pollConfig: this.overlayPollConfig,
       predictionConfig: this.overlayPredictionConfig,
       economyConfig: this.overlayEconomyConfig,
@@ -475,13 +535,16 @@ export class ParseableConfig {
       bidConfig: this.overlayBidConfig,
       voiceConfig: this.overlayVoiceConfig,
       restartConfig: this.overlayRestartConfig,
-      stockMarketConfig: this.overlayStockMarketConfig ? {
-        cycleIntervalMs: 15000,
-        instantSuccessChance: 0.05,
-        checkinShares: 100,
-        endstreamDefaultPrice: 1,
-        ...this.overlayStockMarketConfig
-      } : undefined,
+      stockMarketConfig: this.overlayStockMarketConfig
+        ? {
+            cycleIntervalMs: 15000,
+            checkinGrantPoints: 1000,
+            approvedStocks: ['HEART'],
+            buyFailSteepness: 8,
+            overpayFactor: 0.1,
+            ...this.overlayStockMarketConfig
+          }
+        : undefined,
       commandCooldownsConfig: {
         poll: 10000,
         prediction: 10000,
@@ -504,6 +567,10 @@ export class ParseableConfig {
         ...this.overlayCommandChancesConfig
       },
       overlayPositionsConfig: {
+        wheelX: '50%',
+        wheelY: '50%',
+        wheelWidth: '60vmin',
+        wheelHeight: '60vmin',
         artistWidgetX: 20,
         artistWidgetY: 20,
         rightPanelX: 1520,
@@ -514,6 +581,7 @@ export class ParseableConfig {
       },
       redeemConfig: this.overlayRedeemConfig ?? { redeems: [] },
       remoteChatTTS: this.remoteChatTTS,
+      delegateVoiceToOverlay: this.delegateVoiceToOverlay,
       ignorePrefix: this.ignorePrefix ?? '~',
       makiConfig: {
         twitchClientId: this.makiConfig?.twitchClientId ?? '',
@@ -522,6 +590,8 @@ export class ParseableConfig {
         openrouterApiKey: this.makiConfig?.openrouterApiKey ?? '',
         makiModel: this.makiConfig?.makiModel ?? 'google/gemini-2.5-flash-lite',
         evaluatorModel: this.makiConfig?.evaluatorModel ?? 'qwen/qwen3-coder-30b-a3b-instruct',
+        deepReasoningModel: this.makiConfig?.deepReasoningModel ?? 'google/gemini-3.6-flash',
+        deepReasoningMaxTokens: this.makiConfig?.deepReasoningMaxTokens ?? 4096,
         maxTokens: this.makiConfig?.maxTokens ?? 1024,
         communicationBusUrl: this.makiConfig?.communicationBusUrl ?? 'ws://localhost:3001/senders',
         screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1,
@@ -553,6 +623,7 @@ export interface FullConfig {
   showImageConfig?: OverlayShowImageConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
+  resetCooldownConfig: OverlayResetCooldownConfig;
   goodNightKissConfig?: OverlayGoodNightKissConfig;
   setTitleConfig?: OverlaySetTitleConfig;
   karmaConfig?: OverlayKarmaConfig;
@@ -572,6 +643,7 @@ export interface FullConfig {
   overlayPositionsConfig: OverlayPositionsConfig;
   dynamicConfig: DynamicConfig;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
+  delegateVoiceToOverlay?: DelegateVoiceToOverlayConfig;
   ignorePrefix: string;
   makiConfig: MakiConfig;
   redeemConfig: RedeemConfig;

@@ -38,6 +38,7 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
 
     def __init__(self):
         super().__init__()
+        self._closing = False
         self.playing_ref_count = 0
         self.windows: list[QWidget] = []
         self.setWindowTitle("Thingy")
@@ -97,6 +98,7 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
             playing_signal.connect(self._on_playing_changed)
 
     def show(self) -> None:
+        self._closing = False
         super().show()
         for w in self.windows:
             w.show()
@@ -104,14 +106,29 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
         QApplication.instance().installEventFilter(self)
 
     def close(self) -> None:
+        if self._closing:
+            return
+        self._closing = True
+
+        self.media_player.stop()
+        self.media_player.setSource(QUrl())
+
         QApplication.instance().removeEventFilter(self)
         for w in list(self.windows):
-            w.closed.disconnect()
+            try:
+                w.closed.disconnect()
+            except TypeError:
+                pass
+            playing_signal = getattr(w, "playing_signal", None)
+            if playing_signal is not None:
+                try:
+                    playing_signal.disconnect()
+                except TypeError:
+                    pass
             w.close()
 
         self.windows = []
         self.playing_ref_count = 0
-        self.media_player.stop()
         super().close()
 
     def eventFilter(self, obj, event) -> bool:
@@ -128,10 +145,13 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
             self.media_player.play()
 
     def _on_closed(self, widget: QWidget):
+        if self._closing:
+            return
         logger.debug("closing %s", widget)
         self.windows.remove(widget)
         if len(self.windows) == 0:
             self.media_player.stop()
+            self.media_player.setSource(QUrl())
             self.close()
 
 

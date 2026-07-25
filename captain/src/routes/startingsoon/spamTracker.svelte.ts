@@ -10,17 +10,19 @@ import {
 import type { ChatMessage } from '@twurple/chat';
 
 interface SpamState {
-  targetLetter: string;
   rate: number;
   discComplete: boolean;
   sustainedAtCapMs: number;
+  secondsRemaining: number;
 }
 
-let state = $state<SpamState>({
-  targetLetter: '',
+let sessionComplete = false;
+
+const state = $state<SpamState>({
   rate: START_RATE,
   discComplete: false,
-  sustainedAtCapMs: 0
+  sustainedAtCapMs: 0,
+  secondsRemaining: 0
 });
 
 let hits: number[] = [];
@@ -28,11 +30,7 @@ let decayTimer: ReturnType<typeof setInterval> | null = null;
 let sustainTimer: ReturnType<typeof setInterval> | null = null;
 let onRateChange: ((rate: number) => void) | null = null;
 let onDiscComplete: (() => void) | null = null;
-
-function pickRandomLetter(): string {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  return letters[Math.floor(Math.random() * letters.length)];
-}
+let onCountdown: ((seconds: number) => void) | null = null;
 
 function processDecay() {
   if (state.discComplete) return;
@@ -44,6 +42,7 @@ function processDecay() {
       state.rate = newRate;
       onRateChange?.(state.rate);
       state.sustainedAtCapMs = 0;
+      state.secondsRemaining = DISC_COMPLETE_SUSTAIN_MS / 1000;
     }
   }
 }
@@ -52,23 +51,32 @@ function processSustain() {
   if (state.discComplete) return;
   if (state.rate >= RATE_CAP) {
     state.sustainedAtCapMs += 250;
+    const remaining = Math.max(0, Math.ceil((DISC_COMPLETE_SUSTAIN_MS - state.sustainedAtCapMs) / 1000));
+    state.secondsRemaining = remaining;
+    onCountdown?.(remaining);
     if (state.sustainedAtCapMs >= DISC_COMPLETE_SUSTAIN_MS) {
       state.discComplete = true;
+      sessionComplete = true;
       onDiscComplete?.();
     }
   }
 }
 
 export function createSpamTracker() {
-  function start() {
-    state.targetLetter = pickRandomLetter();
+  function start(): boolean {
+    if (sessionComplete) {
+      stop();
+      return false;
+    }
     state.rate = START_RATE;
     state.discComplete = false;
     state.sustainedAtCapMs = 0;
+    state.secondsRemaining = DISC_COMPLETE_SUSTAIN_MS / 1000;
     hits = [];
     stop();
     decayTimer = setInterval(processDecay, 1000);
     sustainTimer = setInterval(processSustain, 250);
+    return true;
   }
 
   function stop() {
@@ -85,28 +93,23 @@ export function createSpamTracker() {
   function handleMessage(msg: ChatMessage) {
     if (state.discComplete) return;
     const text = msg.text || '';
-    const letter = state.targetLetter.toLowerCase();
-    let count = 0;
-    for (const ch of text) {
-      if (ch.toLowerCase() === letter) count++;
-    }
-    if (count > 0) {
-      hits.push(Date.now());
-      const now = Date.now();
-      hits = hits.filter((t) => now - t < SPAM_WINDOW_MS);
-      if (hits.length >= SPAM_MIN_HITS_PER_SEC) {
-        const newRate = Math.min(RATE_CAP, state.rate + RATE_STEP * count);
-        if (newRate !== state.rate) {
-          state.rate = newRate;
-          onRateChange?.(state.rate);
-        }
+    if (!text.trim()) return;
+    if (text.startsWith('%') || text.startsWith('~')) return;
+    if (msg.userInfo.userName?.toLowerCase() === 'vanorgamma') return;
+    if (msg.userInfo.badges.has('bot-badge')) return;
+
+    hits.push(Date.now());
+    const now = Date.now();
+    hits = hits.filter((t) => now - t < SPAM_WINDOW_MS);
+    if (hits.length >= SPAM_MIN_HITS_PER_SEC) {
+      const newRate = Math.min(RATE_CAP, state.rate + RATE_STEP);
+      if (newRate !== state.rate) {
+        state.rate = newRate;
+        onRateChange?.(state.rate);
       }
     }
   }
 
-  function getTargetLetter() {
-    return state.targetLetter;
-  }
   function getRate() {
     return state.rate;
   }
@@ -120,15 +123,18 @@ export function createSpamTracker() {
   function onDiscCompleted(cb: () => void) {
     onDiscComplete = cb;
   }
+  function onCountdownTick(cb: (seconds: number) => void) {
+    onCountdown = cb;
+  }
 
   return {
     start,
     stop,
     handleMessage,
-    getTargetLetter,
     getRate,
     isDiscComplete,
     onRateChanged,
-    onDiscCompleted
+    onDiscCompleted,
+    onCountdownTick
   };
 }

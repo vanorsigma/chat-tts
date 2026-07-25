@@ -3,6 +3,7 @@ import { isRemoteTTSMessage, type RemoteTTSMessages } from '../remoteTTSMessages
 export interface ChatTTSOrchestrator {
   cancel(): Promise<void>;
   setEnabled(enable: boolean): void;
+  speak(username: string, text: string, isMod: boolean, isVip: boolean): Promise<void>;
 }
 
 export class RemoteChatTTSController {
@@ -25,6 +26,14 @@ export class RemoteChatTTSController {
           console.log('Remote TTS re-enabled.');
           this.parentController.setEnabled(true);
         }, data.command.duration * 1000);
+        break;
+      case 'speak':
+        this.parentController.speak(
+          data.command.username,
+          data.command.message,
+          data.command.isMod,
+          data.command.isVip
+        );
         break;
       default:
         console.error(`Forgot to implement ${data.command} in Remote TTS Controller`);

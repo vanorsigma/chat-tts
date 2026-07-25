@@ -15,3 +15,15 @@ export async function setPointsForUser(username: string, points: number): Promis
   });
   if (response.status !== 200) console.error(`could not set points for ${username}`);
 }
+
+export async function getTotalPoints(): Promise<number> {
+  const response = await fetch(`${PUBLIC_POINTS_URL}?total=1`);
+  if (response.status !== 200) return 0;
+  return Number(await response.text());
+}
+
+export async function getMedianPoints(): Promise<number> {
+  const response = await fetch(`${PUBLIC_POINTS_URL}?median=1`);
+  if (response.status !== 200) return 0;
+  return Number(await response.text());
+}

@@ -6,13 +6,15 @@
     rate,
     remainingMs,
     flying,
-    progressPct = 0
+    progressPct = 0,
+    indeterminate = false
   }: {
     song: SongData | null;
     rate: number;
     remainingMs: number;
     flying: boolean;
     progressPct?: number;
+    indeterminate?: boolean;
   } = $props();
 
   let cachedSong = $state<SongData | null>(null);
@@ -59,7 +61,7 @@
       <p class="remaining">{formatDuration(remainingMs)}</p>
     </div>
     <div class="progress-bar-bg">
-      <div class="progress-bar-fill" style="width: {progressPct}%"></div>
+      <div class="progress-bar-fill" class:indeterminate style={indeterminate ? '' : `width: ${progressPct}%`}></div>
     </div>
   </div>
 {/if}
@@ -146,5 +148,22 @@
     background: linear-gradient(90deg, #4f46e5, #3b82f6);
     transition: width 0.25s linear;
     border-radius: 0 3px 3px 0;
+  }
+
+  .progress-bar-fill.indeterminate {
+    width: 100%;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(90deg, #4f46e5, #3b82f6, #4f46e5);
+    background-size: 200% 100%;
+    animation: indeterminate-bar 1.5s ease-in-out infinite;
+  }
+
+  @keyframes indeterminate-bar {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 </style>

@@ -13,7 +13,18 @@ export interface DisableTTS {
   };
 }
 
-export type RemoteTTSMessages = CancelTTS | DisableTTS;
+export interface SpeakTTS {
+  type: 'tts';
+  command: {
+    type: 'speak';
+    username: string;
+    message: string;
+    isMod: boolean;
+    isVip: boolean;
+  };
+}
+
+export type RemoteTTSMessages = CancelTTS | DisableTTS | SpeakTTS;
 
 export function isRemoteTTSMessage(obj: object): obj is RemoteTTSMessages {
   return Object.keys(obj).includes('type') && (obj as RemoteTTSMessages).type === 'tts';

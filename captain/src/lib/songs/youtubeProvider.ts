@@ -119,7 +119,7 @@ export class YouTubeSongProvider implements SongProvider {
       const result = await ytdlp.downloadAsync<'audioonly'>(this.getVideoUrl(videoId), {
         format: { filter: 'audioonly', quality: 0, type: 'mp3' },
         output: join(tmpDir, 'audio.%(ext)s'),
-        cookiesFromBrowser: process.env.YOUTUBE_COOKIES_FROM_BROWSER ?? undefined,
+        cookiesFromBrowser: process.env.YOUTUBE_COOKIES_FROM_BROWSER ?? undefined
       });
 
       const filePath = result.filePaths?.[0];

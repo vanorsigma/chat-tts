@@ -2,6 +2,7 @@ import { createFakeMessage } from '$lib/bus/fakeMessage';
 import { isFakerMessage, isFakerSubMessage, isFakerBitsMessage } from '$lib/bus/messages';
 import type { ChatMessage } from '@twurple/chat';
 import { enqueueGambaSpin } from './gamba/queue';
+import { SUB_BITS_GAMBA_ITEMS } from './gamba/gamba';
 import type { GambaContext } from './gamba/gamba';
 import type { OverlayDispatchers } from './dispatcher';
 import type { Commands } from './commands';
@@ -31,42 +32,60 @@ export function installFakerReceiver(
 
     if (isFakerSubMessage(data)) {
       const name = data.displayName?.trim() || 'Faker';
-      console.log(`Faker sub received: ${name} tier ${data.tier}`);
+      const tier = data.tier ?? 1;
+      console.log(`Faker sub received: ${name} tier ${tier}`);
 
       const dispatcher = getDispatchers();
       if (!dispatcher) return;
 
-      const ctx: GambaContext = { dispatcher, channelId, username: name };
-      enqueueGambaSpin(ctx);
+      const commands = getCommands();
+      const ctx: GambaContext = {
+        dispatcher,
+        channelId,
+        username: name,
+        bet: 1000 * tier,
+        commands: commands ?? undefined
+      };
+      enqueueGambaSpin(ctx, tier, SUB_BITS_GAMBA_ITEMS);
 
       dispatcher.sendMessageAsUser(
         channelId,
-        `@${name} received a fake gift sub, spinning the gamba wheel!`
+        `@${name} received a fake gift sub (tier ${tier}), spinning the gamba wheel!`
       );
       return;
     }
 
     if (isFakerBitsMessage(data)) {
       const name = data.displayName?.trim() || 'Faker';
+      const amount = data.amount;
       const commands = getCommands();
       const current = commands?.getUserBitsBoost(name) ?? 0;
-      console.log(`Faker bits received: ${name} amount ${data.amount} (total boost: ${current + data.amount})`);
+      console.log(
+        `Faker bits received: ${name} amount ${amount} (total boost: ${current + amount})`
+      );
 
-      karmaStore.updateKarma(data.amount * 10, 'Bits', false);
+      karmaStore.updateKarma(amount * 10, 'Bits', false);
 
       if (commands) {
-        commands.addUserBitBoost(name, data.amount);
+        commands.addUserBitBoost(name, amount);
       }
 
       const dispatcher = getDispatchers();
       if (!dispatcher) return;
 
-      const ctx: GambaContext = { dispatcher, channelId, username: name };
-      enqueueGambaSpin(ctx);
+      const multiplier = amount / 100;
+      const ctx: GambaContext = {
+        dispatcher,
+        channelId,
+        username: name,
+        bet: amount,
+        commands: commands ?? undefined
+      };
+      enqueueGambaSpin(ctx, multiplier, SUB_BITS_GAMBA_ITEMS);
 
       dispatcher.sendMessageAsUser(
         channelId,
-        `@${name} cheered ${data.amount} bits, spinning the gamba wheel!`
+        `@${name} cheered ${amount} bits, spinning the gamba wheel!`
       );
     }
   });

@@ -198,7 +198,7 @@ class SevenTVAPI:  # pylint: disable=too-few-public-methods
         request = urllib.request.Request(
             url=self.url,
             data=json.dumps({"query": self.query}).encode(),
-            headers={"User-Agent": HEADERS},
+            headers={"User-Agent": HEADERS, "Content-Type": "application/json"},
         )
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
