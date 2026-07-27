@@ -10,6 +10,7 @@ from typing import Literal
 class Priority:
     AUTONOMOUS = 10
     VAD = 100
+    BATTLESHIP = 1000
 
 
 @dataclass

@@ -5,6 +5,8 @@ import asyncio
 from config import fetch_maki_config, fetch_bot_token, MakiConfig
 from deps import MakiDeps
 from actions import TerminatingAction
+from tools.battleships import BattleshipsAPI, BattleshipsTool
+from triggers.battleship_http import BattleshipHTTP
 from memory import Memory
 from tools.communication import Communication
 from wakeword.wakeword import Wakeword
@@ -129,8 +131,26 @@ def _build_agent(config: MakiConfig, tools: list) -> Agent[MakiDeps, Terminating
     print(f"[CORE] Agent built successfully")
     return agent
 
+# api = BattleshipsAPI('https://game.bahms.org', 'MAKI')
+
+import random
+import numpy as np
+async def place_board(api: BattleshipsAPI):
+    for ship_len in [5, 4, 3, 3, 2]:
+        while True:
+            orientation = 'HORIZONTAL' if random.randint(0, 1) == 0 else 'VERTICAL'
+            row = random.randint(0, 9)
+            col = random.randint(0, 9)
+
+            try:
+                await api.place_ship(row, col, orientation, ship_len)
+            except:
+                continue
+            break
 
 async def _main():
+    api = BattleshipsAPI('https://game.bahms.org', "<redacted>")
+    await place_board(api)
     print("[CORE] Maki starting up")
     config = await fetch_maki_config()
     bot_token = await fetch_bot_token()
@@ -142,6 +162,7 @@ async def _main():
     deep_reasoning = DeepReasoning(config)
     screenshot = ScreenshotTool(config)
     communication = Communication(config)
+    battleships = BattleshipsTool(config, api)
 
     memory = Memory(config.openrouter_api_key)
 
@@ -182,6 +203,7 @@ async def _main():
         + communication.get_tools()
         + twitch_chat.get_twitch_tools()
         + memory.get_tools()
+        + battleships.get_twitch_tools()
         + [WebSearchTool, WebFetchTool]
     )
     print(f"[CORE] {len(all_tools)} tools loaded")
@@ -234,6 +256,7 @@ async def _main():
     triggers = [
         VadTrigger(wakeword=wakeword, communication=communication),
         AutonomousTrigger(),
+        BattleshipHTTP(api, 'maki'),
     ]
 
     arm_tasks: dict = {}

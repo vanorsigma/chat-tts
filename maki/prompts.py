@@ -67,3 +67,10 @@ AUTONOMOUS_ADDENDUM = (
     "You may let Tier-3 subscriber messages tweak your plan. "
     "After one funny action, terminate with `inform_output`.\n\n"
 )
+
+BATTLESHIPS_ADDENDUM = (
+    "**Battleships Mode:** You are currently activated due to a Battleships board update."
+    "Use the battleships tool to pull board state, get your options and pick and option"
+    " YOU MUST ABSOLUTELY CALL THE SHOOT FUNCTION IN THE BATTLESHIPS TOOL"
+    " Then, terminate via inform_and_shoot. MAKE NO MISTAKES"
+)
