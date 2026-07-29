@@ -87,29 +87,37 @@
   let commands: Commands | null = null;
   let tokenRefreshInFlight = false;
 
-  let currentMakiMessage: string = $state('');
+  type Segment = { text: string; speed: number };
+
+  let currentMakiSegments: Segment[] = $state([]);
   let currentMakiDuration: number = $state(0);
   let makiActivated: boolean = $state(false);
   let makiThinking: boolean = $state(false);
   let displayedMakiMessage: string = $state('');
-  let makiRevealTimer: ReturnType<typeof setInterval> | null = null;
+  let makiRevealTimer: ReturnType<typeof setTimeout> | null = null;
   let makiMeowAudio: HTMLAudioElement | null = null;
   let lastMakiMeowTime = 0;
+  let makiRevealCancelled = false;
 
   $effect(() => {
-    const msg = currentMakiMessage;
-    if (!msg) return;
+    const segments = currentMakiSegments;
+    if (!segments || segments.length === 0) return;
 
     displayedMakiMessage = '';
     lastMakiMeowTime = 0;
-    let index = 0;
-    const textSpeed = getOverlayConfig().makiConfig.textSpeed;
-    const intervalMs = Math.max(50, 1000 / textSpeed);
+    makiRevealCancelled = false;
 
-    makiRevealTimer = setInterval(() => {
-      if (index < msg.length) {
-        displayedMakiMessage += msg[index];
-        index++;
+    let segmentIdx = 0;
+    let charIdx = 0;
+
+    function tick() {
+      if (makiRevealCancelled) return;
+      if (segmentIdx >= segments.length) return;
+
+      const segment = segments[segmentIdx];
+      if (charIdx < segment.text.length) {
+        displayedMakiMessage += segment.text[charIdx];
+        charIdx++;
 
         const now = Date.now();
         if (now - lastMakiMeowTime >= 50) {
@@ -124,17 +132,31 @@
             // audio may fail to load
           }
         }
-      } else {
-        if (makiRevealTimer) {
-          clearInterval(makiRevealTimer);
-          makiRevealTimer = null;
-        }
       }
-    }, intervalMs);
+
+      while (segmentIdx < segments.length && charIdx >= segments[segmentIdx].text.length) {
+        segmentIdx++;
+        charIdx = 0;
+      }
+
+      if (segmentIdx >= segments.length) return;
+
+      const effSpeed =
+        segments[segmentIdx].speed > 0
+          ? segments[segmentIdx].speed
+          : getOverlayConfig().makiConfig.textSpeed;
+      const intervalMs = Math.max(50, 1000 / effSpeed);
+      makiRevealTimer = setTimeout(tick, intervalMs);
+    }
+
+    const initSpeed =
+      segments[0].speed > 0 ? segments[0].speed : getOverlayConfig().makiConfig.textSpeed;
+    makiRevealTimer = setTimeout(tick, Math.max(50, 1000 / initSpeed));
 
     return () => {
+      makiRevealCancelled = true;
       if (makiRevealTimer) {
-        clearInterval(makiRevealTimer);
+        clearTimeout(makiRevealTimer);
         makiRevealTimer = null;
       }
     };
@@ -641,8 +663,8 @@
       commands!
     );
 
-    makiStore.subscribe((message, duration, activated, thinking) => {
-      currentMakiMessage = message;
+    makiStore.subscribe((segments, duration, activated, thinking) => {
+      currentMakiSegments = segments;
       currentMakiDuration = duration;
       makiActivated = activated;
       makiThinking = thinking;

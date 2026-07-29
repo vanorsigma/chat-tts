@@ -4,11 +4,20 @@ Communication tool
 
 import websockets
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai import Tool
 
 from config import MakiConfig
 from actions import TerminatingAction
+
+
+class Segment(BaseModel):
+    text: str = Field(description="The text for this segment")
+    speed: int = Field(
+        ge=1,
+        le=200,
+        description="Characters-per-second reveal speed for this segment (1-200, higher = faster). Use low speeds (5-20) for dramatic/suspenseful moments and high speeds (60-150) for excitement or rapid-fire delivery.",
+    )
 
 
 class MakiLoading(BaseModel):
@@ -22,8 +31,9 @@ class MakiActivated(BaseModel):
 
 class MakiOutputMessage(BaseModel):
     type: Literal["makioutputmessage"] = "makioutputmessage"
-    message: str
+    message: str | None = None
     dismiss_after: int
+    segments: list[Segment] | None = None
 
 
 class Communication:
@@ -80,23 +90,34 @@ class Communication:
         await self._ws_send(MakiActivated(state=state).model_dump_json())
 
     async def inform_output(
-        self, message: str, dismiss_after: int
+        self, segments: list[Segment], dismiss_after: int
     ) -> TerminatingAction:
         """Sends a message to the user. This is your only way to communicate with the user.
 
+        Split your text into segments to control the reveal pacing — use slow speeds
+        (5-20) for dramatic pauses, suspense, or deadpan delivery, medium speeds
+        (30-60) for normal conversation, and fast speeds (80-150) for excitement,
+        rapid-fire quips, or hype moments. Varying speeds within one message makes
+        your delivery feel alive and expressive. Every message should use at least
+        one speed change unless it's a trivial one-liner.
+
         Args:
-            message: Any natural language message. Remember to keep your bratty personality.
-            dismiss_after: A period of time to dismiss the message. Can be anywhere from 10 to 60 seconds.
+            segments: A list of Segment objects, each with text and reveal speed (chars/sec, 1-200).
+            dismiss_after: How long the entire message stays on screen (10-60 seconds).
 
         Returns:
             TerminatingAction: This is a terminal function call
         """
         print(
-            f"[COMMUNICATOR] Intending to send {message} to dismiss after {dismiss_after}"
+            f"[COMMUNICATOR] Intending to send {len(segments)} segments to dismiss after {dismiss_after}"
         )
+        clamped_segments = [
+            Segment(text=s.text, speed=max(1, min(200, s.speed))) for s in segments
+        ]
         await self._ws_send(
             MakiOutputMessage(
-                message=message, dismiss_after=max(0, min(60, dismiss_after))
+                segments=clamped_segments,
+                dismiss_after=max(0, min(60, dismiss_after)),
             ).model_dump_json()
         )
         return TerminatingAction()

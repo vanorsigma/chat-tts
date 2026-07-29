@@ -1,9 +1,12 @@
+type Segment = { text: string; speed: number };
+type QueueItem = { segments: Segment[]; duration: number };
+
 export function createMakiStore(ws: WebSocket) {
-  let currentMakiMessage = $state('');
+  let currentSegments: Segment[] = $state([]);
   let currentCountdown = $state(0);
-  let makiMessageQueue = $state<Array<{ message: string; duration: number }>>([]);
+  let makiMessageQueue = $state<QueueItem[]>([]);
   let subscribers: Array<
-    (currentMakiMessage: string, duration: number, activated: boolean, thinking: boolean) => void
+    (segments: Segment[], duration: number, activated: boolean, thinking: boolean) => void
   > = [];
   let thinking = $state(false);
   let activated = $state(false);
@@ -13,9 +16,9 @@ export function createMakiStore(ws: WebSocket) {
     const data = JSON.parse(message_event.data);
     switch (data['type']) {
       case 'makioutputmessage': {
-        const msg = data['message'];
+        const segments = extractSegments(data);
         const duration = Number(data['dismiss_after']);
-        makiMessageQueue = [...makiMessageQueue, { message: msg, duration }];
+        makiMessageQueue = [...makiMessageQueue, { segments, duration }];
 
         if (!timer) tick();
         break;
@@ -26,7 +29,7 @@ export function createMakiStore(ws: WebSocket) {
           thinking = false;
           makiMessageQueue = [];
           currentCountdown = 0;
-          currentMakiMessage = '';
+          currentSegments = [];
           if (timer) clearInterval(timer);
           timer = null;
         } else {
@@ -44,7 +47,7 @@ export function createMakiStore(ws: WebSocket) {
 
   function informSubscribers() {
     for (const subscriber of subscribers)
-      subscriber(currentMakiMessage, currentCountdown, activated, thinking);
+      subscriber(currentSegments, currentCountdown, activated, thinking);
   }
 
   function tick() {
@@ -53,7 +56,7 @@ export function createMakiStore(ws: WebSocket) {
     currentCountdown -= 1;
     if (currentCountdown <= 0) {
       if (makiMessageQueue.length === 0) {
-        currentMakiMessage = '';
+        currentSegments = [];
         informSubscribers();
         return;
       }
@@ -61,7 +64,7 @@ export function createMakiStore(ws: WebSocket) {
       const messageItem = makiMessageQueue[0];
       makiMessageQueue = makiMessageQueue.slice(1);
 
-      currentMakiMessage = messageItem.message;
+      currentSegments = messageItem.segments;
       currentCountdown = messageItem.duration;
     }
     informSubscribers();
@@ -70,26 +73,41 @@ export function createMakiStore(ws: WebSocket) {
 
   function subscribe(
     subscription: (
-      currentMakiMessage: string,
+      segments: Segment[],
       duration: number,
       activated: boolean,
       thinking: boolean
     ) => void
   ): () => void {
     subscribers.push(subscription);
-    subscription(currentMakiMessage, currentCountdown, activated, thinking);
+    subscription(currentSegments, currentCountdown, activated, thinking);
     return () => {
       subscribers = subscribers.filter((sub) => sub !== subscription);
     };
   }
 
   return {
-    get currentMessage() {
-      return currentMakiMessage;
+    get currentSegments() {
+      return currentSegments;
     },
     get currentDuration() {
       return currentCountdown;
     },
     subscribe
   };
+}
+
+function extractSegments(data: Record<string, unknown>): Segment[] {
+  const raw = data['segments'];
+  if (Array.isArray(raw)) {
+    return raw.map((s: Record<string, unknown>) => ({
+      text: String(s.text ?? ''),
+      speed: Number(s.speed) || 0
+    }));
+  }
+  const msg = data['message'];
+  if (typeof msg === 'string' && msg.length > 0) {
+    return [{ text: msg, speed: 0 }];
+  }
+  return [];
 }

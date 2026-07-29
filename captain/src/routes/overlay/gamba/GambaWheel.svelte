@@ -6,6 +6,8 @@
   import { positionStore } from '../stores/positions.svelte';
   import { properRandom } from '../utils';
 
+  const winAudio = new Audio('/roulette-win.mp3');
+
   let { wheelState }: { wheelState: GambaWheelState } = $props();
 
   let resultText = $state('');
@@ -41,25 +43,61 @@
     const targetAngle = 360 * 12 + (270 - (winSeg.center + randomOffset));
 
     const onDone = wheelState.onDone;
+    const segs = segData;
+    const tracker = { rot: 0 };
 
-    gsap.to('.wheel-svg', {
-      rotation: targetAngle,
-      duration: SPIN_DURATION,
-      ease: 'circ.out',
-      transformOrigin: '50% 50%',
-      onComplete: () => {
-        const item = wheelState.result;
-        const ctx = wheelState.context;
-        resultText = item?.getLabel() ?? '';
-        setTimeout(async () => {
-          gambaStore.clear();
-          if (item && ctx) {
-            await item.onWin(ctx);
+    let lastSeg = -1;
+
+    gsap
+      .timeline()
+      .to(
+        '.wheel-svg',
+        {
+          rotation: targetAngle,
+          duration: SPIN_DURATION,
+          ease: 'circ.out',
+          transformOrigin: '50% 50%'
+        },
+        0
+      )
+      .to(
+        tracker,
+        {
+          rot: targetAngle,
+          duration: SPIN_DURATION,
+          ease: 'circ.out',
+          onUpdate: () => {
+            const ptrAngle = (((270 - tracker.rot) % 360) + 360) % 360;
+            let currentSeg = -1;
+            for (let i = 0; i < segs.length; i++) {
+              if (ptrAngle >= segs[i].start && ptrAngle < segs[i].end) {
+                currentSeg = i;
+                break;
+              }
+            }
+            if (currentSeg !== lastSeg && currentSeg !== -1) {
+              lastSeg = currentSeg;
+              const tick = new Audio('/roulette-tick.mp3');
+              tick.play().catch(() => {});
+            }
+          },
+          onComplete: () => {
+            winAudio.currentTime = 0;
+            winAudio.play().catch(() => {});
+            const item = wheelState.result;
+            const ctx = wheelState.context;
+            resultText = item?.getLabel() ?? '';
+            setTimeout(async () => {
+              gambaStore.clear();
+              if (item && ctx) {
+                await item.onWin(ctx);
+              }
+              onDone?.();
+            }, 3000);
           }
-          onDone?.();
-        }, 3000);
-      }
-    });
+        },
+        0
+      );
   }
 
   $effect(() => {

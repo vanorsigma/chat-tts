@@ -323,12 +323,18 @@ class TwitchTool:
         print(f"[TOOL] Sent command {command} successfully")
 
     async def change_title(self, title: str) -> None:
-        """Twitch Tool: Changes the stream title. Maintain the deprecating style, but do not use directly:
-        - worst <something> stream in existence
-        - playing <something> with no skills
+        """Twitch Tool: Changes the stream title.
+
+        Generate witty, creative, and self-deprecating stream titles that fit the gameplay or context.
+
+        Guidelines:
+        - Aim for clever humor, dry sarcasms, game-specific puns, or exaggerated tragic comedy.
+        - Ban predictable templates (e.g., "worst <game> stream", "playing <game> with no skills", "<game> but bad").
+        - Match the title to the game's mechanics, lore, or common tropes when possible.
+        - Character Limit: 1 to 60 characters maximum.
 
         Args:
-            title: A title to change to. 1 to 60 charactes only
+            title: A creative stream title fitting the criteria above. (1-60 characters)
         """
         if not (1 <= len(title) <= 60):
             raise ModelRetry(
