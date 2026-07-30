@@ -10,6 +10,13 @@ from pydantic_ai import Tool
 from config import MakiConfig
 from actions import TerminatingAction
 
+_IMPORTANT_GUARD = False
+
+
+def set_important_guard(active: bool) -> None:
+    global _IMPORTANT_GUARD
+    _IMPORTANT_GUARD = active
+
 
 class Segment(BaseModel):
     text: str = Field(description="The text for this segment")
@@ -79,6 +86,8 @@ class Communication:
         """
         Informs the user that maki is loading. Not a tool.
         """
+        if _IMPORTANT_GUARD:
+            return
         print("[COMMUNICATION] Informing loading")
         await self._ws_send(MakiLoading().model_dump_json())
 
@@ -86,6 +95,8 @@ class Communication:
         """
         Informs the user that maki is activated. Not a tool.
         """
+        if _IMPORTANT_GUARD:
+            return
         print("[COMMUNICATION] Informing activated")
         await self._ws_send(MakiActivated(state=state).model_dump_json())
 
@@ -111,6 +122,8 @@ class Communication:
         print(
             f"[COMMUNICATOR] Intending to send {len(segments)} segments to dismiss after {dismiss_after}"
         )
+        if _IMPORTANT_GUARD:
+            return TerminatingAction()
         clamped_segments = [
             Segment(text=s.text, speed=max(1, min(200, s.speed))) for s in segments
         ]

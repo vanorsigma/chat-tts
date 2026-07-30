@@ -63,10 +63,26 @@ export class Distract extends Command {
   }
 }
 
+export class Unimportant extends Command {
+  async processCommandMessage(controller: Controller, message: ChatMessage) {
+    if (!(message.userInfo.isMod || message.userInfo.isBroadcaster)) {
+      console.log(`${message.userInfo.userName} tried %unimportant, not mod/broadcaster.`);
+      return true;
+    }
+    controller.setImportantBlocked(false);
+    controller.setEnabled(true);
+    controller.trinketController?.enable(false);
+    controller.broadcastImportant(false);
+    console.log(`%unimportant by ${message.userInfo.userName} — important mode ended.`);
+    return true;
+  }
+}
+
 export const COMMANDS = new Map([
   ['refreshvoice', new RefreshVoice()],
   ['rotate', new Rotate()],
-  ['distract', new Distract()]
+  ['distract', new Distract()],
+  ['unimportant', new Unimportant()]
 ]);
 
 export const LEADER = '%';

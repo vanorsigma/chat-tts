@@ -28,8 +28,10 @@ export interface FakerBitsMessage {
 
 export interface ControlMessage {
   type: 'control';
-  op: 'cancel' | 'blackSilence' | 'setEnabled';
+  op: 'cancel' | 'blackSilence' | 'setEnabled' | 'important';
   enabled?: boolean;
+  importantActive?: boolean;
+  importantDurationSec?: number;
 }
 
 export interface OverlayPositionsMessage {

@@ -4,7 +4,7 @@ import type { Commands } from '../index';
 import { checkCostAddIfEnough, resetAllOverlayCooldowns, resetUserCooldowns } from '../middleware';
 import { requireUsername } from './shared';
 import { getOverlayConfig } from '../../constants';
-import { asChatCommand } from '../registry';
+import { asChatCommand, UNBLOCKABLE } from '../registry';
 import { makeStandardYesNoBid } from '../../bid.svelte';
 import { endStreamHandler } from './stockmarket';
 
@@ -47,7 +47,7 @@ export async function blockHandler(
     return;
   }
 
-  if (getOverlayConfig().moderation.unblockableCommands.includes(commandToBlock)) {
+  if (getOverlayConfig().moderation.unblockableCommands.includes(commandToBlock) || UNBLOCKABLE.has(commandToBlock)) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `Cannot perform this action on ${commandToBlock}`,

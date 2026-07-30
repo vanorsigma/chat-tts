@@ -43,6 +43,7 @@
     biddingStore,
     positionStore,
     pinStore,
+    importantStore,
     DEFAULT_POSITIONS
   } from './stores';
   import { startCaptchaLoop } from './captcha';
@@ -61,6 +62,7 @@
   import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
   import { isOverlayPositionsMessage, isTokenRefreshedMessage } from '$lib/bus/messages';
+import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
   import GambaWheel from './gamba/GambaWheel.svelte';
   import { SubTracker } from './subTracker';
@@ -87,6 +89,8 @@
   let commands: Commands | null = null;
   let tokenRefreshInFlight = false;
 
+  const BULB_URL = '/important-bulb.png';
+
   type Segment = { text: string; speed: number };
 
   let currentMakiSegments: Segment[] = $state([]);
@@ -98,6 +102,18 @@
   let makiMeowAudio: HTMLAudioElement | null = null;
   let lastMakiMeowTime = 0;
   let makiRevealCancelled = false;
+  let importantAudio: HTMLAudioElement | null = null;
+
+  $effect(() => {
+    if (importantStore.active && importantStore.phase === 'glowing') {
+      try {
+        if (!importantAudio) importantAudio = new Audio('/light.mp3');
+        importantAudio.volume = 0.2;
+        importantAudio.currentTime = 0;
+        void importantAudio.play();
+      } catch { /* autoplay may be blocked */ }
+    }
+  });
 
   $effect(() => {
     const segments = currentMakiSegments;
@@ -318,6 +334,23 @@
       }
     } catch {
       // ignore malformed messages
+    }
+  });
+
+  ws.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (
+        data?.type === 'control' &&
+        data?.op === 'important' &&
+        data.importantActive === false
+      ) {
+        if (commands && dispatchers && commands.importantActive) {
+          commands.endImportant(dispatchers, PUBLIC_TARGET_CHANNEL_ID);
+        }
+      }
+    } catch {
+      // ignore
     }
   });
 
@@ -717,7 +750,7 @@
   }
 </script>
 
-<div class="overlay">
+<div class="overlay" style="opacity:{importantStore.phase === 'hidden' ? 0 : 1}; transition:opacity 800ms ease;">
   <div
     class="overlay-artist-widget"
     style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px;"
@@ -916,7 +949,15 @@
     </div>
     <div bind:this={heartrateGraphParent} class="grey-box"></div>
   </div>
+    {#if importantStore.active && importantStore.phase === 'glowing'}
+    <div class="important-glow"></div>
+    <img class="important-bulb" src={BULB_URL} alt=""
+         onanimationend={() => importantStore.toHidden()} />
+  {/if}
 </div>
+{#if importantStore.active && importantStore.phase === 'hidden'}
+  <div class="important-timer">{formatRemaining(importantStore.remainingMs)}</div>
+{/if}
 
 <style>
   .overlay-artist-widget {
@@ -1217,5 +1258,32 @@
   .option-title {
     font-size: 0.9em;
     margin-bottom: 2px;
+  }
+
+  .important-glow {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,210,.9) 0%, rgba(255,255,160,.45) 35%, rgba(255,255,120,0) 70%);
+    animation: important-grow 3s ease-out forwards;
+    z-index: 9999; pointer-events: none;
+  }
+  @keyframes important-grow {
+    0%   { width: 20px; height: 20px; opacity: .2; box-shadow: 0 0 0 0 rgba(255,255,180,0); }
+    100% { width: 200vmax; height: 200vmax; opacity: 1; box-shadow: 0 0 0 120vmax rgba(255,255,180,.75); }
+  }
+  .important-bulb {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 128px; height: 128px; z-index: 10000; pointer-events: none;
+    animation: important-bulb 3s ease-out forwards;
+  }
+  @keyframes important-bulb {
+    0%  { opacity: 0; transform: translate(-50%,-50%) scale(0); }
+    30% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+    100%{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  }
+  .important-timer {
+    position: fixed; top: 16px; right: 16px; z-index: 10001;
+    opacity: .25; color: #fff; font-family: monospace; font-size: 24px;
+    pointer-events: none;
   }
 </style>

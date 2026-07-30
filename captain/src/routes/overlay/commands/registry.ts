@@ -39,7 +39,9 @@ export const ALL_COMMANDS = [
   '%endbid',
   '%refreshVoice',
   '%grayscale',
-  '%resetcooldown'
+  '%resetcooldown',
+  '%important',
+  '%unimportant'
 ] as const;
 
 export type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -85,7 +87,9 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%distract': 'distract',
   '%refreshVoice': 'voice',
   '%grayscale': 'grayscale',
-  '%resetcooldown': 'moderation'
+  '%resetcooldown': 'moderation',
+  '%important': 'important',
+  '%unimportant': 'important'
 };
 
 export const REQUIRES_ARGS = new Set<ChatCommand>([
@@ -106,7 +110,8 @@ export const REQUIRES_ARGS = new Set<ChatCommand>([
   '%givekarma',
   '%block',
   '%unblock',
-  '%kill'
+  '%kill',
+  '%important'
 ]);
 
 export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
@@ -128,8 +133,12 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
   '%block': '%block <%command>',
   '%unblock': '%unblock <%command>',
   '%kill': '%kill <username>',
-  '%resetcooldown': '%resetcooldown [username|all]'
+  '%resetcooldown': '%resetcooldown [username|all]',
+  '%important': '%important <duration> (5m, 30s, 1h, 1m30s)',
+  '%unimportant': '%unimportant'
 };
+
+export const UNBLOCKABLE = new Set<ChatCommand>(['%important', '%unimportant']);
 
 export function asChatCommand(rawStr: string): ChatCommand | null {
   const lowered = rawStr.toLowerCase();

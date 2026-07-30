@@ -242,3 +242,25 @@ export function createPredictionStore() {
     set
   };
 }
+
+export function createImportantStore() {
+  let active = $state(false);
+  let phase = $state<'idle' | 'glowing' | 'hidden'>('idle');
+  let expiry = $state(0);
+  let remainingMs = $state(0);
+
+  return {
+    get active() { return active; },
+    get phase() { return phase; },
+    get remainingMs() { return remainingMs; },
+    activate(durSec: number) {
+      active = true;
+      phase = 'glowing';
+      expiry = Date.now() + durSec * 1000;
+      remainingMs = durSec * 1000;
+    },
+    tick(now: number) { remainingMs = Math.max(0, expiry - now); },
+    toHidden() { phase = 'hidden'; },
+    deactivate() { active = false; phase = 'idle'; expiry = 0; remainingMs = 0; }
+  };
+}

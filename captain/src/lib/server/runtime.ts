@@ -79,6 +79,21 @@ function handleControl(msg: ControlMessage) {
     case 'setEnabled':
       controller.setEnabled(msg.enabled ?? !controller.enabled);
       break;
+    case 'important':
+      applyImportantMode(controller, msg.importantActive ?? false, msg.importantDurationSec ?? 0);
+      break;
+  }
+}
+
+function applyImportantMode(ctrl: Controller, active: boolean, _durationSec: number) {
+  if (active) {
+    ctrl.setEnabled(false);
+    ctrl.setImportantBlocked(true);
+    ctrl.trinketController?.enable(true);
+  } else {
+    ctrl.setEnabled(true);
+    ctrl.setImportantBlocked(false);
+    ctrl.trinketController?.enable(false);
   }
 }
 
@@ -159,6 +174,11 @@ function reloadConfig(rawYaml: string) {
     }
 
     controller = new Controller(fullConfig, senderWs);
+    controller.setBroadcastImportant((active) => {
+      if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+        senderWs.send(JSON.stringify({ type: 'control', op: 'important', importantActive: active }));
+      }
+    });
     controller.start();
     console.log('Config reloaded successfully');
   } catch (e) {

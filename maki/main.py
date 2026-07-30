@@ -149,6 +149,16 @@ async def _main():
     _log_broadcast_task = asyncio.create_task(broadcast_logs(communication._ws_send))
     print("[CORE] Console hijack installed, log broadcast task created")
 
+    _IMPORTANT_ACTIVE = False
+
+    async def _on_control_important(msg: dict) -> None:
+        nonlocal _IMPORTANT_ACTIVE
+        if msg.get("op") != "important":
+            return
+        _IMPORTANT_ACTIVE = bool(msg.get("importantActive"))
+        communication.set_important_guard(_IMPORTANT_ACTIVE)
+        print(f"[CORE] Important mode {'enabled' if _IMPORTANT_ACTIVE else 'disabled'}")
+
     async def _on_token_refreshed(msg: dict) -> None:
         print("[CORE] Received tokenRefreshed bus message, re-fetching bot token")
         try:
@@ -161,6 +171,7 @@ async def _main():
     _receiver_task = await run_receiver(
         {
             "tokenRefreshed": _on_token_refreshed,
+            "control": _on_control_important,
         }
     )
     print("[CORE] Bus receiver started")
@@ -276,6 +287,11 @@ async def _main():
                     raise
                 except Exception as e:
                     print(f"[{trigger.name}] arm failed: {e}")
+                    arm_tasks[trigger] = asyncio.create_task(trigger.arm())
+                    continue
+
+                if _IMPORTANT_ACTIVE:
+                    print(f"[{trigger.name}] skipped — important mode active")
                     arm_tasks[trigger] = asyncio.create_task(trigger.arm())
                     continue
 

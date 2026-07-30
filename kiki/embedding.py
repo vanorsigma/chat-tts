@@ -28,6 +28,8 @@ from typing import Any, Callable, Mapping
 import aiohttp.web
 import chromadb
 import modal
+
+from shared.bus_receiver import run_receiver
 from chromadb.api import ClientAPI
 from openai import AsyncOpenAI
 
@@ -159,6 +161,7 @@ MAX_MEMORIES = 1000
 
 _embed_handle: EmbeddingServer | None = None
 _warmed_up = asyncio.Event()
+_IMPORTANT_ACTIVE = False
 
 llm_image = (
     modal.Image.from_registry(
@@ -419,6 +422,8 @@ async def _warmup() -> None:
 
 
 async def handle_recall(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    if _IMPORTANT_ACTIVE:
+        return aiohttp.web.Response(status=503, text="important mode")
     if not _warmed_up.is_set():
         return aiohttp.web.Response(
             text='{"error": "Server warming up"}',
@@ -459,6 +464,8 @@ async def handle_recall(request: aiohttp.web.Request) -> aiohttp.web.Response:
 
 
 async def handle_add(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    if _IMPORTANT_ACTIVE:
+        return aiohttp.web.Response(status=503, text="important mode")
     if not _warmed_up.is_set():
         return aiohttp.web.Response(
             text='{"error": "Server warming up"}',
@@ -518,6 +525,16 @@ async def main(host: str = "localhost", port: int = WEB_PORT):
     )
 
     install_bus_logging("[Embedding]")
+
+    async def _on_control_important(msg: dict) -> None:
+        global _IMPORTANT_ACTIVE
+        if msg.get("op") != "important":
+            return
+        _IMPORTANT_ACTIVE = bool(msg.get("importantActive"))
+        print(f"[Embedding] Important mode {'enabled' if _IMPORTANT_ACTIVE else 'disabled'}")
+
+    _receiver_task = await run_receiver({"control": _on_control_important})
+    print("[Embedding] Bus receiver started")
 
     asyncio.create_task(_prune_loop())
     asyncio.create_task(_warmup())

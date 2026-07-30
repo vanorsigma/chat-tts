@@ -12,7 +12,8 @@ import {
   createBlackSilenceStore,
   createFlashbangStore,
   createPollStore,
-  createPredictionStore
+  createPredictionStore,
+  createImportantStore
 } from './rest.svelte';
 
 export const pollStore = createPollStore();
@@ -27,6 +28,7 @@ export const goodnightKissStore = createGoodnightKissStore();
 export const karmaStore = createKarmaStore();
 export const biddingStore = createBiddingStore();
 export const pinStore = createPinStore();
+export const importantStore = createImportantStore();
 
 export { positionStore, DEFAULT_POSITIONS } from './positions.svelte';
 

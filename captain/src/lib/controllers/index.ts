@@ -8,7 +8,7 @@ import { RemoteSongController } from './song';
 import { TrinketController } from './trinket';
 import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatTTS';
 import { RemoteVoiceController, type VoiceController } from './voice';
-import { RefreshVoice } from '../commands';
+import { RefreshVoice, Unimportant } from '../commands';
 import { shouldSkipMessage } from '$lib/messageGuard';
 
 const shortnameMatcher = /<(.*)>/g;
@@ -28,6 +28,8 @@ export class Controller implements ChatTTSOrchestrator {
 
   private ttsEnabled: boolean = true;
   private delegateVoice: boolean;
+  private importantBlocked: boolean = false;
+  private _broadcastImportant: ((active: boolean) => void) | null = null;
 
   get enabled() {
     return this.ttsEnabled;
@@ -35,6 +37,18 @@ export class Controller implements ChatTTSOrchestrator {
 
   setEnabled(enable: boolean) {
     this.ttsEnabled = enable;
+  }
+
+  setImportantBlocked(b: boolean) {
+    this.importantBlocked = b;
+  }
+
+  setBroadcastImportant(fn: (active: boolean) => void) {
+    this._broadcastImportant = fn;
+  }
+
+  broadcastImportant(active: boolean) {
+    this._broadcastImportant?.(active);
   }
 
   constructor(config: FullConfig, senderWs: WebSocket) {
@@ -95,6 +109,10 @@ export class Controller implements ChatTTSOrchestrator {
       }
 
       const potentialCommand = this.commands.getCommand(message.text);
+      if (potentialCommand && this.importantBlocked && !(potentialCommand instanceof Unimportant)) {
+        console.log(`Important mode active — dropping Captain command: ${message.text}`);
+        return;
+      }
       if (
         potentialCommand &&
         (!this.config.commandsDisabled || potentialCommand instanceof RefreshVoice)

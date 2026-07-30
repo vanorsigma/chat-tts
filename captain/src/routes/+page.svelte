@@ -233,6 +233,10 @@
     sendBus({ type: 'control', op: 'blackSilence' });
   }
 
+  function onEndImportant() {
+    sendBus({ type: 'control', op: 'important', importantActive: false });
+  }
+
   async function onRefreshToken(account: 'bot' | 'broadcaster') {
     refreshTokenBusy = true;
     try {
@@ -333,6 +337,7 @@
   <h2>Controls</h2>
   <button onclick={onCancelSpeech}>Cancel Speech</button>
   <button onclick={onBlackSilence}>Black Silence</button>
+  <button onclick={onEndImportant}>End Important Mode</button>
   <button onclick={() => onRefreshToken('bot')} disabled={refreshTokenBusy}
     >Refresh Bot Token</button
   >
