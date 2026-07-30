@@ -242,6 +242,8 @@ export class Commands implements OverlayObserver {
         dispatcher: this.dispatchers!,
         channelId: message.channelId!,
         username,
+        userId: message.userInfo.userId,
+        isMod: message.userInfo.isMod,
         bet: bits,
         commands: this
       },
@@ -306,7 +308,7 @@ export class Commands implements OverlayObserver {
         message.id
       );
       try {
-        await dispatcher.timeoutUser(channelId, userId, 'command failed', timeoutSec);
+        await dispatcher.timeoutUser(channelId, userId, 'command failed', timeoutSec, message.userInfo.isMod);
       } catch (e) {
         console.warn(`failed to timeout ${message.userInfo.userName}:`, e);
       }

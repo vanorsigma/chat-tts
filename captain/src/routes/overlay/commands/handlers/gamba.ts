@@ -61,7 +61,7 @@ export async function gambaHandler(
 
   const multiplier = amount / 100;
   enqueueGambaSpin(
-    { dispatcher, channelId: message.channelId!, username, bet: amount, commands },
+    { dispatcher, channelId: message.channelId!, username, userId: message.userInfo.userId, isMod: message.userInfo.isMod, bet: amount, commands },
     multiplier
   );
 }

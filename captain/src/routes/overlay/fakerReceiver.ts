@@ -25,7 +25,7 @@ export function installFakerReceiver(
 
     if (isFakerMessage(data)) {
       console.log(`Faker message received: "${data.text}" from ${data.displayName ?? 'Faker'}`);
-      const fake = createFakeMessage(data.text, data.displayName, channelId);
+      const fake = createFakeMessage(data.text, data.displayName, channelId, data.userId);
       onFake(fake);
       return;
     }

@@ -12,6 +12,7 @@ export interface FakerMessage {
   type: 'faker';
   text: string;
   displayName?: string;
+  userId?: string;
 }
 
 export interface FakerSubMessage {

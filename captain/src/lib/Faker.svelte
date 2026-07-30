@@ -1,6 +1,7 @@
 <script lang="ts">
   let chatMsg = '';
   let chatUser = '';
+  let chatUserId = '';
   let subUser = '';
   let subTier: number = 1;
   let bitsUser = '';
@@ -9,12 +10,12 @@
   type Tab = 'chat' | 'sub' | 'bits';
   let activeTab: Tab = 'chat';
 
-  export let onFakerChat: (text: string, username: string) => void;
+  export let onFakerChat: (text: string, username: string, userId?: string) => void;
   export let onFakerSub: (username: string, tier: number) => void;
   export let onFakerBits: (username: string, amount: number) => void;
 
   function sendChat() {
-    onFakerChat(chatMsg, chatUser);
+    onFakerChat(chatMsg, chatUser, chatUserId || undefined);
     chatMsg = '';
   }
 
@@ -50,6 +51,16 @@
       />
       <input
         type="text"
+        class="userid-input"
+        bind:value={chatUserId}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendChat();
+        }}
+        placeholder="User ID (optional)"
+      />
+      <input
+        type="text"
+        class="primary-input"
         bind:value={chatMsg}
         on:keydown={(e) => {
           if (e.key === 'Enter') sendChat();
@@ -146,10 +157,19 @@
   }
 
   .row > input:first-child {
-    width: 30%;
+    width: 28%;
   }
 
   .row > input:nth-child(2) {
+    flex: 1;
+  }
+
+  .row > input.userid-input {
+    width: 22%;
+    flex: none;
+  }
+
+  .row > input.primary-input {
     flex: 1;
   }
 

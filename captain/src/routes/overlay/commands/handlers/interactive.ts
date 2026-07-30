@@ -12,13 +12,14 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
 
   const args = message.text.split(' ').slice(1);
   if (args[0] === 'clear' && (message.userInfo.isMod || message.userInfo.isBroadcaster)) {
-    const userid = goodnightKissStore.reset();
+    const { userid, isMod } = goodnightKissStore.reset();
     dispatcher.sendMessageAsUser(message.channelId!, 'cleared', message.id);
     dispatcher.timeoutUser(
       message.channelId!,
       userid,
       'Good night! EvilTuckk',
-      getOverlayConfig().goodNightKiss.timeoutDurationSec
+      getOverlayConfig().goodNightKiss.timeoutDurationSec,
+      isMod
     );
     return;
   }
@@ -44,7 +45,8 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
       username: username ?? 'no username?',
       userid: targetUserId,
       color: message.userInfo.color ?? 'lightgrey',
-      fast_version: Math.random() < 0.1
+      fast_version: Math.random() < 0.1,
+      isMod: message.userInfo.isMod
     });
     karmaStore.updateKarma(getOverlayConfig().goodNightKiss.karma, 'Good Night Kiss');
 

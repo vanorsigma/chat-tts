@@ -17,6 +17,8 @@ export interface GambaContext {
   dispatcher: OverlayDispatchers;
   channelId: string;
   username: string;
+  userId?: string;
+  isMod?: boolean;
   bet: number;
   commands?: CommandsLike;
 }
@@ -84,7 +86,8 @@ export class TakePointsItem extends GambaItem {
 
   scaledBy(factor: number): GambaItem {
     const scaled = Math.max(0, Math.round(this.amount * factor));
-    return new TakePointsItem(this.weight, scaled);
+    const weighted = Math.max(0, this.amount, Math.log(factor));
+    return new TakePointsItem(weighted, scaled);
   }
 
   async onWin(ctx: GambaContext): Promise<void> {
@@ -175,16 +178,17 @@ export class TimeoutItem extends GambaItem {
   }
 
   scaledBy(factor: number): GambaItem {
-    const scaled = Math.max(1, Math.round(this.durationSeconds * factor * 0.1));
-    return new TimeoutItem(this.weight, scaled);
+    const weighted = Math.max(0, this.weight * Math.log(factor));
+    return new TimeoutItem(weighted, this.durationSeconds);
   }
 
   async onWin(ctx: GambaContext): Promise<void> {
     await ctx.dispatcher.timeoutUser(
       ctx.channelId,
-      ctx.username,
+      ctx.userId ?? ctx.username,
       'gamba wheel',
-      this.durationSeconds
+      this.durationSeconds,
+      ctx.isMod
     );
     ctx.dispatcher.sendMessageAsUser(
       ctx.channelId,

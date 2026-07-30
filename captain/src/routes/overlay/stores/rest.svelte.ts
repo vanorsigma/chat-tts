@@ -63,13 +63,15 @@ export function createGoodnightKissStore() {
     userid: string;
     color: string;
     fast_version: boolean;
+    isMod: boolean;
   }
 
   let properties: KissProperties = $state({
     username: '',
     userid: '',
     color: 'black',
-    fast_version: false
+    fast_version: false,
+    isMod: false
   });
   const pub = createPubSub<KissProperties>();
 
@@ -82,13 +84,14 @@ export function createGoodnightKissStore() {
     return properties.username.length !== 0;
   }
 
-  function reset(): string {
-    const retVal = properties.userid;
+  function reset(): { userid: string; isMod: boolean } {
+    const retVal = { userid: properties.userid, isMod: properties.isMod };
     properties = {
       username: '',
       userid: '',
       color: properties.color,
-      fast_version: false
+      fast_version: false,
+      isMod: false
     };
     pub.notify(properties);
     return retVal;

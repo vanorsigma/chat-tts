@@ -50,7 +50,7 @@ export async function buyHandler(
   const skipChance = message.userInfo.isBroadcaster;
   const now = Date.now();
   const userCooldownMs = 60_000;
-  const lastUser = commands.gambaUserCooldowns.get(username) ?? 0;
+  const lastUser = commands.buyUserCooldowns.get(username) ?? 0;
   if (now < lastUser + userCooldownMs) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
@@ -85,21 +85,21 @@ export async function buyHandler(
       const timeoutSec = timeoutSecondsForFailChance(failChance);
       const channelId = message.channelId!;
       const userId = message.userInfo.userId;
-      commands.gambaUserCooldowns.set(username, now);
+      commands.buyUserCooldowns.set(username, now);
       dispatcher.sendMessageAsUser(
         channelId,
         `@${username} fumbled %buy ${stock} (${failChance}% fail chance, investing: ${result.invested ?? '?'} VD) -> timeout ${timeoutSec}s`,
         message.id
       );
       try {
-        await dispatcher.timeoutUser(channelId, userId, 'stock buy failed', timeoutSec);
+        await dispatcher.timeoutUser(channelId, userId, 'stock buy failed', timeoutSec, message.userInfo.isMod);
       } catch (e) {
         console.warn(`failed to timeout ${username}:`, e);
       }
       return;
     }
 
-    commands.gambaUserCooldowns.set(username, now);
+    commands.buyUserCooldowns.set(username, now);
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `@${username} invested ${result.invested}VD in ${stock} @ ${result.price!.toFixed(2)} ${stock}`,

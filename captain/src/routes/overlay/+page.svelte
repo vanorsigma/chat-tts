@@ -56,6 +56,7 @@
   import { KarmaContainer } from './karma';
   import { ModelUpdater } from './modelupdater';
   import { TimeoutAnimation } from './timeoutanimation';
+  import { TaxObserver } from './tax';
   import { buildSvgGraphFor } from './heartrateGraph';
   import { AudioPlayer } from './audioPlayer';
   import type { OverlayPositionsConfig } from '$lib/config';
@@ -639,6 +640,7 @@ import { formatRemaining } from '$lib/duration';
     const _ = new KarmaContainer(dispatchers, gameApplication, karmaStore.updateKarma);
     console.log('Karma container created');
     let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
+    let _tax = new TaxObserver(dispatchers);
     commands = new Commands(dispatchers);
     commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);

@@ -3,13 +3,15 @@ import type { ChatMessage, ChatUser } from '@twurple/chat';
 export function createFakeMessage(
   text: string,
   displayName?: string,
-  channelId?: string
+  channelId?: string,
+  userId?: string
 ): ChatMessage {
   const name = displayName?.trim() || 'Faker';
+  const uid = userId || '12345678';
   return {
     userInfo: {
-      id: '12345678',
-      userId: '12345678',
+      id: uid,
+      userId: uid,
       displayName: name,
       userName: name.toLowerCase(),
       color: '#000000',

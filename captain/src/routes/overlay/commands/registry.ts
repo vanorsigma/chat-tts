@@ -138,6 +138,7 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
   '%unimportant': '%unimportant'
 };
 
+// stronger unblockables, not even config can remove them
 export const UNBLOCKABLE = new Set<ChatCommand>(['%important', '%unimportant']);
 
 export function asChatCommand(rawStr: string): ChatCommand | null {

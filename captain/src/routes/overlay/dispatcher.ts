@@ -8,6 +8,7 @@ import type { UserNotice, ChatSubInfo, ChatSubGiftInfo, ChatCommunitySubInfo } f
 import type { ModelUpdater } from './modelupdater';
 import { LRUCache } from '$lib/LRUcache';
 import { planToTier } from '$lib/twitch';
+import { applyTimeoutTax } from './tax';
 
 export interface OverlayObserver {
   onMessage(message: ChatMessage): void;
@@ -189,7 +190,8 @@ export class OverlayDispatchers {
     channelId: string,
     targetUser: string,
     reason: string,
-    duration_seconds: number
+    duration_seconds: number,
+    isMod?: boolean
   ) {
     if (import.meta.env.DEV) {
       console.log(
@@ -198,13 +200,23 @@ export class OverlayDispatchers {
       return;
     }
 
-    return await this.api.asUser(this.botId, async (ctx) => {
-      return await ctx.moderation.banUser(channelId, {
-        user: targetUser,
-        reason,
-        duration: duration_seconds
+    if (isMod) {
+      await applyTimeoutTax(this, channelId, targetUser, 0.2);
+      console.log(`timeoutUser: ${targetUser} is a mod, applied 20% tax instead of ban`);
+      return;
+    }
+
+    try {
+      return await this.api.asUser(this.botId, async (ctx) => {
+        return await ctx.moderation.banUser(channelId, {
+          user: targetUser,
+          reason,
+          duration: duration_seconds
+        });
       });
-    });
+    } catch (e) {
+      console.warn(`timeoutUser failed for ${targetUser}:`, e);
+    }
   }
 
   async pinChatMessage(channelId: string, messageId: string, durationSeconds: number) {

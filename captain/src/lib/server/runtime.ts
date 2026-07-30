@@ -40,7 +40,7 @@ function handleFaker(msg: FakerMessage) {
     console.warn('No controller active, ignoring faker message');
     return;
   }
-  const fake = createFakeMessage(msg.text, msg.displayName);
+  const fake = createFakeMessage(msg.text, msg.displayName, undefined, msg.userId);
   controller.updateWithMessage(fake);
 }
 

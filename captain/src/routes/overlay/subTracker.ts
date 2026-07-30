@@ -29,6 +29,7 @@ export class SubTracker implements OverlaySubObserver {
         dispatcher: this.dispatchers,
         channelId,
         username: user,
+        userId: subInfo.userId,
         bet: 1000 * tier,
         commands: this.commands ?? undefined
       },
@@ -54,6 +55,7 @@ export class SubTracker implements OverlaySubObserver {
         dispatcher: this.dispatchers,
         channelId,
         username: user,
+        userId: subInfo.userId,
         bet: 1000 * tier,
         commands: this.commands ?? undefined
       },
@@ -85,6 +87,7 @@ export class SubTracker implements OverlaySubObserver {
         dispatcher: this.dispatchers,
         channelId,
         username: recipientUser,
+        userId: subInfo.userId,
         bet: 1000 * tier,
         commands: this.commands ?? undefined
       },

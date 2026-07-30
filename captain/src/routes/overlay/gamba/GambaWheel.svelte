@@ -89,10 +89,15 @@
             resultText = item?.getLabel() ?? '';
             setTimeout(async () => {
               gambaStore.clear();
-              if (item && ctx) {
-                await item.onWin(ctx);
+              try {
+                if (item && ctx) {
+                  await item.onWin(ctx);
+                }
+              } catch (e) {
+                console.error('gamba onWin failed:', e);
+              } finally {
+                onDone?.();
               }
-              onDone?.();
             }, 3000);
           }
         },

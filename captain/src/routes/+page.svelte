@@ -213,8 +213,8 @@
     }
   }
 
-  function onFaker(text: string, username: string) {
-    sendBus({ type: 'faker', text, displayName: username || undefined });
+  function onFaker(text: string, username: string, userId?: string) {
+    sendBus({ type: 'faker', text, displayName: username || undefined, userId });
   }
 
   function onFakerSub(username: string, tier: number) {
