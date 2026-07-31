@@ -86,8 +86,7 @@ export class TakePointsItem extends GambaItem {
 
   scaledBy(factor: number): GambaItem {
     const scaled = Math.max(0, Math.round(this.amount * factor));
-    const weighted = Math.max(0, this.amount, Math.log(factor));
-    return new TakePointsItem(weighted, scaled);
+    return new TakePointsItem(this.weight, scaled);
   }
 
   async onWin(ctx: GambaContext): Promise<void> {

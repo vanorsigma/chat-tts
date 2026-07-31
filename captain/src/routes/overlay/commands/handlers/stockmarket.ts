@@ -5,6 +5,7 @@ import { GLOBAL_STOCK_MARKET } from '../../stock/market';
 import { timeoutSecondsForFailChance } from '../chance';
 import { PEOPLE_WHO_CHECKED_IN } from '../middleware';
 import type { Commands } from '..';
+import { getPointsForUser } from '$lib/api/points';
 
 export async function buyHandler(
   commands: Commands,
@@ -18,7 +19,7 @@ export async function buyHandler(
   if (args.length < 2) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      'usage: %buy <symbol> <points> [overpay] (or "all" for all vanorDollars)',
+      'usage: %buy <symbol> <points/all> [overpay]',
       message.id
     );
     return;
@@ -67,7 +68,7 @@ export async function buyHandler(
         : await (() => {
             const pts = Number(pointsArg);
             if (Number.isNaN(pts) || pts <= 0) return null;
-            return GLOBAL_STOCK_MARKET.buy(username, stock, pts, skipChance, overpay);
+            return GLOBAL_STOCK_MARKET.buy(username, stock, pts, skipChance, overpay, false);
           })();
 
     if (!result) {
@@ -108,6 +109,60 @@ export async function buyHandler(
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     dispatcher.sendMessageAsUser(message.channelId!, `buy failed: ${errMsg}`, message.id);
+  }
+}
+
+export async function evaluateBuy(
+  commands: Commands,
+  message: ChatMessage
+): Promise<{ innerFailChance?: number; invested?: number; price?: number; error?: string }> {
+  const username = requireUsername(message);
+  if (!username) return { innerFailChance: 0 };
+
+  const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
+  if (args.length < 2) return { innerFailChance: 0 };
+
+  const stock = args[0].toUpperCase();
+  const pointsArg = args[1];
+  const overpayArg = args[2];
+  const overpay = overpayArg ? Number(overpayArg) : 0;
+
+  if (overpayArg !== undefined && (Number.isNaN(overpay) || overpay < 0))
+    return { error: 'overpay is not a valid number' };
+
+  if (PEOPLE_WHO_CHECKED_IN.length < 5) return { error: 'not enough people checked in' };
+
+  if (!GLOBAL_STOCK_MARKET.approvedStocks().includes(stock))
+    return { error: 'invalid stock' };
+
+  const skipChance = message.userInfo.isBroadcaster;
+
+  try {
+    if (pointsArg === 'all') {
+      const points = await getPointsForUser(username);
+      if (!points || points <= 0) return { error: 'points is null' };
+      const result = await GLOBAL_STOCK_MARKET.buy(
+        username, stock, points, skipChance, 0, true
+      );
+      return {
+        innerFailChance: result.failChance,
+        invested: result.invested,
+        price: result.price
+      };
+    } else {
+      const pts = Number(pointsArg);
+      if (Number.isNaN(pts) || pts <= 0) return { error: 'points is null' };
+      const result = await GLOBAL_STOCK_MARKET.buy(
+        username, stock, pts, skipChance, overpay, true
+      );
+      return {
+        innerFailChance: result.failChance,
+        invested: result.invested,
+        price: result.price
+      };
+    }
+  } catch {
+    return { error: 'lookup failed' };
   }
 }
 

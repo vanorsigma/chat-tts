@@ -41,7 +41,8 @@ export const ALL_COMMANDS = [
   '%grayscale',
   '%resetcooldown',
   '%important',
-  '%unimportant'
+  '%unimportant',
+  '%check'
 ] as const;
 
 export type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -89,7 +90,8 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%grayscale': 'grayscale',
   '%resetcooldown': 'moderation',
   '%important': 'important',
-  '%unimportant': 'important'
+  '%unimportant': 'important',
+  '%check': 'check'
 };
 
 export const REQUIRES_ARGS = new Set<ChatCommand>([
@@ -111,7 +113,8 @@ export const REQUIRES_ARGS = new Set<ChatCommand>([
   '%block',
   '%unblock',
   '%kill',
-  '%important'
+  '%important',
+  '%check'
 ]);
 
 export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
@@ -135,7 +138,8 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
   '%kill': '%kill <username>',
   '%resetcooldown': '%resetcooldown [username|all]',
   '%important': '%important <duration> (5m, 30s, 1h, 1m30s)',
-  '%unimportant': '%unimportant'
+  '%unimportant': '%unimportant',
+  '%check': '%check <%command> [args...]'
 };
 
 // stronger unblockables, not even config can remove them

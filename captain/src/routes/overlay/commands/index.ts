@@ -43,11 +43,11 @@ import {
   resetCooldownHandler
 } from './handlers/moderation';
 import { gambaHandler } from './handlers/gamba';
+import { checkHandler } from './handlers/evaluate';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
 import {
-  computeSuccessChance,
-  getBaseChance,
+  computeCommandChance,
   rollSuccess,
   timeoutSecondsForFailChance
 } from './chance';
@@ -97,20 +97,6 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
   '%important',
   '%unimportant'
 ]);
-
-// Command name → key for commandChances lookup
-function chanceKey(commandIndicator: ChatCommand): string {
-  const map: Record<string, string> = {
-    '%si': 'showimage',
-    '%showimage': 'showimage',
-    '%pa': 'playaudio',
-    '%playsound': 'playaudio',
-    '%playaudio': 'playaudio',
-    '%chicken': 'checkin',
-    '%checkin': 'checkin'
-  };
-  return map[commandIndicator] ?? commandIndicator.slice(1);
-}
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
@@ -280,17 +266,16 @@ export class Commands implements OverlayObserver {
     }
 
     const bitsBonus = this.getUserBitsBoost(message.userInfo.userName ?? '');
-    const ck = chanceKey(commandIndicator);
     const channelId = message.channelId ?? PUBLIC_TARGET_CHANNEL_ID;
     const userId = message.userInfo.userId;
 
     let chance = 100;
     try {
-      const base = getBaseChance(ck);
-      chance = await computeSuccessChance(ck, userId, channelId, bitsBonus);
-      if (base !== chance) {
+      const result = await computeCommandChance(commandIndicator, userId, channelId, bitsBonus);
+      chance = result.successChance;
+      if (result.base !== result.successChance) {
         console.log(
-          `${message.userInfo.userName} ${commandIndicator}: adjusted chance=${chance}% (base=${base}%, bitsBonus=${bitsBonus}%)`
+          `${message.userInfo.userName} ${commandIndicator}: adjusted chance=${result.successChance}% (base=${result.base}%, bitsBonus=${bitsBonus}%)`
         );
       }
     } catch (e) {
@@ -464,6 +449,9 @@ export class Commands implements OverlayObserver {
           else
             dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
         });
+        break;
+      case '%check':
+        checkHandler(this, dispatcher, message);
         break;
       // Pass-through commands (handled elsewhere)
       case '%bid':

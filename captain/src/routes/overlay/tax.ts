@@ -54,7 +54,7 @@ export class TaxObserver implements OverlayTimeoutObserver {
     const valid = wealths.filter((w): w is number => w !== null).filter((w) => w >= 0);
     const checkinMedian = median(valid);
 
-    const rate = points > checkinMedian ? 0.2 : 0.05;
+    const rate = points > checkinMedian ? 0.01 : 0.001;
 
     await applyTimeoutTax(this.dispatcher, channelId, username, rate);
     console.log(

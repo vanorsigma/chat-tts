@@ -10,15 +10,16 @@ export interface BuyRequest {
   overpayFactor?: number;
   skipChance?: boolean;
   checkedInUsers?: string[];
+  check?: boolean;
 }
 
 export interface BuyResponse {
   ok: boolean;
+  failChance: number;
   error?: string;
   invested?: number;
   price?: number;
   holdingId?: number;
-  failChance?: number;
   medianPoints?: number;
 }
 

@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 
   if (action === 'buy') {
     const body = (await request.json()) as BuyRequest;
-    const { username, stock, points, price, steepness, skipChance, checkedInUsers } = body;
+    const { username, stock, points, price, steepness, skipChance, checkedInUsers, check } = body;
     const overpay = body.overpay ?? 0;
     const overpayFactor = body.overpayFactor ?? 0.1;
 
@@ -44,16 +44,15 @@ export const POST: RequestHandler = async ({ url, request }) => {
     }
 
     const existingHoldings = await getHoldingsForUserAndStock(username, stock);
+    const existingTotal = existingHoldings.reduce((s, h) => s + h.invested_points, 0);
+    const totalInvested = existingTotal + points - overpay * overpayFactor;
+
+    const medianPoints = await getMedianPointsForUsers(checkedInUsers ?? []);
+    const chance = inverseSChance(totalInvested, medianPoints, steepness);
+    const failChance = 100 - Math.min(chance * 100, 100);
 
     if (!skipChance) {
-      const existingTotal = existingHoldings.reduce((s, h) => s + h.invested_points, 0);
-      const totalInvested = existingTotal + points - overpay * overpayFactor;
-
-      const medianPoints = await getMedianPointsForUsers(checkedInUsers ?? []);
-      const chance = inverseSChance(totalInvested, medianPoints, steepness);
-
       if (Math.random() >= chance) {
-        const failChance = 100 - Math.min(chance * 100, 100);
         console.log(
           `[stock-market] buy: S-curve fail chance=${failChance.toFixed(0)}% invested=${points} overpay=${overpay} totalInvested=${totalInvested} existing=${existingTotal} median=${medianPoints} steepness=${steepness}`
         );
@@ -70,28 +69,29 @@ export const POST: RequestHandler = async ({ url, request }) => {
       );
     }
 
-    await setPointsForUser(username, balance - totalCost);
+    !check ? await setPointsForUser(username, balance - totalCost) : null;
     const amend = existingHoldings.find((h) => Math.abs(h.buy_price - price) < 0.001);
     if (amend) {
       const newPoints = amend.invested_points + points;
-      await updateHoldingPoints(amend.id, newPoints);
+      !check ? await updateHoldingPoints(amend.id, newPoints) : null;
       console.log(
         `[stock-market] buy: amended holding id=${amend.id} old=${amend.invested_points} new=${newPoints}`
       );
       return json({
         ok: true,
+        failChance: Math.round(failChance),
         invested: points,
         price,
         holdingId: amend.id
       });
     }
 
-    const holdingId = await createHolding(username, stock, points, price);
+    const holdingId = !check ? await createHolding(username, stock, points, price) : '';
 
     console.log(
       `[stock-market] buy: success user=${username} stock=${stock} invested=${points} price=${price} id=${holdingId}`
     );
-    return json({ ok: true, invested: points, price, holdingId });
+    return json({ ok: true, failChance: Math.round(failChance), invested: points, price, holdingId });
   }
 
   if (action === 'sell') {

@@ -63,7 +63,7 @@ export class StockMarket {
     return getOverlayConfig().stockMarket.approvedStocks;
   }
 
-  async buy(user: string, stock: string, points: number, skipChance = false, overpay = 0): Promise<BuyResponse> {
+  async buy(user: string, stock: string, points: number, skipChance = false, overpay = 0, check = false): Promise<BuyResponse> {
     if (!this.approvedStocks().includes(stock)) {
       throw new StockMarketError(`Unknown stock: ${stock}`);
     }
@@ -84,7 +84,8 @@ export class StockMarket {
       overpay,
       overpayFactor: cfg.overpayFactor,
       skipChance,
-      checkedInUsers: PEOPLE_WHO_CHECKED_IN
+      checkedInUsers: PEOPLE_WHO_CHECKED_IN,
+      check
     });
     this.notify();
     return result;
