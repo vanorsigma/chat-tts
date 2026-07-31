@@ -153,6 +153,10 @@ export interface OverlayPredictionConfig {}
 
 export interface OverlayEconomyConfig {}
 
+export interface OverlayWatchStreakConfig {
+  streakInterval?: number;
+}
+
 export interface OverlayEndstreamConfig {}
 
 export interface OverlayBidConfig {}
@@ -303,6 +307,7 @@ export class ParseableConfig {
   overlayPollConfig?: OverlayPollConfig;
   overlayPredictionConfig?: OverlayPredictionConfig;
   overlayEconomyConfig?: OverlayEconomyConfig;
+  overlayWatchStreakConfig?: OverlayWatchStreakConfig;
   overlayEndstreamConfig?: OverlayEndstreamConfig;
   overlayBidConfig?: OverlayBidConfig;
   overlayVoiceConfig?: OverlayVoiceConfig;
@@ -360,6 +365,7 @@ export class ParseableConfig {
     this.overlayPollConfig = arbitraryObject['pollConfig'];
     this.overlayPredictionConfig = arbitraryObject['predictionConfig'];
     this.overlayEconomyConfig = arbitraryObject['economyConfig'];
+    this.overlayWatchStreakConfig = arbitraryObject['watchStreakConfig'];
     this.overlayEndstreamConfig = arbitraryObject['endstreamConfig'];
     this.overlayBidConfig = arbitraryObject['bidConfig'];
     this.overlayVoiceConfig = arbitraryObject['voiceConfig'];
@@ -531,6 +537,9 @@ export class ParseableConfig {
       pollConfig: this.overlayPollConfig,
       predictionConfig: this.overlayPredictionConfig,
       economyConfig: this.overlayEconomyConfig,
+      watchStreakConfig: this.overlayWatchStreakConfig
+        ? { streakInterval: 5, ...this.overlayWatchStreakConfig }
+        : undefined,
       endstreamConfig: this.overlayEndstreamConfig,
       bidConfig: this.overlayBidConfig,
       voiceConfig: this.overlayVoiceConfig,
@@ -633,6 +642,7 @@ export interface FullConfig {
   pollConfig?: OverlayPollConfig;
   predictionConfig?: OverlayPredictionConfig;
   economyConfig?: OverlayEconomyConfig;
+  watchStreakConfig?: { streakInterval: number };
   endstreamConfig?: OverlayEndstreamConfig;
   bidConfig?: OverlayBidConfig;
   voiceConfig?: OverlayVoiceConfig;

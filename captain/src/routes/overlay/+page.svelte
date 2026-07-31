@@ -67,6 +67,7 @@ import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
   import GambaWheel from './gamba/GambaWheel.svelte';
   import { SubTracker } from './subTracker';
+  import { WatchStreakTracker } from './watchStreakTracker';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -645,6 +646,7 @@ import { formatRemaining } from '$lib/duration';
     commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);
     let _subTracker = new SubTracker(dispatchers, commands);
+    let _watchStreakTracker = new WatchStreakTracker(dispatchers, commands);
     twitchClient.connect();
     console.log('Twitch connected');
 

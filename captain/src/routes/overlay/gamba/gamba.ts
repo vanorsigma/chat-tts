@@ -382,3 +382,14 @@ export const CAPTCHA_GAMBA_ITEMS: GambaItem[] = [
   new GivePointsItem(2, 1000),
   new ResetUserCooldown(10)
 ];
+
+export const STREAK_GAMBA_ITEMS: GambaItem[] = [
+  new GivePointsItem(25, 100),
+  new GivePointsItem(15, 500),
+  new GivePointsItem(5, 1000),
+  new GiveEveryonePointsItem(20, 250),
+  new GiveEveryoneStockGrantItem(10, 'HEART', 100),
+  new GiveEveryoneIncreasedChances(10, 10),
+  new ResetAllCooldown(10),
+  new GiveStockGrantItem(5, 'HEART', 100),
+];

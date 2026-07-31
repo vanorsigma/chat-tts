@@ -10,6 +10,7 @@ import type {
   FakerMessage,
   FakerSubMessage,
   FakerBitsMessage,
+  FakerWatchStreakMessage,
   ControlMessage
 } from '$lib/bus/messages';
 import { setSubTier, addBitBoost } from './db';
@@ -54,6 +55,11 @@ function handleFakerBits(msg: FakerBitsMessage) {
   const name = msg.displayName?.trim() || 'Faker';
   addBitBoost(name, msg.amount).catch((e) => console.warn('Failed to add fake bits:', e));
   console.log(`Faker bits: ${name} amount ${msg.amount}`);
+}
+
+function handleFakerWatchStreak(msg: FakerWatchStreakMessage) {
+  const name = msg.displayName?.trim() || 'Faker';
+  console.log(`Faker watch streak: ${name} streak ${msg.streak}`);
 }
 
 function handleTTS(msg: RemoteTTSMessages) {
@@ -137,6 +143,8 @@ function connectToBus() {
         handleFakerSub(msg as FakerSubMessage);
       } else if (msg.type === 'faker-bits') {
         handleFakerBits(msg as FakerBitsMessage);
+      } else if (msg.type === 'faker-watch-streak') {
+        handleFakerWatchStreak(msg as FakerWatchStreakMessage);
       } else if (msg.type === 'control') {
         handleControl(msg as ControlMessage);
       } else if (msg.type === 'tts' && isRemoteTTSMessage(msg)) {

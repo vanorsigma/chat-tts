@@ -1,5 +1,5 @@
 import { createFakeMessage } from '$lib/bus/fakeMessage';
-import { isFakerMessage, isFakerSubMessage, isFakerBitsMessage } from '$lib/bus/messages';
+import { isFakerMessage, isFakerSubMessage, isFakerBitsMessage, isFakerWatchStreakMessage } from '$lib/bus/messages';
 import type { ChatMessage } from '@twurple/chat';
 import { enqueueGambaSpin } from './gamba/queue';
 import { SUB_BITS_GAMBA_ITEMS } from './gamba/gamba';
@@ -87,6 +87,22 @@ export function installFakerReceiver(
         channelId,
         `@${name} cheered ${amount} bits, spinning the gamba wheel!`
       );
+    }
+
+    if (isFakerWatchStreakMessage(data)) {
+      const name = data.displayName?.trim() || 'Faker';
+      const streak = data.streak;
+      console.log(`Faker watch streak received: ${name} streak ${streak}`);
+
+      const tags = new Map<string, string>();
+      tags.set('msg-id', 'viewermilestone');
+      tags.set('msg-param-category', 'watch-streak');
+      tags.set('msg-param-value', String(streak));
+      const fake = createFakeMessage('', name, channelId, undefined, tags);
+
+      const dispatcher = getDispatchers();
+      if (!dispatcher) return;
+      dispatcher.dispatchMessage(fake);
     }
   });
 }

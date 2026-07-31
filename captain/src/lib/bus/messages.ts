@@ -27,6 +27,12 @@ export interface FakerBitsMessage {
   amount: number;
 }
 
+export interface FakerWatchStreakMessage {
+  type: 'faker-watch-streak';
+  displayName?: string;
+  streak: number;
+}
+
 export interface ControlMessage {
   type: 'control';
   op: 'cancel' | 'blackSilence' | 'setEnabled' | 'important';
@@ -88,7 +94,7 @@ export interface TokenRefreshedMessage {
   account: 'bot' | 'broadcaster';
 }
 
-export type ClientToServer = FakerMessage | FakerSubMessage | FakerBitsMessage | ControlMessage;
+export type ClientToServer = FakerMessage | FakerSubMessage | FakerBitsMessage | FakerWatchStreakMessage | ControlMessage;
 
 export type ServerToClient =
   | LogMessage
@@ -115,6 +121,10 @@ export function isFakerBitsMessage(obj: unknown): obj is FakerBitsMessage {
   return typeof obj === 'object' && obj !== null && (obj as FakerBitsMessage).type === 'faker-bits';
 }
 
+export function isFakerWatchStreakMessage(obj: unknown): obj is FakerWatchStreakMessage {
+  return typeof obj === 'object' && obj !== null && (obj as FakerWatchStreakMessage).type === 'faker-watch-streak';
+}
+
 export function isControlMessage(obj: unknown): obj is ControlMessage {
   return typeof obj === 'object' && obj !== null && (obj as ControlMessage).type === 'control';
 }
@@ -124,6 +134,7 @@ export function isClientToServer(obj: unknown): obj is ClientToServer {
     isFakerMessage(obj) ||
     isFakerSubMessage(obj) ||
     isFakerBitsMessage(obj) ||
+    isFakerWatchStreakMessage(obj) ||
     isControlMessage(obj)
   );
 }

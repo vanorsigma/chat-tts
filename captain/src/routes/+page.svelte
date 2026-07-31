@@ -225,6 +225,10 @@
     sendBus({ type: 'faker-bits', displayName: username || undefined, amount });
   }
 
+  function onFakerWatchStreak(username: string, streak: number) {
+    sendBus({ type: 'faker-watch-streak', displayName: username || undefined, streak });
+  }
+
   function onCancelSpeech() {
     sendBus({ type: 'control', op: 'cancel' });
   }
@@ -313,7 +317,7 @@
 <section>
   <h2>Faker</h2>
   <p>Sends a mock message to test TTS</p>
-  <Faker onFakerChat={onFaker} {onFakerSub} {onFakerBits} />
+  <Faker onFakerChat={onFaker} {onFakerSub} {onFakerBits} {onFakerWatchStreak} />
 </section>
 
 <section>

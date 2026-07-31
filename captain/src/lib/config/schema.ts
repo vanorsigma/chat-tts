@@ -588,6 +588,21 @@ export const configSchema: FieldSchema[] = [
     objectFields: []
   },
   {
+    key: 'watchStreakConfig',
+    kind: 'optional-object',
+    label: 'Watch Streak',
+    objectFields: [
+      {
+        key: 'streakInterval',
+        kind: 'number',
+        label: 'Streak Interval',
+        default: 5,
+        min: 1,
+        step: 1,
+      }
+    ]
+  },
+  {
     key: 'endstreamConfig',
     kind: 'optional-object',
     label: 'End Stream',

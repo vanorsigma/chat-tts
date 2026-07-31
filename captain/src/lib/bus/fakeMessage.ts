@@ -4,7 +4,8 @@ export function createFakeMessage(
   text: string,
   displayName?: string,
   channelId?: string,
-  userId?: string
+  userId?: string,
+  tags?: Map<string, string>
 ): ChatMessage {
   const name = displayName?.trim() || 'Faker';
   const uid = userId || '12345678';
@@ -24,6 +25,7 @@ export function createFakeMessage(
     text,
     channelId: channelId ?? '',
     emoteOffsets: new Map(),
+    tags: tags ?? new Map(),
     id: `fake-${Date.now()}`
   } as unknown as ChatMessage;
 }

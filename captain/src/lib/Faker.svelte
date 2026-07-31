@@ -6,13 +6,16 @@
   let subTier: number = 1;
   let bitsUser = '';
   let bitsAmount = 100;
+  let streakUser = '';
+  let streakCount = 5;
 
-  type Tab = 'chat' | 'sub' | 'bits';
+  type Tab = 'chat' | 'sub' | 'bits' | 'streak';
   let activeTab: Tab = 'chat';
 
   export let onFakerChat: (text: string, username: string, userId?: string) => void;
   export let onFakerSub: (username: string, tier: number) => void;
   export let onFakerBits: (username: string, amount: number) => void;
+  export let onFakerWatchStreak: (username: string, streak: number) => void;
 
   function sendChat() {
     onFakerChat(chatMsg, chatUser, chatUserId || undefined);
@@ -26,6 +29,10 @@
   function sendBits() {
     onFakerBits(bitsUser, bitsAmount);
   }
+
+  function sendStreak() {
+    onFakerWatchStreak(streakUser, streakCount);
+  }
 </script>
 
 <div class="faker-container">
@@ -36,6 +43,9 @@
     <button class:active={activeTab === 'sub'} on:click={() => (activeTab = 'sub')}> Sub </button>
     <button class:active={activeTab === 'bits'} on:click={() => (activeTab = 'bits')}>
       Bits
+    </button>
+    <button class:active={activeTab === 'streak'} on:click={() => (activeTab = 'streak')}>
+      Streak
     </button>
   </div>
 
@@ -109,6 +119,29 @@
         placeholder="Bits amount"
       />
       <button on:click={sendBits}>Send Bits</button>
+    </div>
+  {/if}
+
+  {#if activeTab === 'streak'}
+    <div class="row">
+      <input
+        type="text"
+        bind:value={streakUser}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendStreak();
+        }}
+        placeholder="Username (optional)"
+      />
+      <input
+        type="number"
+        bind:value={streakCount}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') sendStreak();
+        }}
+        placeholder="Streak count"
+        min="1"
+      />
+      <button on:click={sendStreak}>Send Streak</button>
     </div>
   {/if}
 </div>
