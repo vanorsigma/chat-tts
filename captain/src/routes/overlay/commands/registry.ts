@@ -11,6 +11,7 @@ export const ALL_COMMANDS = [
   '%givepoints',
   '%transfer',
   '%maxwell',
+  '%median',
   '%mistake',
   '%si',
   '%showimage',
@@ -60,6 +61,7 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%givepoints': 'economy',
   '%transfer': 'economy',
   '%maxwell': 'maxwell',
+  '%median': 'economy',
   '%mistake': 'mistake',
   '%si': 'showImage',
   '%showimage': 'showImage',
@@ -139,7 +141,8 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = {
   '%resetcooldown': '%resetcooldown [username|all]',
   '%important': '%important <duration> (5m, 30s, 1h, 1m30s)',
   '%unimportant': '%unimportant',
-  '%check': '%check <%command> [args...]'
+  '%check': '%check <%command> [args...]',
+  '%median': '%median'
 };
 
 // stronger unblockables, not even config can remove them

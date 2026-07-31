@@ -13,7 +13,8 @@ import {
   transferHandler,
   givePointsHandler,
   getPointsHandler,
-  checkInHandler
+  checkInHandler,
+  medianHandler
 } from './handlers/economy';
 import {
   maxwellHandler,
@@ -334,6 +335,9 @@ export class Commands implements OverlayObserver {
       case '%blacksilence':
         if (this.busWs) blackSilenceHandler(dispatcher, message, this.busWs);
         else dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
+        break;
+      case '%median':
+        medianHandler(dispatcher, message);
         break;
       case '%points':
         getPointsHandler(dispatcher, message);

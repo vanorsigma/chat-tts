@@ -21,6 +21,12 @@ function inverseSChance(invested: number, medianPoints: number, steepness: numbe
 export const POST: RequestHandler = async ({ url, request }) => {
   const action = url.searchParams.get('action');
 
+  if (action === 'median') {
+    const { checkedInUsers } = (await request.json()) as { checkedInUsers?: string[] };
+    const medianPoints = await getMedianPointsForUsers(checkedInUsers ?? []);
+    return json({ ok: true, medianPoints });
+  }
+
   if (action === 'buy') {
     const body = (await request.json()) as BuyRequest;
     const { username, stock, points, price, steepness, skipChance, checkedInUsers, check } = body;

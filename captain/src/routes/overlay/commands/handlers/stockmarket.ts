@@ -35,7 +35,11 @@ export async function buyHandler(
   }
 
   if (PEOPLE_WHO_CHECKED_IN.length < 5) {
-    dispatcher.sendMessageAsUser(message.channelId!, 'no one has checked in yet', message.id);
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `not enough checkins! (need ${5 - PEOPLE_WHO_CHECKED_IN.length} more people)`,
+      message.id
+    );
     return;
   }
 
@@ -93,7 +97,13 @@ export async function buyHandler(
         message.id
       );
       try {
-        await dispatcher.timeoutUser(channelId, userId, 'stock buy failed', timeoutSec, message.userInfo.isMod);
+        await dispatcher.timeoutUser(
+          channelId,
+          userId,
+          'stock buy failed',
+          timeoutSec,
+          message.userInfo.isMod
+        );
       } catch (e) {
         console.warn(`failed to timeout ${username}:`, e);
       }
@@ -130,10 +140,12 @@ export async function evaluateBuy(
   if (overpayArg !== undefined && (Number.isNaN(overpay) || overpay < 0))
     return { error: 'overpay is not a valid number' };
 
-  if (PEOPLE_WHO_CHECKED_IN.length < 5) return { error: 'not enough people checked in' };
+  if (PEOPLE_WHO_CHECKED_IN.length < 5)
+    return {
+      error: `not enough people checked in! (need ${5 - PEOPLE_WHO_CHECKED_IN.length} more people)`
+    };
 
-  if (!GLOBAL_STOCK_MARKET.approvedStocks().includes(stock))
-    return { error: 'invalid stock' };
+  if (!GLOBAL_STOCK_MARKET.approvedStocks().includes(stock)) return { error: 'invalid stock' };
 
   const skipChance = message.userInfo.isBroadcaster;
 
@@ -141,9 +153,7 @@ export async function evaluateBuy(
     if (pointsArg === 'all') {
       const points = await getPointsForUser(username);
       if (!points || points <= 0) return { error: 'points is null' };
-      const result = await GLOBAL_STOCK_MARKET.buy(
-        username, stock, points, skipChance, 0, true
-      );
+      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, points, skipChance, 0, true);
       return {
         innerFailChance: result.failChance,
         invested: result.invested,
@@ -152,9 +162,7 @@ export async function evaluateBuy(
     } else {
       const pts = Number(pointsArg);
       if (Number.isNaN(pts) || pts <= 0) return { error: 'points is null' };
-      const result = await GLOBAL_STOCK_MARKET.buy(
-        username, stock, pts, skipChance, overpay, true
-      );
+      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, pts, skipChance, overpay, true);
       return {
         innerFailChance: result.failChance,
         invested: result.invested,

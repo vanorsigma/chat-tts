@@ -109,6 +109,25 @@ export interface HoldingsResponse {
   holdings: HoldingInfo[];
 }
 
+export interface MedianRequest {
+  checkedInUsers: string[];
+}
+
+export interface MedianResponse {
+  ok: boolean;
+  medianPoints?: number;
+  error?: string;
+}
+
+export async function apiGetMedian(req: MedianRequest): Promise<MedianResponse> {
+  const response = await fetch(`${BASE}?action=median`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req)
+  });
+  return (await response.json()) as MedianResponse;
+}
+
 export async function apiGetHoldings(username: string): Promise<HoldingsResponse> {
   const response = await fetch(`${BASE}?username=${encodeURIComponent(username)}`);
   return (await response.json()) as HoldingsResponse;

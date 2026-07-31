@@ -6,6 +6,7 @@ import { getPointsForUser } from '$lib/api/points';
 import { getOverlayConfig } from '../../constants';
 import { checkinUser } from '../../checkinInterface';
 import { GLOBAL_STOCK_MARKET } from '../../stock/market';
+import { apiGetMedian } from '$lib/api/stock-market';
 
 export async function transferHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
@@ -65,6 +66,38 @@ export function getPointsHandler(dispatcher: OverlayDispatchers, message: ChatMe
   (async () => {
     const points = (await getPointsForUser(target)) ?? 0;
     dispatcher.sendMessageAsUser(message.channelId!, `${target} has ${points} vanorDollars`);
+  })();
+}
+
+export function medianHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  if (PEOPLE_WHO_CHECKED_IN.length < 5) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `not enough checkins (need ${5 - PEOPLE_WHO_CHECKED_IN.length} more people)`,
+      message.id
+    );
+    return;
+  }
+
+  (async () => {
+    const { ok, medianPoints } = await apiGetMedian({
+      checkedInUsers: [...PEOPLE_WHO_CHECKED_IN]
+    });
+
+    if (!ok) {
+      dispatcher.sendMessageAsUser(message.channelId!, 'coudl not compute median points');
+      return;
+    }
+
+    const n = PEOPLE_WHO_CHECKED_IN.length;
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `median: ${Math.round(medianPoints ?? 0)} vanorDollars (n=${n})`,
+      message.id
+    );
   })();
 }
 
