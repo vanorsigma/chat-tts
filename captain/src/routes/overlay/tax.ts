@@ -1,4 +1,5 @@
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
+import { addLotteryTax } from '$lib/api/lottery';
 import { PEOPLE_WHO_CHECKED_IN } from './commands/middleware';
 import type { OverlayDispatchers, OverlayTimeoutObserver } from './dispatcher';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
@@ -28,9 +29,10 @@ export async function applyTimeoutTax(
     return;
   }
   await setPointsForUser(username, Math.max(0, points - tax));
+  await addLotteryTax(tax);
   dispatcher.sendMessageAsUser(
     channelId,
-    `@${username} was taxed ${tax}VD (${Math.round(rate * 100)}%) on timeout (balance was ${points}VD)`
+    `@${username} was taxed ${tax}VD (${Math.round(rate * 100)}%) on timeout (balance was ${points}VD), added to lottery pool`
   );
 }
 

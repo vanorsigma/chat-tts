@@ -319,6 +319,36 @@ export class ResetUserCooldown extends GambaItem {
   }
 }
 
+export class LotteryWinnerItem extends GambaItem {
+  readonly weight: number;
+  readonly winner: string;
+  readonly pool: number;
+
+  constructor(weight: number, winner: string, pool: number) {
+    super();
+    this.weight = weight;
+    this.winner = winner;
+    this.pool = pool;
+  }
+
+  getLabel(): string {
+    return this.winner;
+  }
+
+  scaledBy(_factor: number): GambaItem {
+    return this;
+  }
+
+  async onWin(ctx: GambaContext): Promise<void> {
+    const points = (await getPointsForUser(this.winner)) ?? 0;
+    await setPointsForUser(this.winner, points + this.pool);
+    ctx.dispatcher.sendMessageAsUser(
+      ctx.channelId,
+      `@${this.winner} won the lottery! +${this.pool} vanorDollars`
+    );
+  }
+}
+
 export class GiveEveryoneStockGrantItem extends GambaItem {
   readonly weight: number;
   readonly stock: string;

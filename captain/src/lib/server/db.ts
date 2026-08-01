@@ -15,7 +15,9 @@ export function initDbIfRequired(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS bitboosts (username TEXT NOT NULL PRIMARY KEY, amount INT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS subtiers (username TEXT NOT NULL PRIMARY KEY, tier INT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS stock_holdings (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, stock TEXT NOT NULL, invested_points INTEGER NOT NULL, buy_price REAL NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
-    `CREATE INDEX IF NOT EXISTS idx_stock_holdings_user ON stock_holdings(username)`
+    `CREATE INDEX IF NOT EXISTS idx_stock_holdings_user ON stock_holdings(username)`,
+    `CREATE TABLE IF NOT EXISTS lottery_entries (username TEXT NOT NULL PRIMARY KEY, shares INTEGER NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS lottery_tax (id INTEGER PRIMARY KEY CHECK (id = 1), amount INTEGER NOT NULL DEFAULT 0)`
   ];
   return new Promise((resolve, reject) => {
     let completed = 0;
@@ -403,5 +405,90 @@ export async function getMedianPoints(): Promise<number> {
         }
       }
     );
+  });
+}
+
+export async function getLotteryEntries(): Promise<Array<{ username: string; shares: number }>> {
+  return new Promise((resolve, reject) => {
+    db.all('SELECT username, shares FROM lottery_entries', (e: Error | null, result: any[]) => {
+      if (e) {
+        console.warn('database error', e);
+        reject(e);
+        return;
+      }
+      resolve(result as Array<{ username: string; shares: number }>);
+    });
+  });
+}
+
+export async function addLotteryEntry(username: string, shares: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO lottery_entries (username, shares) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET shares = shares + excluded.shares',
+      [username, shares],
+      (e: Error | null) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
+        console.log(`Lottery entry added for ${username}: +${shares} shares`);
+        resolve();
+      }
+    );
+  });
+}
+
+export async function getLotteryTax(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    db.all('SELECT amount FROM lottery_tax WHERE id = 1', (e: Error | null, result: any[]) => {
+      if (e) {
+        console.warn('database error', e);
+        reject(e);
+        return;
+      }
+      resolve((result.at(0) as { amount: number })?.amount ?? 0);
+    });
+  });
+}
+
+export async function addLotteryTax(amount: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO lottery_tax (id, amount) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET amount = amount + excluded.amount',
+      [amount],
+      (e: Error | null) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
+        console.log(`Lottery tax added: +${amount}`);
+        resolve();
+      }
+    );
+  });
+}
+
+export async function clearLottery(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run('DELETE FROM lottery_entries', (e: Error | null) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
+        db.run('UPDATE lottery_tax SET amount = 0 WHERE id = 1', (e2: Error | null) => {
+          if (e2) {
+            console.warn('database error', e2);
+            reject(e2);
+            return;
+          }
+          console.log('Lottery cleared.');
+          resolve();
+        });
+      });
+    });
   });
 }

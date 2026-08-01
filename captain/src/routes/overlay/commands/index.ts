@@ -44,6 +44,7 @@ import {
   resetCooldownHandler
 } from './handlers/moderation';
 import { gambaHandler } from './handlers/gamba';
+import { lotteryHandler } from './handlers/lottery';
 import { checkHandler } from './handlers/evaluate';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
@@ -90,6 +91,7 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
   '%grayscale',
   '%endstream',
   '%gamba',
+  '%lottery',
   '%selfthought',
   '%goodnightkiss',
   '%settitle',
@@ -390,6 +392,9 @@ export class Commands implements OverlayObserver {
         break;
       case '%gamba':
         gambaHandler(this, dispatcher, message);
+        break;
+      case '%lottery':
+        lotteryHandler(this, dispatcher, message);
         break;
       case '%selfthought':
         this.callOnlyIfPastCooldown('selfthought', dispatcher, message, () =>
