@@ -3,7 +3,7 @@
  */
 
 import type { ApiClient, HelixUser } from '@twurple/api';
-import type { ChatClient, ChatMessage } from '@twurple/chat';
+import type { ChatClient, ChatMessage, ChatViewerMilestoneInfo } from '@twurple/chat';
 import type { UserNotice, ChatSubInfo, ChatSubGiftInfo, ChatCommunitySubInfo } from '@twurple/chat';
 import type { ModelUpdater } from './modelupdater';
 import { LRUCache } from '$lib/LRUcache';
@@ -16,6 +16,10 @@ export interface OverlayObserver {
 
 export interface OverlayTimeoutObserver {
   onTimeout(channel_name: string, user: string, duration: number): void;
+}
+
+export interface OverlayViewerMilestoneObserver {
+  onViewerMilestone(info: ChatViewerMilestoneInfo, notice: UserNotice): void;
 }
 
 export interface OverlaySubObserver {
@@ -34,6 +38,7 @@ export class OverlayDispatchers {
   observers: OverlayObserver[] = [];
   timeoutObservers: OverlayTimeoutObserver[] = [];
   subObservers: OverlaySubObserver[] = [];
+  viewerMilestoneObservers: OverlayViewerMilestoneObserver[] = [];
   userCache: LRUCache<HelixUser> = new LRUCache(10);
   private api: ApiClient;
   private botId: string;
@@ -48,6 +53,7 @@ export class OverlayDispatchers {
     twitch.onCommunitySub((channel, user, subInfo, msg) =>
       this.onCommunitySub(channel, user, subInfo, msg)
     );
+    twitch.onViewerMilestone((_1, _2, info, msg) => this.onViewerMilestone(info, msg));
     this.api = api;
     this.botId = botId;
     this.modelUpdater = modelUpdater;
@@ -83,13 +89,10 @@ export class OverlayDispatchers {
     }
   }
 
-  private onMessage(message: ChatMessage) {
-    const bitsInfo = message.bits > 0 ? `, bits: ${message.bits}` : '';
-    console.debug(
-      `onMessage: "${message.text}" from ${message.userInfo?.userName} -> ${this.observers.length} observer(s)${bitsInfo}`
-    );
-    for (const observer of this.observers) {
-      observer.onMessage(message);
+  addViewerMilestoneObserver(observer: OverlayViewerMilestoneObserver) {
+    if (!this.viewerMilestoneObservers.includes(observer)) {
+      this.viewerMilestoneObservers.push(observer);
+      console.debug(`viewerMilestoneObservers: ${observer.constructor.name}`);
     }
   }
 
@@ -98,6 +101,16 @@ export class OverlayDispatchers {
       `dispatchMessage (fake): "${message.text}" from ${message.userInfo?.userName} -> ${this.observers.length} observer(s)`
     );
     this.onMessage(message);
+  }
+
+  private onMessage(message: ChatMessage) {
+    const bitsInfo = message.bits > 0 ? `, bits: ${message.bits}` : '';
+    console.debug(
+      `onMessage: "${message.text}" from ${message.userInfo?.userName} -> ${this.observers.length} observer(s)${bitsInfo}`
+    );
+    for (const observer of this.observers) {
+      observer.onMessage(message);
+    }
   }
 
   private onTimeout(channel_id: string, user: string, duration: number) {
@@ -139,6 +152,15 @@ export class OverlayDispatchers {
     console.debug(`onCommunitySub: ${user} gave ${subInfo.count} subs in ${channel}`);
     for (const observer of this.subObservers) {
       observer.onCommunitySub?.(channel, user, subInfo, msg);
+    }
+  }
+
+  private onViewerMilestone(info: ChatViewerMilestoneInfo, notice: UserNotice) {
+    console.debug(
+      `onViewerMilestone: ${notice.userInfo.userName} reached a milestone of ${info.reward ?? '0'}`
+    );
+    for (const observer of this.viewerMilestoneObservers) {
+      observer.onViewerMilestone?.(info, notice);
     }
   }
 

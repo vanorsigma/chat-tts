@@ -1,46 +1,33 @@
-import type { ChatMessage } from '@twurple/chat';
-import type { OverlayDispatchers, OverlayObserver } from './dispatcher';
-import { requireUsername } from './commands/handlers/shared';
+import type { ChatViewerMilestoneInfo, UserNotice } from '@twurple/chat';
+import type { OverlayDispatchers, OverlayViewerMilestoneObserver } from './dispatcher';
 import { enqueueGambaSpin } from './gamba/queue';
 import { STREAK_GAMBA_ITEMS } from './gamba/gamba';
 import type { Commands } from './commands';
 import { getOverlayConfig } from './constants';
 
-export class WatchStreakTracker implements OverlayObserver {
+export class WatchStreakTracker implements OverlayViewerMilestoneObserver {
   private dispatchers: OverlayDispatchers;
   private commands: Commands | null;
 
   constructor(dispatchers: OverlayDispatchers, commands: Commands | null = null) {
     this.dispatchers = dispatchers;
     this.commands = commands;
-    dispatchers.addObserver(this);
+    dispatchers.addViewerMilestoneObserver(this);
   }
 
-  onMessage(message: ChatMessage): void {
-    const msgId = message.tags.get('msg-id');
-    const category = message.tags.get('msg-param-category');
+  onViewerMilestone(info: ChatViewerMilestoneInfo, notice: UserNotice): void {
+    const streakLength = info.value ?? 0;
+    const username = notice.userInfo.userName;
+    const channelId = notice.channelId!;
+    console.log(`${username} shared a watch streak of ${streakLength}.`);
 
-    const username = requireUsername(message);
-    if (!username) return;
-
-    if (msgId === 'viewermilestone' && category === 'watch-streak') {
-      const streakLength = Number.parseInt(message.tags.get('msg-param-value') ?? '0');
-      console.log(`${username} shared a watch streak of ${streakLength}.`);
-
-      if (streakLength && !isNaN(streakLength))
-        this.handleWatchStreak(message, streakLength);
-    }
+    if (streakLength && !isNaN(streakLength))
+      this.handleWatchStreak(username, channelId, streakLength);
   }
 
-  handleWatchStreak(message: ChatMessage, watchStreak: number) {
+  handleWatchStreak(username: string, channelId: string, watchStreak: number) {
     const { streakInterval } = getOverlayConfig().watchStreak;
     if (!streakInterval || watchStreak % streakInterval !== 0) return;
-
-    const username = requireUsername(message);
-    if (!username) return;
-
-    const channelId = message.channelId;
-    if (!channelId) return;
 
     const multiplier = watchStreak;
     const bet = watchStreak * 100;

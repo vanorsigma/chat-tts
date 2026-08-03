@@ -123,14 +123,11 @@ export async function buyHandler(
 }
 
 export async function evaluateBuy(
-  commands: Commands,
-  message: ChatMessage
+  username: string,
+  rawInvocation: string,
 ): Promise<{ innerFailChance?: number; invested?: number; price?: number; error?: string }> {
-  const username = requireUsername(message);
-  if (!username) return { innerFailChance: 0 };
-
-  const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
-  if (args.length < 2) return { innerFailChance: 0 };
+  const args = rawInvocation.replaceAll('  ', ' ').split(' ').slice(1);
+  if (args.length < 2) return { error: 'not enough arguments' };
 
   const stock = args[0].toUpperCase();
   const pointsArg = args[1];
@@ -147,13 +144,11 @@ export async function evaluateBuy(
 
   if (!GLOBAL_STOCK_MARKET.approvedStocks().includes(stock)) return { error: 'invalid stock' };
 
-  const skipChance = message.userInfo.isBroadcaster;
-
   try {
     if (pointsArg === 'all') {
       const points = await getPointsForUser(username);
       if (!points || points <= 0) return { error: 'points is null' };
-      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, points, skipChance, 0, true);
+      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, points, false, 0, true);
       return {
         innerFailChance: result.failChance,
         invested: result.invested,
@@ -162,7 +157,7 @@ export async function evaluateBuy(
     } else {
       const pts = Number(pointsArg);
       if (Number.isNaN(pts) || pts <= 0) return { error: 'points is null' };
-      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, pts, skipChance, overpay, true);
+      const result = await GLOBAL_STOCK_MARKET.buy(username, stock, pts, false, overpay, true);
       return {
         innerFailChance: result.failChance,
         invested: result.invested,

@@ -14,17 +14,18 @@ export interface EvaluationResult {
 
 export type ChanceProvider = (
   commands: Commands,
-  message: ChatMessage
+  username: string,
+  rawInvocation: string
 ) => Promise<EvaluationResult | null>;
 
 export const defaultProvider: ChanceProvider = async () => null;
 
 async function buyChanceProvider(
   commands: Commands,
-  message: ChatMessage
+  username: string,
+  rawInvocation: string
 ): Promise<EvaluationResult | null> {
-  const result = await evaluateBuy(commands, message);
-  console.debug('Buy chance provider result', result);
+  const result = await evaluateBuy(username, rawInvocation);
   if (result.error || !result.innerFailChance) return { error: result.error };
   return {
     innerFailChance: result.innerFailChance,
@@ -42,10 +43,11 @@ export function registerChanceProvider(cmd: ChatCommand, p: ChanceProvider): voi
 export async function getInnerChance(
   cmd: ChatCommand,
   commands: Commands,
-  message: ChatMessage
+  username: string,
+  rawInvocation: string
 ): Promise<EvaluationResult | null> {
   const provider = chanceProviders.get(cmd) ?? defaultProvider;
-  return provider(commands, message);
+  return provider(commands, username, rawInvocation);
 }
 
 export async function checkHandler(
@@ -94,13 +96,7 @@ export async function checkHandler(
   const outer = await computeCommandChance(targetCommand, userId, channelId, bitBonus);
   console.debug(`Check outer gate: ${JSON.stringify(outer)}`);
 
-  const syntheticMessage = {
-    ...message,
-    text: rawTargetInvocation
-  } as ChatMessage;
-
-  const inner = await getInnerChance(targetCommand, commands, syntheticMessage);
-  console.debug(`Check inner gate: ${JSON.stringify(inner)}`);
+  const inner = await getInnerChance(targetCommand, commands, username, rawTargetInvocation);
   let replyText = `@${username}, gate chance: ${outer.successChance}%/${outer.failChance}% (timeout: ${outer.timeoutSec}s)`;
   if (inner)
     if (!inner.error)
