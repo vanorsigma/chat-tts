@@ -44,6 +44,7 @@
     positionStore,
     pinStore,
     importantStore,
+    cutStore,
     DEFAULT_POSITIONS
   } from './stores';
   import { startCaptchaLoop } from './captcha';
@@ -63,7 +64,7 @@
   import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
   import { isOverlayPositionsMessage, isTokenRefreshedMessage } from '$lib/bus/messages';
-import { formatRemaining } from '$lib/duration';
+  import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
   import GambaWheel from './gamba/GambaWheel.svelte';
   import { SubTracker } from './subTracker';
@@ -105,6 +106,19 @@ import { formatRemaining } from '$lib/duration';
   let lastMakiMeowTime = 0;
   let makiRevealCancelled = false;
   let importantAudio: HTMLAudioElement | null = null;
+  let cutAudio: HTMLAudioElement | null = null;
+
+  $effect(() => {
+    if (cutStore.cutsIndex < 0) return;
+    try {
+      if (!cutAudio) cutAudio = new Audio('/slash.mp3');
+      cutAudio.volume = 0.2;
+      cutAudio.currentTime = 0;
+      void cutAudio.play();
+    } catch {
+      /* autoplay may be blocked */
+    }
+  });
 
   $effect(() => {
     if (importantStore.active && importantStore.phase === 'glowing') {
@@ -113,7 +127,9 @@ import { formatRemaining } from '$lib/duration';
         importantAudio.volume = 0.2;
         importantAudio.currentTime = 0;
         void importantAudio.play();
-      } catch { /* autoplay may be blocked */ }
+      } catch {
+        /* autoplay may be blocked */
+      }
     }
   });
 
@@ -342,11 +358,7 @@ import { formatRemaining } from '$lib/duration';
   ws.addEventListener('message', (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (
-        data?.type === 'control' &&
-        data?.op === 'important' &&
-        data.importantActive === false
-      ) {
+      if (data?.type === 'control' && data?.op === 'important' && data.importantActive === false) {
         if (commands && dispatchers && commands.importantActive) {
           commands.endImportant(dispatchers, PUBLIC_TARGET_CHANNEL_ID);
         }
@@ -754,7 +766,10 @@ import { formatRemaining } from '$lib/duration';
   }
 </script>
 
-<div class="overlay" style="opacity:{importantStore.phase === 'hidden' ? 0 : 1}; transition:opacity 800ms ease;">
+<div
+  class="overlay"
+  style="opacity:{importantStore.phase === 'hidden' ? 0 : 1}; transition:opacity 800ms ease;"
+>
   <div
     class="overlay-artist-widget"
     style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px;"
@@ -821,6 +836,14 @@ import { formatRemaining } from '$lib/duration';
       {#each $checkInStore as checkInObject}
         <p>{checkInObject.username}: {checkInObject.message}</p>
       {/each}
+    </div>
+  {/if}
+  {#if cutStore.videoActive}
+    <div class="fullscreenvideo cutvideo">
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video autoplay onended={() => cutStore.finish(ws)}>
+        <source src="/stormapproaching.webm" type="video/webm" />
+      </video>
     </div>
   {/if}
   {#if $goodnightKissStore.username}
@@ -953,10 +976,14 @@ import { formatRemaining } from '$lib/duration';
     </div>
     <div bind:this={heartrateGraphParent} class="grey-box"></div>
   </div>
-    {#if importantStore.active && importantStore.phase === 'glowing'}
+  {#if importantStore.active && importantStore.phase === 'glowing'}
     <div class="important-glow"></div>
-    <img class="important-bulb" src={BULB_URL} alt=""
-         onanimationend={() => importantStore.toHidden()} />
+    <img
+      class="important-bulb"
+      src={BULB_URL}
+      alt=""
+      onanimationend={() => importantStore.toHidden()}
+    />
   {/if}
 </div>
 {#if importantStore.active && importantStore.phase === 'hidden'}
@@ -1265,29 +1292,71 @@ import { formatRemaining } from '$lib/duration';
   }
 
   .important-glow {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: 20px; height: 20px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,210,.9) 0%, rgba(255,255,160,.45) 35%, rgba(255,255,120,0) 70%);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 210, 0.9) 0%,
+      rgba(255, 255, 160, 0.45) 35%,
+      rgba(255, 255, 120, 0) 70%
+    );
     animation: important-grow 3s ease-out forwards;
-    z-index: 9999; pointer-events: none;
+    z-index: 9999;
+    pointer-events: none;
   }
   @keyframes important-grow {
-    0%   { width: 20px; height: 20px; opacity: .2; box-shadow: 0 0 0 0 rgba(255,255,180,0); }
-    100% { width: 200vmax; height: 200vmax; opacity: 1; box-shadow: 0 0 0 120vmax rgba(255,255,180,.75); }
+    0% {
+      width: 20px;
+      height: 20px;
+      opacity: 0.2;
+      box-shadow: 0 0 0 0 rgba(255, 255, 180, 0);
+    }
+    100% {
+      width: 200vmax;
+      height: 200vmax;
+      opacity: 1;
+      box-shadow: 0 0 0 120vmax rgba(255, 255, 180, 0.75);
+    }
   }
   .important-bulb {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: 128px; height: 128px; z-index: 10000; pointer-events: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 128px;
+    height: 128px;
+    z-index: 10000;
+    pointer-events: none;
     animation: important-bulb 3s ease-out forwards;
   }
   @keyframes important-bulb {
-    0%  { opacity: 0; transform: translate(-50%,-50%) scale(0); }
-    30% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
-    100%{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+    100% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
   }
   .important-timer {
-    position: fixed; top: 16px; right: 16px; z-index: 10001;
-    opacity: .25; color: #fff; font-family: monospace; font-size: 24px;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10001;
+    opacity: 0.25;
+    color: #fff;
+    font-family: monospace;
+    font-size: 24px;
     pointer-events: none;
   }
 </style>

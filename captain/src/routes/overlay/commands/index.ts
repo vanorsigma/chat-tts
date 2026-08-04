@@ -20,9 +20,11 @@ import {
   maxwellHandler,
   flashbangHandler,
   blackSilenceHandler,
+  triggerBlackSilenceEffects,
   mistakeHandler,
   selfThoughtHandler,
-  grayscaleHandler
+  grayscaleHandler,
+  cutHandler
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
 import {
@@ -48,11 +50,7 @@ import { lotteryHandler } from './handlers/lottery';
 import { checkHandler } from './handlers/evaluate';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
-import {
-  computeCommandChance,
-  rollSuccess,
-  timeoutSecondsForFailChance
-} from './chance';
+import { computeCommandChance, rollSuccess, timeoutSecondsForFailChance } from './chance';
 import { addBitBoost, flushBitBoosts } from '$lib/api/bits';
 import { karmaStore, importantStore } from '../stores';
 import { SKIPPED_USERNAMES } from '$lib/messageGuard';
@@ -60,7 +58,15 @@ import { enqueueGambaSpin } from '../gamba/queue';
 import { SUB_BITS_GAMBA_ITEMS } from '../gamba/gamba';
 import { parseDuration } from '$lib/duration';
 
-const PASS_THROUGH_COMMANDS = new Set(['%bid', '%endbid', '%distract', '%rotate', '%refreshVoice', '%important', '%unimportant']);
+const PASS_THROUGH_COMMANDS = new Set([
+  '%bid',
+  '%endbid',
+  '%distract',
+  '%rotate',
+  '%refreshVoice',
+  '%important',
+  '%unimportant'
+]);
 
 const OVERLAY_HANDLED_COMMANDS = new Set([
   '%poll',
@@ -89,6 +95,7 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
   '%unblock',
   '%kill',
   '%grayscale',
+  '%cut',
   '%endstream',
   '%gamba',
   '%lottery',
@@ -296,7 +303,13 @@ export class Commands implements OverlayObserver {
         message.id
       );
       try {
-        await dispatcher.timeoutUser(channelId, userId, 'command failed', timeoutSec, message.userInfo.isMod);
+        await dispatcher.timeoutUser(
+          channelId,
+          userId,
+          'command failed',
+          timeoutSec,
+          message.userInfo.isMod
+        );
       } catch (e) {
         console.warn(`failed to timeout ${message.userInfo.userName}:`, e);
       }
@@ -346,7 +359,7 @@ export class Commands implements OverlayObserver {
         break;
       case '%givepoints':
         givePointsHandler(dispatcher, message);
-        break;
+      break;
       case '%transfer':
         transferHandler(dispatcher, message);
         break;
@@ -459,6 +472,11 @@ export class Commands implements OverlayObserver {
             dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
         });
         break;
+      case '%cut':
+        if (this.busWs) cutHandler(dispatcher, message, this.busWs, this);
+        else
+          dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
+        break;
       case '%check':
         checkHandler(this, dispatcher, message);
         break;
@@ -484,7 +502,11 @@ export class Commands implements OverlayObserver {
       return;
     }
     if (this.importantActive) {
-      dispatcher.sendMessageAsUser(message.channelId!, 'Important mode is already active.', message.id);
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        'Important mode is already active.',
+        message.id
+      );
       return;
     }
     const arg = message.text.split(' ').slice(1).join(' ').trim();
@@ -501,6 +523,7 @@ export class Commands implements OverlayObserver {
     this.importantActive = true;
     this.importantExpiry = Date.now() + dur * 1000;
     importantStore.activate(dur);
+    if (this.busWs) triggerBlackSilenceEffects(this.busWs);
     this.busWs?.send(
       JSON.stringify({
         type: 'control',
@@ -533,11 +556,7 @@ export class Commands implements OverlayObserver {
       return;
     }
     if (!this.importantActive) {
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        'Important mode is not active.',
-        message.id
-      );
+      dispatcher.sendMessageAsUser(message.channelId!, 'Important mode is not active.', message.id);
       return;
     }
     this.endImportant(dispatcher, message.channelId!, message.id);
@@ -551,9 +570,7 @@ export class Commands implements OverlayObserver {
     this.importantActive = false;
     this.importantExpiry = 0;
     importantStore.deactivate();
-    this.busWs?.send(
-      JSON.stringify({ type: 'control', op: 'important', importantActive: false })
-    );
+    this.busWs?.send(JSON.stringify({ type: 'control', op: 'important', importantActive: false }));
     dispatcher.sendMessageAsUser(channelId, 'Important mode ended.', replyTo);
   }
 

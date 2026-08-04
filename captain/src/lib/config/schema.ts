@@ -342,6 +342,33 @@ export const configSchema: FieldSchema[] = [
     ]
   },
   {
+    key: 'cutConfig',
+    kind: 'optional-object',
+    label: 'Cut',
+    objectFields: [
+      { key: 'cost', kind: 'number', label: 'Cost', default: 1000, min: 0, step: 1 },
+      { key: 'user', kind: 'text', label: 'VIP user', default: 'owobred' },
+      { key: 'karma', kind: 'number', label: 'Karma', default: -100, step: 1 },
+      { key: 'shader', kind: 'text', label: 'Shader name', default: 'cut' },
+      {
+        key: 'durationMs',
+        kind: 'number',
+        label: 'Duration (ms)',
+        default: 91962,
+        min: 0,
+        step: 100
+      },
+      {
+        key: 'momentDelayMs',
+        kind: 'number',
+        label: 'Moment delay (ms)',
+        default: 8150,
+        min: 0,
+        step: 10
+      }
+    ]
+  },
+  {
     key: 'mistakeConfig',
     kind: 'optional-object',
     label: 'Mistake',

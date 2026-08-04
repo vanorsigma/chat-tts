@@ -33,6 +33,14 @@ const _overlayConfig = {
   playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
   resetCooldown: { cost: 20000 },
   grayscale: { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 120000 },
+  cut: {
+    cost: 1000,
+    user: 'owobred',
+    karma: -100,
+    shader: 'cut',
+    durationMs: 91962,
+    momentDelayMs: 8150
+  },
   selfThought: { cost: 5000, karma: -200 },
   goodNightKiss: { cost: 5000, user: 'pastel8844', karma: -300, timeoutDurationSec: 1800 },
   setTitle: { cost: 1000, karmaRequirement: 100, karmaModifier: -0.3, user: 'sekatsu1' },
@@ -84,12 +92,14 @@ const _overlayConfig = {
     gamba: 60000,
     buy: 2000,
     sell: 2000,
-    grayscale: 10000
+    grayscale: 10000,
+    cut: 60000,
   },
   commandChances: {
     default: 90,
     flashbang: 40,
-    grayscale: 40
+    grayscale: 40,
+    cut: 30,
   },
   positions: {
     artistWidgetX: 20,
@@ -138,7 +148,8 @@ const COMMAND_SECTION_API_KEYS = new Set([
   'voiceConfig',
   'restartConfig',
   'distractConfig',
-  'grayscaleConfig'
+  'grayscaleConfig',
+  'cutConfig',
 ]);
 
 export function applyOverlayConfig(raw?: Record<string, unknown>): void {
@@ -174,6 +185,7 @@ export function applyOverlayConfig(raw?: Record<string, unknown>): void {
     restartConfig: 'restart',
     distractConfig: 'distract',
     grayscaleConfig: 'grayscale',
+    cutConfig: 'cut',
     commandCooldownsConfig: 'commandCooldowns',
     commandChancesConfig: 'commandChances',
     overlayPositionsConfig: 'positions',

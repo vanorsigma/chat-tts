@@ -44,7 +44,8 @@ export const ALL_COMMANDS = [
   '%resetcooldown',
   '%important',
   '%unimportant',
-  '%check'
+  '%check',
+  '%cut'
 ] as const;
 
 export type ChatCommand = (typeof ALL_COMMANDS)[number];
@@ -92,6 +93,7 @@ export const COMMAND_SECTION: Record<ChatCommand, string> = {
   '%distract': 'distract',
   '%refreshVoice': 'voice',
   '%grayscale': 'grayscale',
+  '%cut': 'cut',
   '%resetcooldown': 'moderation',
   '%important': 'important',
   '%unimportant': 'important',

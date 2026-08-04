@@ -36,6 +36,10 @@
         "description": "Makes the entire screen gray."
     },
     {
+        "name": "%cut",
+        "description": "Overlays a storm video and adds animated cuts to the screen."
+    },
+    {
         "name": "%selfthought",
         "description": "Speak as Vanor."
     }

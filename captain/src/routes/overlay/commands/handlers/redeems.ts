@@ -8,10 +8,52 @@ import {
   blackSilenceStore,
   maxwellStore,
   mistakeStore,
-  karmaStore
+  karmaStore,
+  cutStore
 } from '../../stores';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
+import type { Commands } from '..';
+
+let grayscaleDisableTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelBlackSilenceEffects(ws: WebSocket) {
+  if (grayscaleDisableTimer) {
+    clearTimeout(grayscaleDisableTimer);
+    grayscaleDisableTimer = null;
+  }
+  ws.send(
+    JSON.stringify({
+      type: 'picom-shader',
+      op: 'DISABLE',
+      shader: getOverlayConfig().grayscale.shader
+    })
+  );
+  cutStore.finish(ws);
+}
+
+export function triggerBlackSilenceEffects(ws: WebSocket) {
+  blackSilenceStore.increment();
+  karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
+  cancelBlackSilenceEffects(ws);
+
+  ws.send(
+    JSON.stringify({
+      type: 'tts',
+      command: { type: 'cancel' }
+    } as CancelTTS)
+  );
+
+  ws.send(
+    JSON.stringify({
+      type: 'tts',
+      command: {
+        type: 'disable',
+        duration: getOverlayConfig().blackSilence.durationMs / 1000
+      }
+    } as DisableTTS)
+  );
+}
 
 export async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
@@ -65,25 +107,7 @@ export async function blackSilenceHandler(
     getOverlayConfig().blackSilence.user,
     getOverlayConfig().blackSilence.cost,
     () => {
-      blackSilenceStore.increment();
-      karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
-
-      ws.send(
-        JSON.stringify({
-          type: 'tts',
-          command: { type: 'cancel' }
-        } as CancelTTS)
-      );
-
-      ws.send(
-        JSON.stringify({
-          type: 'tts',
-          command: {
-            type: 'disable',
-            duration: getOverlayConfig().blackSilence.durationMs / 1000
-          }
-        } as DisableTTS)
-      );
+      triggerBlackSilenceEffects(ws);
     }
   );
 }
@@ -168,14 +192,62 @@ export async function grayscaleHandler(
       JSON.stringify({
         type: 'picom-shader',
         op: 'ENABLE',
-        shader: getOverlayConfig().grayscale.shader,
-        durationMs: getOverlayConfig().grayscale.durationMs
+        shader: getOverlayConfig().grayscale.shader
       })
     );
+    if (grayscaleDisableTimer) clearTimeout(grayscaleDisableTimer);
+    grayscaleDisableTimer = setTimeout(() => {
+      ws.send(
+        JSON.stringify({
+          type: 'picom-shader',
+          op: 'DISABLE',
+          shader: getOverlayConfig().grayscale.shader
+        })
+      );
+      grayscaleDisableTimer = null;
+    }, getOverlayConfig().grayscale.durationMs);
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `-${getOverlayConfig().grayscale.cost}`,
       message.id
     );
   }
+}
+
+async function innerCutHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  ws: WebSocket
+) {
+  const username = requireUsername(message);
+  if (!username) return;
+  if (!cutStore.hasCapacity) return;
+
+  await withCostOrFreeUser(
+    dispatcher,
+    message,
+    getOverlayConfig().cut.user,
+    getOverlayConfig().cut.cost,
+    () => {
+      karmaStore.updateKarma(getOverlayConfig().cut.karma, 'Cut');
+      cutStore.doCut(ws);
+    }
+  );
+}
+
+export async function cutHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  ws: WebSocket,
+  commands: Commands
+) {
+  if (!cutStore.videoActive) {
+    console.debug('Cut session has not started yet!');
+    commands.callOnlyIfPastCooldown('cut', dispatcher, message, () =>
+      innerCutHandler(dispatcher, message, ws)
+    );
+    return;
+  }
+  console.debug('Cut session has started, bypassing cooldown restrictions.');
+  innerCutHandler(dispatcher, message, ws);
 }

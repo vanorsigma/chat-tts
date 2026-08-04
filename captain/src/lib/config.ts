@@ -70,6 +70,15 @@ export interface OverlayGrayscaleConfig {
   durationMs: number;
 }
 
+export interface OverlayCutConfig {
+  cost: number;
+  user: string;
+  karma: number;
+  shader: string;
+  durationMs: number;
+  momentDelayMs: number;
+}
+
 export interface OverlayMistakeConfig {
   cost: number;
   user: string;
@@ -293,6 +302,7 @@ export class ParseableConfig {
   overlayFlashbangConfig?: OverlayFlashbangConfig;
   overlayMaxwellConfig?: OverlayMaxwellConfig;
   overlayGrayscaleConfig?: OverlayGrayscaleConfig;
+  overlayCutConfig?: OverlayCutConfig;
   overlayMistakeConfig?: OverlayMistakeConfig;
   overlayShowImageConfig?: OverlayShowImageConfig;
   overlayPlayAudioConfig?: OverlayPlayAudioConfig;
@@ -351,6 +361,7 @@ export class ParseableConfig {
     this.overlayFlashbangConfig = arbitraryObject['flashbangConfig'];
     this.overlayMaxwellConfig = arbitraryObject['maxwellConfig'];
     this.overlayGrayscaleConfig = arbitraryObject['grayscaleConfig'];
+    this.overlayCutConfig = arbitraryObject['cutConfig'];
     this.overlayMistakeConfig = arbitraryObject['mistakeConfig'];
     this.overlayShowImageConfig = arbitraryObject['showImageConfig'];
     this.overlayPlayAudioConfig = arbitraryObject['playAudioConfig'];
@@ -456,6 +467,17 @@ export class ParseableConfig {
             shader: 'grayscale',
             durationMs: 10000,
             ...this.overlayGrayscaleConfig
+          }
+        : undefined,
+      cutConfig: this.overlayCutConfig
+        ? {
+            cost: 1000,
+            user: 'owobred',
+            karma: -100,
+            shader: 'cut',
+            durationMs: 91962,
+            momentDelayMs: 8150,
+            ...this.overlayCutConfig
           }
         : undefined,
       mistakeConfig: this.overlayMistakeConfig
@@ -629,6 +651,7 @@ export interface FullConfig {
   maxwellConfig?: OverlayMaxwellConfig;
   mistakeConfig?: OverlayMistakeConfig;
   grayscaleConfig?: OverlayGrayscaleConfig;
+  cutConfig?: OverlayCutConfig;
   showImageConfig?: OverlayShowImageConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;

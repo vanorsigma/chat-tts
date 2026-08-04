@@ -73,6 +73,12 @@ grayscaleConfig:
   karma: -100
   shader: grayscale
   durationMs: 10000
+cutConfig:
+  cost: 1000
+  karma: -100
+  shader: cut
+  durationMs: 91962
+  momentDelayMs: 8150
 selfThoughtConfig:
   cost: 5000
   karma: -200
