@@ -377,10 +377,31 @@ class TwitchTool:
         """General Tool: Make a poll for users to interact with
 
         Args:
-            question: The question of the poll
-            options: The options in the poll. Cannot have semi-colons in them
-            duration: Duration of the poll in seconds
+            question: The question of the poll, up to 60 characters
+            options: 2 to 5 options, each 1 to 25 characters. Cannot have semi-colons in them
+            duration: Duration of the poll in seconds, between 15 and 1800
         """
+        if not question:
+            raise ModelRetry("Poll title is required")
+        if len(question) > 60:
+            raise ModelRetry(
+                f"Poll title is {len(question)} characters; maximum is 60"
+            )
+        if not isinstance(duration, int) or isinstance(duration, bool):
+            raise ModelRetry("Duration must be an integer")
+        if duration < 15 or duration > 1800:
+            raise ModelRetry("Duration must be between 15 and 1800 seconds")
+        if len(options) < 2:
+            raise ModelRetry("A poll needs at least 2 choices")
+        if len(options) > 5:
+            raise ModelRetry("A poll can have at most 5 choices")
+
+        for index, option in enumerate(options):
+            if len(option) < 1 or len(option) > 25:
+                raise ModelRetry(
+                    f"Choice {index + 1} is {len(option)} characters; maximum is 25: {option}"
+                )
+
         await self._lazy_init()
         assert self.twitch is not None
 

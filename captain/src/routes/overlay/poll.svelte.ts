@@ -1,4 +1,3 @@
-import { COMMAND_HELP } from './commands/registry';
 import type { OverlayDispatchers } from './dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 
@@ -21,12 +20,16 @@ export interface Poll {
   endDate?: string;
 }
 
-function getPollParameters(
-  message: string
-): { title: string; duration: number; choices: string[] } | null {
+type PollParameters =
+  | { ok: true; title: string; duration: number; choices: string[] }
+  | { ok: false; error: string };
+
+function getPollParameters(message: string): PollParameters {
   const rest = message.replace(/^%poll/i, '').trim();
   const splits = rest.split(';');
-  if (splits.length < 3) return null;
+  if (splits.length < 3) {
+    return { ok: false, error: 'A poll needs a title, duration, and at least 2 choices' };
+  }
 
   const title = splits[0];
   const duration = Number(splits[1]);
@@ -40,17 +43,37 @@ function getPollParameters(
 
   if (
     !title ||
+    title.length > 60 ||
     isNaN(duration) ||
     duration < 15 ||
     duration > 1800 ||
     choices.length < 2 ||
     choices.length > 5
   ) {
-    return null;
+    if (!title) return { ok: false, error: 'Poll title is required' };
+    if (title.length > 60) {
+      return { ok: false, error: `Poll title is ${title.length} characters; maximum is 60` };
+    }
+    if (isNaN(duration)) {
+      return { ok: false, error: `Duration must be a number, got "${splits[1]}"` };
+    }
+    if (duration < 15 || duration > 1800) {
+      return { ok: false, error: 'Duration must be between 15 and 1800 seconds' };
+    }
+    if (choices.length < 2) return { ok: false, error: 'A poll needs at least 2 choices' };
+    return { ok: false, error: 'A poll can have at most 5 choices' };
   }
-  if (choices.some((c) => c.length < 1 || c.length > 25)) return null;
 
-  return { title, duration, choices };
+  const invalidChoice = choices.findIndex((choice) => choice.length < 1 || choice.length > 25);
+  if (invalidChoice !== -1) {
+    const choice = choices[invalidChoice];
+    return {
+      ok: false,
+      error: `Choice ${invalidChoice + 1} is ${choice.length} characters; maximum is 25: ${choice}`
+    };
+  }
+
+  return { ok: true, title, duration, choices };
 }
 
 export async function pollCommandHandler(
@@ -70,12 +93,8 @@ export async function pollCommandHandler(
   }
 
   const params = getPollParameters(message.text);
-  if (!params) {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      COMMAND_HELP['%poll'] ?? 'Invalid format',
-      message.id
-    );
+  if (!params.ok) {
+    dispatcher.sendMessageAsUser(message.channelId!, params.error, message.id);
     return;
   }
 
