@@ -27,6 +27,7 @@
   import { OverlayDispatchers } from './dispatcher';
   import { getOverlayConfig, applyOverlayConfig } from './constants';
   import { Commands } from './commands';
+  import { CutSessionGateExemption } from './commands/cutSessionGateExemption';
   import {
     pollStore,
     predictionStore,
@@ -655,6 +656,7 @@
     let _timeout = new TimeoutAnimation(dispatchers, gameApplication);
     let _tax = new TaxObserver(dispatchers);
     commands = new Commands(dispatchers);
+    commands.addGateExemptionProvider(new CutSessionGateExemption());
     commands.setBusSocket(busWs);
     dispatchers.addObserver(commands);
     let _subTracker = new SubTracker(dispatchers, commands);
@@ -841,7 +843,7 @@
   {#if cutStore.videoActive}
     <div class="fullscreenvideo cutvideo">
       <!-- svelte-ignore a11y_media_has_caption -->
-      <video autoplay onended={() => cutStore.finish(ws)}>
+      <video autoplay onended={() => cutStore.finish(ws)} volume={0.2}>
         <source src="/stormapproaching.webm" type="video/webm" />
       </video>
     </div>

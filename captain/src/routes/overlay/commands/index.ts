@@ -50,13 +50,12 @@ import { lotteryHandler } from './handlers/lottery';
 import { checkHandler } from './handlers/evaluate';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
-import { computeCommandChance, rollSuccess, timeoutSecondsForFailChance } from './chance';
 import { addBitBoost, flushBitBoosts } from '$lib/api/bits';
 import { karmaStore, importantStore } from '../stores';
-import { SKIPPED_USERNAMES } from '$lib/messageGuard';
 import { enqueueGambaSpin } from '../gamba/queue';
 import { SUB_BITS_GAMBA_ITEMS } from '../gamba/gamba';
 import { parseDuration } from '$lib/duration';
+import { CommandGate, type GateExemptionProvider } from './gate';
 
 const PASS_THROUGH_COMMANDS = new Set([
   '%bid',
@@ -110,6 +109,7 @@ const OVERLAY_HANDLED_COMMANDS = new Set([
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
+  private gate = new CommandGate();
   cooldowns: Map<string, number> = new Map();
   gambaUserCooldowns: Map<string, number> = new Map();
   buyUserCooldowns: Map<string, number> = new Map();
@@ -132,6 +132,14 @@ export class Commands implements OverlayObserver {
       this.busWs.close();
     }
     this.busWs = ws;
+  }
+
+  addGateExemptionProvider(provider: GateExemptionProvider): void {
+    this.gate.addExemptionProvider(provider);
+  }
+
+  removeGateExemptionProvider(provider: GateExemptionProvider): void {
+    this.gate.removeExemptionProvider(provider);
   }
 
   callOnlyIfPastCooldown(
@@ -217,7 +225,13 @@ export class Commands implements OverlayObserver {
       OVERLAY_HANDLED_COMMANDS.has(commandIndicator) &&
       !PASS_THROUGH_COMMANDS.has(commandIndicator)
     ) {
-      void this.gateCommand(commandIndicator, dispatcher, message, commandIndicator);
+      void this.gate.run(
+        commandIndicator,
+        dispatcher,
+        message,
+        this.getUserBitsBoost(username),
+        () => this.dispatchCommand(commandIndicator, dispatcher, message)
+      );
       return;
     }
 
@@ -263,59 +277,6 @@ export class Commands implements OverlayObserver {
     this.bitsBoosts.set(username, current + bits);
   }
 
-  private async gateCommand(
-    commandIndicator: ChatCommand,
-    dispatcher: OverlayDispatchers,
-    message: ChatMessage,
-    _commandName: ChatCommand
-  ) {
-    if (message.userInfo.isBroadcaster || SKIPPED_USERNAMES.has(message.userInfo.userName)) {
-      console.log(`Gate command trapdoor for ${message.userInfo.userName}`);
-      this.dispatchCommand(commandIndicator, dispatcher, message);
-      return;
-    }
-
-    const bitsBonus = this.getUserBitsBoost(message.userInfo.userName ?? '');
-    const channelId = message.channelId ?? PUBLIC_TARGET_CHANNEL_ID;
-    const userId = message.userInfo.userId;
-
-    let chance = 100;
-    try {
-      const result = await computeCommandChance(commandIndicator, userId, channelId, bitsBonus);
-      chance = result.successChance;
-      if (result.base !== result.successChance) {
-        console.log(
-          `${message.userInfo.userName} ${commandIndicator}: adjusted chance=${result.successChance}% (base=${result.base}%, bitsBonus=${bitsBonus}%)`
-        );
-      }
-    } catch (e) {
-      console.warn('chance computation failed, defaulting to 100%', e);
-    }
-
-    if (rollSuccess(chance)) {
-      this.dispatchCommand(commandIndicator, dispatcher, message);
-    } else {
-      const failChance = 100 - Math.min(chance, 100);
-      const timeoutSec = timeoutSecondsForFailChance(failChance);
-      dispatcher.sendMessageAsUser(
-        channelId,
-        `@${message.userInfo.userName} fumbled ${commandIndicator} (${failChance}% fail chance) -> timeout ${timeoutSec}s`,
-        message.id
-      );
-      try {
-        await dispatcher.timeoutUser(
-          channelId,
-          userId,
-          'command failed',
-          timeoutSec,
-          message.userInfo.isMod
-        );
-      } catch (e) {
-        console.warn(`failed to timeout ${message.userInfo.userName}:`, e);
-      }
-    }
-  }
-
   private dispatchCommand(
     commandIndicator: ChatCommand,
     dispatcher: OverlayDispatchers,
@@ -359,7 +320,7 @@ export class Commands implements OverlayObserver {
         break;
       case '%givepoints':
         givePointsHandler(dispatcher, message);
-      break;
+        break;
       case '%transfer':
         transferHandler(dispatcher, message);
         break;
@@ -474,8 +435,7 @@ export class Commands implements OverlayObserver {
         break;
       case '%cut':
         if (this.busWs) cutHandler(dispatcher, message, this.busWs, this);
-        else
-          dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
+        else dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
         break;
       case '%check':
         checkHandler(this, dispatcher, message);

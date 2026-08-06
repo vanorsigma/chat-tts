@@ -217,21 +217,29 @@ export async function grayscaleHandler(
 async function innerCutHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  ws: WebSocket
+  ws: WebSocket,
+  skipCost = false
 ) {
   const username = requireUsername(message);
   if (!username) return;
   if (!cutStore.hasCapacity) return;
+
+  const doCut = () => {
+    karmaStore.updateKarma(getOverlayConfig().cut.karma, 'Cut');
+    cutStore.doCut(ws);
+  };
+
+  if (skipCost) {
+    doCut();
+    return;
+  }
 
   await withCostOrFreeUser(
     dispatcher,
     message,
     getOverlayConfig().cut.user,
     getOverlayConfig().cut.cost,
-    () => {
-      karmaStore.updateKarma(getOverlayConfig().cut.karma, 'Cut');
-      cutStore.doCut(ws);
-    }
+    doCut
   );
 }
 
@@ -249,5 +257,5 @@ export async function cutHandler(
     return;
   }
   console.debug('Cut session has started, bypassing cooldown restrictions.');
-  innerCutHandler(dispatcher, message, ws);
+  innerCutHandler(dispatcher, message, ws, true);
 }
