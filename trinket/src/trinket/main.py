@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QApplication
 
 from trinket.controller import TrinketController
 from trinket.receiver.console import ConsoleReceiver
+from trinket.frames.shared import get_cached_emotes_with_images
 
 
 def main() -> None:
@@ -24,6 +25,11 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     controller = TrinketController(app)
+
+    try:
+        get_cached_emotes_with_images(TrinketController.EMOTE_SET_ID)
+    except RuntimeError as exc:
+        logging.getLogger(__name__).error("Failed to prefetch emotes at startup: %s", exc)
 
     timer = QTimer()
     timer.setInterval(200)

@@ -2,11 +2,9 @@
 Guess 7tv emotes
 """
 
-import http.client
 import logging
 import random
 import sys
-import urllib.request
 
 from PyQt6.QtCore import Qt, QByteArray, QBuffer
 from PyQt6.QtGui import QImage, QPixmap, QMovie
@@ -14,9 +12,7 @@ from PyQt6.QtWidgets import QApplication, QLabel, QLayout, QVBoxLayout
 from trinket.frames.shared import (
     CloseSignalableWidget,
     GuessTextEdit,
-    HEADERS,
-    SevenTVEmoteData,
-    get_emotes_from_emote_set_id,
+    get_cached_emotes_with_images,
     place_randomly,
 )
 
@@ -41,7 +37,7 @@ class EmoteWindow(CloseSignalableWidget):
             random.seed(seed)
 
         self.correct_name = correct_name
-        logger.info(f"Emoji spawned for {correct_name}")
+        logger.info("Emoji spawned for %s", correct_name)
 
         self.setWindowTitle("EmoteGuess")
         self.setWindowFlags(
@@ -87,32 +83,11 @@ def create_emote_window_from_emote_set_id(
     if seed is not None:
         random.seed(seed)
 
-    emotes = get_emotes_from_emote_set_id(emote_set_id)
+    emotes = get_cached_emotes_with_images(emote_set_id)
     window_references = []
     for _ in range(no_windows):
-        for attempt in range(3):
-            emote = random.choice(emotes)
-            try:
-                request = urllib.request.Request(
-                    url=emote.url, data=None, headers={"User-Agent": HEADERS}
-                )
-                with urllib.request.urlopen(request, timeout=15) as response:
-                    returned_bytes: bytes = response.read()
-                window_references.append(
-                    EmoteWindow(emote.name, returned_bytes, emote.animated)
-                )
-                break
-            except (
-                urllib.error.URLError,
-                http.client.IncompleteRead,
-                OSError,
-            ) as exc:
-                logger.warning(
-                    "Failed to download emote %s (attempt %d): %s",
-                    emote.name,
-                    attempt + 1,
-                    exc,
-                )
+        emote = random.choice(emotes)
+        window_references.append(EmoteWindow(emote.name, emote.data, emote.animated))
 
     return window_references
 

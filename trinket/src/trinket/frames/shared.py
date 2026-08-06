@@ -2,11 +2,12 @@
 Shared Components
 """
 
-import cachetools.func
 import json
 import logging
 import random
-import urllib
+import urllib.error
+import urllib.request
+from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
@@ -156,6 +157,14 @@ class SevenTVEmoteData:
 
 
 @dataclass
+class CachedEmote:
+    name: str
+    url: str
+    animated: bool
+    data: bytes
+
+
+@dataclass
 class SevenTVRawEmote(DataClassJsonMixin):
     name: str
     data: SevenTVRawEmoteData
@@ -214,10 +223,39 @@ class SevenTVAPI:  # pylint: disable=too-few-public-methods
             raise RuntimeError(f"Failed to fetch 7TV emote set: {e}") from e
 
 
-@cachetools.func.ttl_cache(1, ttl=3600)
+@lru_cache(maxsize=None)
 def get_emotes_from_emote_set_id(emote_set_id: str) -> list[SevenTVEmoteData]:
     """
-    Cached method to get emote set IDs.
+    Get an emote set once per process lifetime.
     """
     api = SevenTVAPI(emote_set_id)
     return api.get_emotes()
+
+
+@lru_cache(maxsize=None)
+def get_cached_emotes_with_images(emote_set_id: str) -> list[CachedEmote]:
+    """Download and retain all emote images for the process lifetime."""
+    cached_emotes = []
+    for emote in get_emotes_from_emote_set_id(emote_set_id):
+        request = urllib.request.Request(
+            url=emote.url, data=None, headers={"User-Agent": HEADERS}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                data = response.read()
+        except (urllib.error.URLError, OSError) as exc:
+            logger.warning("Failed to prefetch emote %s: %s", emote.name, exc)
+            continue
+
+        cached_emotes.append(
+            CachedEmote(
+                name=emote.name,
+                url=emote.url,
+                animated=emote.animated,
+                data=data,
+            )
+        )
+
+    if not cached_emotes:
+        raise RuntimeError(f"Failed to download any emotes from set {emote_set_id}")
+    return cached_emotes

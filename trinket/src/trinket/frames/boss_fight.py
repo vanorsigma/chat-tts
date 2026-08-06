@@ -5,7 +5,6 @@ A possible sub-frame of the warning frame
 import logging
 import os
 import random
-import urllib
 from queue import Empty, Queue
 from threading import Thread
 from typing import Callable
@@ -16,10 +15,9 @@ from PyQt6.QtGui import QImage, QMovie, QPixmap
 from PyQt6.QtWidgets import QApplication, QLabel, QLayout, QProgressBar, QVBoxLayout
 from trinket.frames.shared import (
     CloseSignalableOpenGLWidget,
-    HEADERS,
     RESOURCES_DIR,
-    SevenTVEmoteData,
-    get_emotes_from_emote_set_id,
+    CachedEmote,
+    get_cached_emotes_with_images,
     place_randomly,
 )
 from trinket.receiver.console import register_chat_listener, unregister_chat_listener
@@ -155,7 +153,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
     EMOTE_QUEUE = 4
 
     def __init__(
-        self, channel_name: str, max_health: int, emotes: list[SevenTVEmoteData]
+        self, channel_name: str, max_health: int, emotes: list[CachedEmote]
     ):
         super().__init__()
         self._closed = False
@@ -222,11 +220,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
 
     def choose_random_emote(self) -> tuple[str, bool, bytes]:
         emote = random.choice(self.emotes)
-        request = urllib.request.Request(
-            url=emote.url, data=None, headers={"User-Agent": HEADERS}
-        )
-        with urllib.request.urlopen(request) as response:
-            return (emote.name, emote.animated, response.read())
+        return (emote.name, emote.animated, emote.data)
 
     def irc_message_callback(self, message: str) -> None:
         """
@@ -298,7 +292,7 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
 
 
 def make_boss_fight(emote_set_id: str) -> BossFightFrame:
-    emotes = get_emotes_from_emote_set_id(emote_set_id)
+    emotes = get_cached_emotes_with_images(emote_set_id)
     health = random.randint(1, 500)
 
     return BossFightFrame("vanorsigma", health, emotes)
@@ -307,7 +301,7 @@ def make_boss_fight(emote_set_id: str) -> BossFightFrame:
 if __name__ == "__main__":
     app = QApplication([])
 
-    emotes = get_emotes_from_emote_set_id("01J452JCVG0000352W25T9VEND")
+    emotes = get_cached_emotes_with_images("01J452JCVG0000352W25T9VEND")
     bossfight = BossFightFrame("vanorsigma", 100, emotes)
     bossfight.show()
 
