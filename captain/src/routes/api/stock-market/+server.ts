@@ -11,6 +11,7 @@ import {
   getPointsForUser
 } from '$lib/server/db';
 import type { BuyRequest, SellRequest, GrantRequest } from '$lib/api/stock-market';
+import { random } from '$lib/utils';
 
 function inverseSChance(invested: number, medianPoints: number, steepness: number): number {
   const mid = Math.max(medianPoints, 1);
@@ -58,7 +59,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
     const failChance = 100 - Math.min(chance * 100, 100);
 
     if (!skipChance) {
-      if (Math.random() >= chance) {
+      if (random() >= chance) {
         console.log(
           `[stock-market] buy: S-curve fail chance=${failChance.toFixed(0)}% invested=${points} overpay=${overpay} totalInvested=${totalInvested} existing=${existingTotal} median=${medianPoints} steepness=${steepness}`
         );

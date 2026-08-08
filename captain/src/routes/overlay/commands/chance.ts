@@ -1,7 +1,7 @@
 import type { ChatCommand } from './registry';
 import { getOverlayConfig } from '../constants';
 import { getSubTier } from '$lib/api/subtiers';
-import { properRandom } from '../utils';
+import { random } from '$lib/utils';
 
 export function getBaseChance(commandName: string): number {
   const chances = getOverlayConfig().commandChances as Record<string, number> | undefined;
@@ -91,7 +91,7 @@ export async function computeSuccessChance(
 }
 
 export function rollSuccess(chance: number): boolean {
-  return properRandom() * 100 < chance;
+  return random() * 100 < chance;
 }
 
 export function timeoutSecondsForFailChance(failChance: number): number {

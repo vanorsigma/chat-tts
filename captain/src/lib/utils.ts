@@ -1,6 +1,60 @@
 // Utilities shared across all routes
 import { AnimatedSprite, Assets, Sprite, Texture } from 'pixi.js';
 
+const MASK64 = 0xffffffffffffffffn;
+
+// Crypto-backed randomness, used only to seed the xoshiro256++ state below.
+// It is too slow to call for every random draw.
+export function properRandom(): number {
+  if (typeof globalThis.crypto !== 'undefined') {
+    const array = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(array);
+    return array[0] / 0x100000000;
+  }
+  return Math.random();
+}
+
+// xoshiro256++ (Blackman & Vigna), seeded once at module load.
+const state: [bigint, bigint, bigint, bigint] = (() => {
+  const word = () =>
+    (BigInt(Math.floor(properRandom() * 0x100000000)) << 32n) |
+    BigInt(Math.floor(properRandom() * 0x100000000));
+  const [s0, s1, s2, s3] = [word(), word(), word(), word()];
+  // the state must not be all zeros
+  if (s0 === 0n && s1 === 0n && s2 === 0n && s3 === 0n) return [1n, 0n, 0n, 0n];
+  return [s0, s1, s2, s3];
+})();
+
+function rotl64(x: bigint, k: number): bigint {
+  const y = x & MASK64;
+  return ((y << BigInt(k)) | (y >> BigInt(64 - k))) & MASK64;
+}
+
+function xoshiro256ppNext(): bigint {
+  let [s0, s1, s2, s3] = state;
+  const result = (rotl64(s0 + s3, 23) + s0) & MASK64;
+
+  const t = (s1 << 17n) & MASK64;
+  s2 ^= s0;
+  s3 ^= s1;
+  s1 ^= s2;
+  s0 ^= s3;
+  s2 ^= t;
+  s3 = rotl64(s3, 45);
+
+  state[0] = s0;
+  state[1] = s1;
+  state[2] = s2;
+  state[3] = s3;
+  return result;
+}
+
+// Returns a float in [0, 1), the fast replacement for Math.random().
+export function random(): number {
+  const value = Number(xoshiro256ppNext() >> 11n) / 2 ** 53;
+  return value < 1 ? value : 0;
+}
+
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -39,7 +93,7 @@ export function makeAnimatedSprite(textures: Texture[]): Sprite | null {
   }
 
   const animatedSprite = new AnimatedSprite(textures);
-  animatedSprite.animationSpeed = Math.random();
+  animatedSprite.animationSpeed = random();
   animatedSprite.loop = true;
   animatedSprite.play();
 
@@ -49,7 +103,7 @@ export function makeAnimatedSprite(textures: Texture[]): Sprite | null {
 function pickRandom<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled.slice(0, count);

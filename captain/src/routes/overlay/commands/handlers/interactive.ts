@@ -5,6 +5,7 @@ import { requireUsername } from './shared';
 import { getOverlayConfig } from '../../constants';
 import { goodnightKissStore, karmaStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
+import { random } from '$lib/utils';
 
 export async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   const username = requireUsername(message);
@@ -45,7 +46,7 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
       username: username ?? 'no username?',
       userid: targetUserId,
       color: message.userInfo.color ?? 'lightgrey',
-      fast_version: Math.random() < 0.1,
+      fast_version: random() < 0.1,
       isMod: message.userInfo.isMod
     });
     karmaStore.updateKarma(getOverlayConfig().goodNightKiss.karma, 'Good Night Kiss');

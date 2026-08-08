@@ -1,7 +1,7 @@
 import type { OverlayDispatchers } from '../dispatcher';
 import { GLOBAL_STOCK_MARKET } from '../stock/market';
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
-import { properRandom } from '../utils';
+import { random } from '$lib/utils';
 import { PEOPLE_WHO_CHECKED_IN, TOGGLE_EXPIRY } from '../commands/middleware';
 import { addBitBoost } from '$lib/api/bits';
 import { getOverlayConfig } from '../constants';
@@ -33,7 +33,7 @@ export abstract class GambaItem {
 
 export function pickWeighted(items: GambaItem[]): GambaItem {
   const totalWeight = items.reduce((sum, i) => sum + i.weight, 0);
-  let roll = properRandom() * totalWeight;
+  let roll = random() * totalWeight;
   for (const item of items) {
     roll -= item.weight;
     if (roll <= 0) return item;

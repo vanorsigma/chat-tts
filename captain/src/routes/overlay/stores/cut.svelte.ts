@@ -1,4 +1,5 @@
 import { getOverlayConfig } from '../constants';
+import { random } from '$lib/utils';
 
 export function createCutStore() {
   const maxCuts = 128; // TODO: config, but I want to refactor our configuration system first
@@ -144,11 +145,11 @@ export function createCutStore() {
 
     cutsIndex += 1;
     const currentIdx = cutsIndex;
-    const angle = Math.random() * 360;
-    const offsetX = Math.random() * 0.8 - 0.4;
-    const offsetY = Math.random() * 0.8 - 0.4;
-    const animationScale = 0.04 + Math.random() * 0.11;
-    const animationDurationMs = (0.8 + Math.random() * 2.7) * 1000;
+    const angle = random() * 360;
+    const offsetX = random() * 0.8 - 0.4;
+    const offsetY = random() * 0.8 - 0.4;
+    const animationScale = 0.04 + random() * 0.11;
+    const animationDurationMs = (0.8 + random() * 2.7) * 1000;
 
     sendAnimatedCut(
       sender,

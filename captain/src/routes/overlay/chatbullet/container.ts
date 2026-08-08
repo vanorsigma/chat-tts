@@ -1,4 +1,4 @@
-import { makeAnimatedSprite, fetchAnimatedTextures } from '$lib/utils';
+import { makeAnimatedSprite, fetchAnimatedTextures, random } from '$lib/utils';
 import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
@@ -101,7 +101,7 @@ export class ChatBulletContainer implements OverlayObserver {
     const tier = await this.getSubscriberTier(message);
     if (tier >= 2) return true;
 
-    return Math.random() < 0.5;
+    return random() < 0.5;
   }
 
   async onMessage(message: ChatMessage) {
@@ -164,10 +164,10 @@ export class ChatBulletContainer implements OverlayObserver {
     color: string = '#D3D3D3'
   ) {
     const { width, height } = this.app.screen;
-    const rate = Math.max(Math.random(), 0.25) * (1000 / 60);
+    const rate = Math.max(random(), 0.25) * (1000 / 60);
 
     let x = 0;
-    const y = Math.random() * (height - 50);
+    const y = random() * (height - 50);
 
     const container = new Container();
 

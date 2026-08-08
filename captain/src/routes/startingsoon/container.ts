@@ -6,6 +6,7 @@ import {
   isTextBulletPart,
   type BulletPart
 } from '../overlay/chatbullet/parsing';
+import { random } from '$lib/utils';
 
 const PADDING = 5;
 
@@ -42,7 +43,7 @@ export class StartingSoonBulletContainer {
     if (this.imageSpawnTimer !== null) {
       clearTimeout(this.imageSpawnTimer);
     }
-    const delay = 8000 + Math.random() * 7000;
+    const delay = 8000 + random() * 7000;
     this.imageSpawnTimer = setTimeout(() => {
       this.spawnImageBullet();
       this.scheduleNextImageBullet();
@@ -56,7 +57,7 @@ export class StartingSoonBulletContainer {
 
   private async spawnImageBullet() {
     if (this.images.length === 0) return;
-    const entry = this.images[Math.floor(Math.random() * this.images.length)];
+    const entry = this.images[Math.floor(random() * this.images.length)];
     const url = `/startingsoon/${entry.file}`;
 
     let texture = this.imageTextureCache.get(url);
@@ -95,12 +96,12 @@ export class StartingSoonBulletContainer {
     if (totalH > maxH) {
       scaleVal = maxH / totalH;
     }
-    scaleVal *= 0.3 + Math.random() * 0.4;
+    scaleVal *= 0.3 + random() * 0.4;
     container.scale.set(scaleVal);
 
     const finalH = totalH * container.scale.y;
-    const y = Math.random() * (screenH - finalH);
-    const rate = (0.15 + Math.random() * 0.35) * (1000 / 60);
+    const y = random() * (screenH - finalH);
+    const rate = (0.15 + random() * 0.35) * (1000 / 60);
 
     container.x = screenW;
     container.y = y;
@@ -124,9 +125,9 @@ export class StartingSoonBulletContainer {
     color: string = '#D3D3D3'
   ) {
     const { width: screenW, height: screenH } = this.app.screen;
-    const rate = Math.max(Math.random(), 0.25) * (1000 / 60);
+    const rate = Math.max(random(), 0.25) * (1000 / 60);
     let x = 0;
-    const y = Math.random() * (screenH - 50);
+    const y = random() * (screenH - 50);
 
     const container = new Container();
 

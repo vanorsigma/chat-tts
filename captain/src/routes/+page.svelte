@@ -7,6 +7,7 @@
   import type { LogMessage } from '$lib/bus/messages';
   import type { SongData } from '$lib/songs/types';
   import { isSongStateMessage, isSongCompleteMessage } from '$lib/songs/messages';
+  import { random } from '$lib/utils';
 
   type LogLine = LogMessage & { _id: number };
   let _nextLogId = 0;
@@ -121,7 +122,7 @@
   function shuffleQueue() {
     const shuffled = [...songQueue];
     for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     songQueue = shuffled;

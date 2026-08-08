@@ -4,7 +4,7 @@
   import type { GambaWheelState } from './gamba.svelte';
   import type { GambaItem } from './gamba';
   import { positionStore } from '../stores/positions.svelte';
-  import { properRandom } from '../utils';
+  import { random } from '$lib/utils';
 
   const winAudio = new Audio('/roulette-win.mp3');
 
@@ -39,7 +39,7 @@
     const winItem = wheelState.result!;
     const winIndex = segments.indexOf(winItem);
     const winSeg = segData[winIndex];
-    const randomOffset = (properRandom() - 0.5) * winSeg.span * 0.8;
+    const randomOffset = (random() - 0.5) * winSeg.span * 0.8;
     const targetAngle = 360 * 12 + (270 - (winSeg.center + randomOffset));
 
     const onDone = wheelState.onDone;

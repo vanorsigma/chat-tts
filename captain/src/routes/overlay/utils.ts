@@ -8,12 +8,3 @@ export async function makeApplication(root: HTMLDivElement): Promise<Application
   TextureStyle.defaultOptions.scaleMode = 'nearest';
   return app;
 }
-
-export function properRandom(): number {
-  if ('crypto' in window) {
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    return array[0] / 0x100000000;
-  }
-  return Math.random();
-}

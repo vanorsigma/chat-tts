@@ -6,11 +6,12 @@ import { getOverlayConfig } from './constants';
 import type { CommandsLike } from './gamba/gamba';
 import { CAPTCHA_GAMBA_ITEMS } from './gamba/gamba';
 import { enqueueGambaSpin } from './gamba/queue';
+import { random } from '$lib/utils';
 
 const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 function choose<T>(choices: Array<T>): T {
-  const index = Math.floor(Math.random() * choices.length);
+  const index = Math.floor(random() * choices.length);
   return choices[index];
 }
 
@@ -28,10 +29,10 @@ export function startCaptchaLoop(
     setTimeout(
       () => {
         setPosition(
-          Math.random() *
+          random() *
             (window.innerHeight -
               Number(getComputedStyle(captchaElement).height.replace('px', ''))),
-          Math.random() *
+          random() *
             (window.innerWidth - Number(getComputedStyle(captchaElement).width.replace('px', '')))
         );
 
@@ -41,7 +42,7 @@ export function startCaptchaLoop(
         });
         setText(captcha.value);
       },
-      minMs + Math.random() * (maxMs - minMs)
+      minMs + random() * (maxMs - minMs)
     );
   }
 

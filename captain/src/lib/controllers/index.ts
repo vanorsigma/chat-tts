@@ -10,6 +10,7 @@ import { RemoteChatTTSController, type ChatTTSOrchestrator } from './remoteChatT
 import { RemoteVoiceController, type VoiceController } from './voice';
 import { RefreshVoice, Unimportant } from '../commands';
 import { shouldSkipMessage } from '$lib/messageGuard';
+import { random } from '$lib/utils';
 
 const shortnameMatcher = /<(.*)>/g;
 
@@ -137,10 +138,7 @@ export class Controller implements ChatTTSOrchestrator {
         return;
       }
 
-      if (
-        Math.random() < (this.config.distractConfig?.distractChance ?? 0) &&
-        this.trinketController
-      ) {
+      if (random() < (this.config.distractConfig?.distractChance ?? 0) && this.trinketController) {
         await this.trinketController.sendDistract();
       }
 

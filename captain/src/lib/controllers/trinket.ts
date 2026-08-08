@@ -1,4 +1,5 @@
 import type WebSocket from 'ws';
+import { random } from '$lib/utils';
 
 export class TrinketController {
   private socket: WebSocket;
@@ -25,7 +26,7 @@ export class TrinketController {
 
     console.log('Sending distraction...');
     this.socket.send(
-      JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: Math.random() } })
+      JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: random() } })
     );
   }
 
@@ -41,7 +42,7 @@ export class TrinketController {
         type: 'trinket',
         command: {
           type: 'rotate',
-          speed: (Math.random() > 0.5 ? -1 : 1) * 10 ** (Math.random() * 3)
+          speed: (random() > 0.5 ? -1 : 1) * 10 ** (random() * 3)
         }
       })
     );

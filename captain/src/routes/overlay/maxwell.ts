@@ -1,6 +1,5 @@
 import { Application, Container, TextStyle, Ticker, Text, Sprite, Assets, Texture } from 'pixi.js';
-import { fetchAnimatedTextures, makeAnimatedSprite } from '$lib/utils';
-import { properRandom } from './utils';
+import { fetchAnimatedTextures, makeAnimatedSprite, random } from '$lib/utils';
 import { getOverlayConfig } from './constants';
 
 const CAT_BREAD_SPIN_GIF = '/catBreadSpin.gif';
@@ -69,11 +68,11 @@ export class MaxwellContainer {
     }
     sprite.scale = 0.5;
     container.addChild(sprite);
-    container.x = properRandom() * (width - sprite.width);
-    container.y = properRandom() * (height - sprite.height);
+    container.x = random() * (width - sprite.width);
+    container.y = random() * (height - sprite.height);
 
-    const coinflip_x = properRandom() < 0.5;
-    const coinflip_y = properRandom() < 0.5;
+    const coinflip_x = random() < 0.5;
+    const coinflip_y = random() < 0.5;
 
     const maxwell: MaxwellObjectProperties = {
       container,

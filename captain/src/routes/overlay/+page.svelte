@@ -53,7 +53,8 @@
   import { createAndStartCycler, type CyclerSnapshot } from './stock/cycler.svelte';
   import { DEFAULT_STOCK_ICON } from './stock/icons';
   import type { ChatClient } from '@twurple/chat';
-  import { makeApplication, properRandom } from './utils';
+  import { makeApplication } from './utils';
+  import { random } from '$lib/utils';
   import { MaxwellContainer } from './maxwell';
   import { KarmaContainer } from './karma';
   import { ModelUpdater } from './modelupdater';
@@ -421,11 +422,11 @@
     const fullHeightNo = Number(height.replace('px', ''));
 
     const { naturalWidth, naturalHeight } = imgTarget;
-    const targetWidth = Math.max(properRandom(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
+    const targetWidth = Math.max(random(), 0.5) * Math.min(Math.max(naturalWidth, 80), 500);
     const targetHeight = (naturalHeight / naturalWidth) * targetWidth;
 
-    imgTarget.style.left = `${properRandom() * (fullWidthNo - targetWidth)}px`;
-    imgTarget.style.top = `${properRandom() * (fullHeightNo - targetHeight)}px`;
+    imgTarget.style.left = `${random() * (fullWidthNo - targetWidth)}px`;
+    imgTarget.style.top = `${random() * (fullHeightNo - targetHeight)}px`;
     imgTarget.style.width = `${targetWidth}px`;
     imgTarget.style.height = `${targetHeight}px`;
   }
