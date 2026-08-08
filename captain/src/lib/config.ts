@@ -464,7 +464,7 @@ export class ParseableConfig {
         ? {
             cost: 1000,
             karma: -100,
-            shader: 'grayscale',
+            shader: '00-grayscale',
             durationMs: 10000,
             ...this.overlayGrayscaleConfig
           }
@@ -474,7 +474,7 @@ export class ParseableConfig {
             cost: 1000,
             user: 'owobred',
             karma: -100,
-            shader: 'cut',
+            shader: '01-cut',
             durationMs: 91962,
             momentDelayMs: 8150,
             ...this.overlayCutConfig

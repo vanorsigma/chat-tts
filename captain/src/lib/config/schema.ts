@@ -330,7 +330,7 @@ export const configSchema: FieldSchema[] = [
     objectFields: [
       { key: 'cost', kind: 'number', label: 'Cost', default: 1000, min: 0, step: 1 },
       { key: 'karma', kind: 'number', label: 'Karma', default: -100, step: 1 },
-      { key: 'shader', kind: 'text', label: 'Shader name', default: 'grayscale' },
+      { key: 'shader', kind: 'text', label: 'Shader name', default: '00-grayscale' },
       {
         key: 'durationMs',
         kind: 'number',
@@ -349,7 +349,7 @@ export const configSchema: FieldSchema[] = [
       { key: 'cost', kind: 'number', label: 'Cost', default: 1000, min: 0, step: 1 },
       { key: 'user', kind: 'text', label: 'VIP user', default: 'owobred' },
       { key: 'karma', kind: 'number', label: 'Karma', default: -100, step: 1 },
-      { key: 'shader', kind: 'text', label: 'Shader name', default: 'cut' },
+      { key: 'shader', kind: 'text', label: 'Shader name', default: '01-cut' },
       {
         key: 'durationMs',
         kind: 'number',

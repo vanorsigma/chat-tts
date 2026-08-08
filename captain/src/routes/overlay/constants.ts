@@ -32,12 +32,12 @@ const _overlayConfig = {
   showImage: { cost: 10000, user: 'mayoigo_qwq', cooldownMs: 60000, karma: -200 },
   playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
   resetCooldown: { cost: 20000 },
-  grayscale: { cost: 1000, karma: -100, shader: 'grayscale', durationMs: 120000 },
+  grayscale: { cost: 1000, karma: -100, shader: '00-grayscale', durationMs: 120000 },
   cut: {
     cost: 1000,
     user: 'owobred',
     karma: -100,
-    shader: 'cut',
+    shader: '01-cut',
     durationMs: 91962,
     momentDelayMs: 8150
   },
