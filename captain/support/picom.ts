@@ -6,7 +6,7 @@ const PICOM_SOCKET_PATH = process.env.PICOM_SOCKET_PATH ?? '/tmp/picom.sock';
 
 type PicomShaderMessage = {
   type: 'picom-shader';
-  op: 'ENABLE' | 'DISABLE' | 'LIST';
+  op: 'ENABLE' | 'DISABLE' | 'CLEARSTATE' | 'LIST';
   shader: string;
   parameters?: Record<string, number>;
 };

@@ -40,16 +40,8 @@ export function createCutStore() {
     videoActive = false;
     firstCutPending = false;
 
-    const parameters: Record<string, number> = {};
-    for (let slot = 0; slot < maxCuts; slot += 1) {
-      parameters[uniformName('angle', slot)] = 0;
-      parameters[uniformName('offsetX', slot)] = 0;
-      parameters[uniformName('offsetY', slot)] = 0;
-      parameters[uniformName('animationProgress', slot)] = 0;
-      parameters[uniformName('animationScale', slot)] = 0;
-    }
-
-    sender.send(JSON.stringify({ type: 'picom-shader', op: 'DISABLE', shader, parameters }));
+    sender.send(JSON.stringify({ type: 'picom-shader', op: 'DISABLE', shader }));
+    sender.send(JSON.stringify({ type: 'picom-shader', op: 'CLEARSTATE', shader }));
   }
 
   function startAnimation(sender: WebSocket) {
