@@ -46,6 +46,11 @@ export interface OverlayPositionsMessage {
   positions: OverlayPositionsConfig;
 }
 
+export interface ConfigUpdatedMessage {
+  type: 'config';
+  config: Record<string, unknown>;
+}
+
 export interface PollOptionPayload {
   id: string;
   name: string;
@@ -94,14 +99,20 @@ export interface TokenRefreshedMessage {
   account: 'bot' | 'broadcaster';
 }
 
-export type ClientToServer = FakerMessage | FakerSubMessage | FakerBitsMessage | FakerWatchStreakMessage | ControlMessage;
+export type ClientToServer =
+  | FakerMessage
+  | FakerSubMessage
+  | FakerBitsMessage
+  | FakerWatchStreakMessage
+  | ControlMessage;
 
 export type ServerToClient =
   | LogMessage
   | PollUpdateMessage
   | PredictionUpdateMessage
   | KarmaUpdateMessage
-  | TokenRefreshedMessage;
+  | TokenRefreshedMessage
+  | ConfigUpdatedMessage;
 
 export type BusMessage = ClientToServer | ServerToClient;
 
@@ -122,7 +133,11 @@ export function isFakerBitsMessage(obj: unknown): obj is FakerBitsMessage {
 }
 
 export function isFakerWatchStreakMessage(obj: unknown): obj is FakerWatchStreakMessage {
-  return typeof obj === 'object' && obj !== null && (obj as FakerWatchStreakMessage).type === 'faker-watch-streak';
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    (obj as FakerWatchStreakMessage).type === 'faker-watch-streak'
+  );
 }
 
 export function isControlMessage(obj: unknown): obj is ControlMessage {
@@ -145,6 +160,10 @@ export function isOverlayPositionsMessage(obj: unknown): obj is OverlayPositions
     obj !== null &&
     (obj as OverlayPositionsMessage).type === 'overlayPositions'
   );
+}
+
+export function isConfigUpdatedMessage(obj: unknown): obj is ConfigUpdatedMessage {
+  return typeof obj === 'object' && obj !== null && (obj as ConfigUpdatedMessage).type === 'config';
 }
 
 export function isPollUpdateMessage(obj: unknown): obj is PollUpdateMessage {

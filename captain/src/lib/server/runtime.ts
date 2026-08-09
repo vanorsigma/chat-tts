@@ -188,6 +188,11 @@ function reloadConfig(rawYaml: string) {
       }
     });
     controller.start();
+    if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+      senderWs.send(
+        JSON.stringify({ type: 'config', config: fullConfig as unknown as Record<string, unknown> })
+      );
+    }
     console.log('Config reloaded successfully');
   } catch (e) {
     console.error('Failed to reload config:', e);

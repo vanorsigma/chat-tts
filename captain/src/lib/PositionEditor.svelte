@@ -157,12 +157,47 @@
     endDrag();
     onLive?.(positions);
   }
+
+  let resetStatus = '';
+  let resetBusy = false;
+
+  async function resetToSaved() {
+    resetBusy = true;
+    try {
+      const res = await fetch('/api/config');
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const cfg = await res.json();
+      const saved = (cfg.overlayPositionsConfig ?? {}) as Partial<OverlayPositionsConfig>;
+      for (const key of Object.keys(positions) as (keyof OverlayPositionsConfig)[]) {
+        const v = saved[key];
+        if (v !== undefined) {
+          positions[key] = v;
+        }
+      }
+      positions = positions;
+      onLive?.(positions);
+      resetStatus = 'Reset to last saved positions';
+    } catch (e) {
+      resetStatus = `Reset failed: ${e}`;
+    }
+    resetBusy = false;
+    setTimeout(() => (resetStatus = ''), 3000);
+  }
 </script>
 
 <p class="position-editor-hint">
   Drag boxes to move, drag the corner handle to resize. Changes apply to the live overlay
   immediately; press Save Config to persist.
 </p>
+
+<div class="reset-row">
+  <button type="button" class="reset-btn" on:click={resetToSaved} disabled={resetBusy}
+    >Reset to last saved positions</button
+  >
+  {#if resetStatus}
+    <span class="reset-status">{resetStatus}</span>
+  {/if}
+</div>
 
 <div class="stage-wrap" bind:this={wrapEl} style="height: {STAGE_H * scale}px;">
   <div
@@ -203,6 +238,32 @@
     font-size: 0.85em;
     color: #666;
     margin: 0 0 0.4em 0;
+  }
+
+  .reset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-bottom: 0.4em;
+  }
+
+  .reset-btn {
+    background: #448;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 4px 10px;
+    font-size: 0.85em;
+  }
+
+  .reset-btn:hover {
+    background: #55a;
+  }
+
+  .reset-status {
+    font-size: 0.85em;
+    color: #666;
   }
 
   .stage-wrap {

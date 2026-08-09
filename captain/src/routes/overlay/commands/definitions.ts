@@ -132,6 +132,14 @@ const stockMarketConfigSection = alwaysSection('stockMarketConfig', 'Stock Marke
     step: 10
   },
   {
+    key: 'cooldownMs',
+    kind: 'number',
+    label: 'Cooldown (ms)',
+    default: 60000,
+    min: 0,
+    step: 100
+  },
+  {
     key: 'approvedStocks',
     kind: 'list-of-text',
     label: 'Approved stocks',
@@ -152,6 +160,17 @@ const stockMarketConfigSection = alwaysSection('stockMarketConfig', 'Stock Marke
     default: 0.1,
     min: 0,
     step: 0.01
+  }
+]);
+
+const economyConfigSection = section('economyConfig', 'Economy', [
+  {
+    key: 'cooldownMs',
+    kind: 'number',
+    label: 'Cooldown (ms)',
+    default: 60000,
+    min: 0,
+    step: 100
   }
 ]);
 
@@ -253,26 +272,26 @@ export const COMMAND_DEFINITIONS = [
   }),
   defineCommand({
     names: ['%points'],
-    section: section('economyConfig', 'Economy', []),
+    section: economyConfigSection,
     gateMode: 'overlay'
   }),
   defineCommand({
     names: ['%givepoints'],
-    section: section('economyConfig', 'Economy', []),
+    section: economyConfigSection,
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%givepoints <username> <amount>'
   }),
   defineCommand({
     names: ['%transfer'],
-    section: section('economyConfig', 'Economy', []),
+    section: economyConfigSection,
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%transfer <username> <amount>'
   }),
   defineCommand({
     names: ['%median'],
-    section: section('economyConfig', 'Economy', []),
+    section: economyConfigSection,
     gateMode: 'ungated',
     help: '%median'
   }),
@@ -360,7 +379,7 @@ export const COMMAND_DEFINITIONS = [
   }),
   defineCommand({
     names: ['%lottery'],
-    section: section('economyConfig', 'Economy', []),
+    section: economyConfigSection,
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%lottery <amount> | %lottery payout | %lottery'
@@ -610,12 +629,14 @@ type _AllCommandNames<Ds extends readonly CommandDefinition[]> = Ds extends read
   ? [...D['names'], ..._AllCommandNames<Rest>]
   : [];
 
-type _AllUnique<T extends readonly string[], Seen extends readonly string[] = []> =
-  T extends readonly [infer H extends string, ...infer R extends string[]]
-    ? H extends Seen[number]
-      ? false
-      : _AllUnique<R, readonly [...Seen, H]>
-    : true;
+type _AllUnique<
+  T extends readonly string[],
+  Seen extends readonly string[] = []
+> = T extends readonly [infer H extends string, ...infer R extends string[]]
+  ? H extends Seen[number]
+    ? false
+    : _AllUnique<R, readonly [...Seen, H]>
+  : true;
 
 type _UniqueCommandNames = _Expect<_AllUnique<_AllCommandNames<typeof COMMAND_DEFINITIONS>>>;
 

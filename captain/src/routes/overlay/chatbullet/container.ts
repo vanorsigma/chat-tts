@@ -1,4 +1,4 @@
-import { makeAnimatedSprite, fetchAnimatedTextures, random } from '$lib/utils';
+import { makeAnimatedSprite, fetchAnimatedTextures, random, contrastColorFor } from '$lib/utils';
 import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
@@ -166,6 +166,9 @@ export class ChatBulletContainer implements OverlayObserver {
     const { width, height } = this.app.screen;
     const rate = Math.max(random(), 0.25) * (1000 / 60);
 
+    const fillColor = color || '#D3D3D3';
+    const strokeColor = contrastColorFor(fillColor);
+
     let x = 0;
     const y = random() * (height - 50);
 
@@ -177,7 +180,8 @@ export class ChatBulletContainer implements OverlayObserver {
         style: {
           fontFamily: 'Arial',
           fontSize: 24,
-          fill: color
+          fill: fillColor,
+          stroke: { color: strokeColor, width: 2 }
         }
       });
 
@@ -229,7 +233,8 @@ export class ChatBulletContainer implements OverlayObserver {
         const textStyle: TextStyle = new TextStyle({
           fontFamily: 'Arial',
           fontSize: 48,
-          fill: color
+          fill: fillColor,
+          stroke: { color: strokeColor, width: 2 }
         });
 
         const partText = new Text({ text: part.text, style: textStyle });

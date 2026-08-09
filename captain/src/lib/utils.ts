@@ -108,3 +108,31 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   }
   return shuffled.slice(0, count);
 }
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  let h = hex.trim().replace('#', '');
+  if (h.length === 3)
+    h = h
+      .split('')
+      .map((c) => c + c)
+      .join('');
+  if (h.length !== 6) return null;
+  const int = parseInt(h, 16);
+  if (Number.isNaN(int)) return null;
+  return { r: (int >> 16) & 0xff, g: (int >> 8) & 0xff, b: int & 0xff };
+}
+
+function relativeLuminance({ r, g, b }: { r: number; g: number; b: number }): number {
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+// https://gomakethings.com/articles/dynamically-changing-the-text-color-based-on-background-color-contrast-with-vanilla-js/
+export function contrastColorFor(fill: string): string {
+  const rgb = hexToRgb(fill);
+  if (!rgb) return '#ffffff';
+  return relativeLuminance(rgb) > 0.5 ? '#000000' : '#ffffff';
+}

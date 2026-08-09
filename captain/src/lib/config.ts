@@ -153,7 +153,9 @@ export interface OverlayPollConfig {}
 
 export interface OverlayPredictionConfig {}
 
-export interface OverlayEconomyConfig {}
+export interface OverlayEconomyConfig {
+  cooldownMs: number;
+}
 
 export interface OverlayWatchStreakConfig {
   streakInterval: number;
@@ -170,6 +172,7 @@ export interface OverlayRestartConfig {}
 export interface OverlayStockMarketConfig {
   cycleIntervalMs: number;
   checkinGrantPoints: number;
+  cooldownMs: number;
   approvedStocks: string[];
   buyFailSteepness: number;
   overpayFactor: number;

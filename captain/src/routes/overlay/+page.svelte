@@ -65,7 +65,11 @@
   import type { OverlayPositionsConfig } from '$lib/config';
   import { installFakerReceiver } from './fakerReceiver';
   import { installConsoleHijack } from './logger';
-  import { isOverlayPositionsMessage, isTokenRefreshedMessage } from '$lib/bus/messages';
+  import {
+    isOverlayPositionsMessage,
+    isTokenRefreshedMessage,
+    isConfigUpdatedMessage
+  } from '$lib/bus/messages';
   import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
   import GambaWheel from './gamba/GambaWheel.svelte';
@@ -481,6 +485,17 @@
         }
         if (isOverlayPositionsMessage(data)) {
           positionStore.set({ ...DEFAULT_POSITIONS, ...data.positions });
+        }
+        if (isConfigUpdatedMessage(data)) {
+          try {
+            applyOverlayConfig(data.config);
+          } catch (e) {
+            console.warn('Failed to apply broadcast config:', e);
+          }
+          if (data.config.overlayPositionsConfig) {
+            const src = data.config.overlayPositionsConfig as OverlayPositionsConfig;
+            positionStore.set({ ...DEFAULT_POSITIONS, ...src });
+          }
         }
         if (isTokenRefreshedMessage(data) && data.account === 'bot') {
           console.log(

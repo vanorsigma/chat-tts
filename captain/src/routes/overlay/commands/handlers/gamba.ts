@@ -4,6 +4,7 @@ import type { Commands } from '../index';
 import { enqueueGambaSpin } from '../../gamba/queue';
 import { requireUsername } from './shared';
 import { checkCostAddIfEnough } from '../middleware';
+import { getOverlayConfig } from '../../constants';
 
 export async function gambaHandler(
   commands: Commands,
@@ -14,7 +15,7 @@ export async function gambaHandler(
   if (!username) return;
 
   const now = Date.now();
-  const userCooldownMs = 60_000;
+  const userCooldownMs = getOverlayConfig().stockMarketConfig.cooldownMs;
 
   const globalLast = commands.gambaUserCooldowns.get('__global__') ?? 0;
   if (now < globalLast + userCooldownMs) {
@@ -61,7 +62,15 @@ export async function gambaHandler(
 
   const multiplier = amount / 100;
   enqueueGambaSpin(
-    { dispatcher, channelId: message.channelId!, username, userId: message.userInfo.userId, isMod: message.userInfo.isMod, bet: amount, commands },
+    {
+      dispatcher,
+      channelId: message.channelId!,
+      username,
+      userId: message.userInfo.userId,
+      isMod: message.userInfo.isMod,
+      bet: amount,
+      commands
+    },
     multiplier
   );
 }

@@ -36,6 +36,8 @@
   let activeMusicPage = $state<'overlay' | 'startingsoon'>('overlay');
   let refreshTokenStatus = $state('');
   let refreshTokenBusy = $state(false);
+  let reinitVoiceStatus = $state('');
+  let reinitVoiceBusy = $state(false);
 
   async function fetchProviders() {
     try {
@@ -302,6 +304,28 @@
     setTimeout(() => (saveStatus = ''), 3000);
   }
 
+  async function onReinitVoice() {
+    if (!configData) return;
+    reinitVoiceBusy = true;
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      if (res.ok) {
+        reinitVoiceStatus = 'Voice controller reinitialized';
+      } else {
+        const err = await res.json();
+        reinitVoiceStatus = `Reinit failed: ${err.error ?? 'unknown'}`;
+      }
+    } catch (e) {
+      reinitVoiceStatus = `Reinit failed: ${e}`;
+    }
+    reinitVoiceBusy = false;
+    setTimeout(() => (reinitVoiceStatus = ''), 3000);
+  }
+
   let positionsRaf = 0;
 
   function onPositionsLive(positions: OverlayPositionsConfig) {
@@ -358,6 +382,7 @@
   <button onclick={onCancelSpeech}>Cancel Speech</button>
   <button onclick={onBlackSilence}>Black Silence</button>
   <button onclick={onEndImportant}>End Important Mode</button>
+  <button onclick={onReinitVoice} disabled={reinitVoiceBusy}>Reinit Voice</button>
   <button onclick={() => onRefreshToken('bot')} disabled={refreshTokenBusy}
     >Refresh Bot Token</button
   >
@@ -366,6 +391,9 @@
   >
   {#if refreshTokenStatus}
     <span class="save-status">{refreshTokenStatus}</span>
+  {/if}
+  {#if reinitVoiceStatus}
+    <span class="save-status">{reinitVoiceStatus}</span>
   {/if}
 </section>
 

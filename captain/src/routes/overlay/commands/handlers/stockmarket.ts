@@ -6,6 +6,7 @@ import { timeoutSecondsForFailChance } from '../chance';
 import { PEOPLE_WHO_CHECKED_IN } from '../middleware';
 import type { Commands } from '..';
 import { getPointsForUser } from '$lib/api/points';
+import { getOverlayConfig } from '../../constants';
 
 export async function buyHandler(
   commands: Commands,
@@ -54,7 +55,7 @@ export async function buyHandler(
 
   const skipChance = message.userInfo.isBroadcaster;
   const now = Date.now();
-  const userCooldownMs = 60_000;
+  const userCooldownMs = getOverlayConfig().stockMarketConfig.cooldownMs;
   const lastUser = commands.buyUserCooldowns.get(username) ?? 0;
   if (now < lastUser + userCooldownMs) {
     dispatcher.sendMessageAsUser(
@@ -124,7 +125,7 @@ export async function buyHandler(
 
 export async function evaluateBuy(
   username: string,
-  rawInvocation: string,
+  rawInvocation: string
 ): Promise<{ innerFailChance?: number; invested?: number; price?: number; error?: string }> {
   const args = rawInvocation.replaceAll('  ', ' ').split(' ').slice(1);
   if (args.length < 2) return { error: 'not enough arguments' };
