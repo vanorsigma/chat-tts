@@ -141,7 +141,7 @@ MINUTES = 60
 PORT = 8000
 AUDIO_PORT = 8000
 KIKI_WEB_PORT = 9124
-TIMEOUT_SECS = 60.0
+TIMEOUT_SECS = 240.0
 KIKI_TIMEOUT_SECS = 60.0
 KIKI_MODEL_NAME = "kikiv2"
 KIKI_MAX_RETRIES = 3
@@ -350,8 +350,8 @@ class _ChatterboxSubprocess:
         self,
         text: str,
         language_id: str = "en",
-        cfg_weight: float = 0.2,
-        exaggeration: float = 1.0,
+        cfg_weight: float = 0.5,
+        exaggeration: float = 0.5,
     ) -> bytes:
         if not self._ready.is_set():
             raise RuntimeError("chatterbox subscript not ready")
@@ -501,8 +501,8 @@ class CombinedServer:
         self,
         text: str,
         language_id: str = "en",
-        cfg_weight: float = 0.2,
-        exaggeration: float = 1.0,
+        cfg_weight: float = 0.5,
+        exaggeration: float = 0.5,
     ) -> bytes:
         if not os.path.exists(AUDIO_PROMPT_PATH):
             raise FileNotFoundError(
@@ -601,9 +601,9 @@ async def main(
         if not prompt:
             return aiohttp.web.Response(text="prompt required", status=400)
 
-        language_id = body.get("language_id", "ja")
-        cfg_weight = body.get("cfg_weight", 0.2)
-        exaggeration = body.get("exaggeration", 1.0)
+        language_id = body.get("language_id", "en")
+        cfg_weight = body.get("cfg_weight", 0.5)
+        exaggeration = body.get("exaggeration", 0.5)
 
         logging.info("Generate: text='%s...' lang=%s", prompt[:40], language_id)
 

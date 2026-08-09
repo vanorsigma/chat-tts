@@ -63,8 +63,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
         text = req.get("text", "")
         language_id = req.get("language_id", "en")
-        cfg_weight = req.get("cfg_weight", 0.2)
-        exaggeration = req.get("exaggeration", 1.0)
+        cfg_weight = req.get("cfg_weight", 0.5)
+        exaggeration = req.get("exaggeration", 0.5)
 
         if not os.path.exists(AUDIO_PROMPT_PATH):
             self._json_error(
