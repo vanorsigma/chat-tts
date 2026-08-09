@@ -3,7 +3,7 @@ import { random } from '$lib/utils';
 
 export function createCutStore() {
   const maxCuts = 128; // TODO: config, but I want to refactor our configuration system first
-  const shader = getOverlayConfig().cut.shader;
+  const shader = getOverlayConfig().cutConfig.shader;
   let cutsIndex = $state<number>(-1);
   let videoActive = $state(false);
   let firstCutPending = false;
@@ -118,14 +118,14 @@ export function createCutStore() {
         reset(sender);
         cutsIndex = -1;
         updateAllSubscribers();
-      }, getOverlayConfig().cut.durationMs);
+      }, getOverlayConfig().cutConfig.durationMs);
 
       firstCutTimer = setTimeout(() => {
         firstCutTimer = null;
         if (!firstCutPending) return;
         firstCutPending = false;
         addCut(sender);
-      }, getOverlayConfig().cut.momentDelayMs);
+      }, getOverlayConfig().cutConfig.momentDelayMs);
       return;
     }
 

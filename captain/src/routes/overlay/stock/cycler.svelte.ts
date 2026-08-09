@@ -27,7 +27,7 @@ export function createCyclerStore(): CyclerStore {
   let currentSnapshot: CyclerSnapshot = {
     symbol: 'HEART',
     label: 'Heartrate',
-    current: getOverlayConfig().model.initialHeartrate,
+    current: getOverlayConfig().modelConfig.initialHeartrate,
     history: []
   };
 
@@ -94,7 +94,7 @@ export function createCyclerStore(): CyclerStore {
   }
 
   function start() {
-    const interval = getOverlayConfig().stockMarket.cycleIntervalMs;
+    const interval = getOverlayConfig().stockMarketConfig.cycleIntervalMs;
     advance();
     intervalId = setInterval(advance, interval);
   }

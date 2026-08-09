@@ -1,10 +1,9 @@
 import { existsSync, readFileSync, watch } from 'fs';
 import { join } from 'path';
 import WebSocket from 'ws';
-import { parse } from 'yaml';
 import { setBroadcastFn } from './logger';
 import { Controller } from '$lib/controllers';
-import { ParseableConfig } from '$lib/config';
+import { parseYaml } from '$lib/config';
 import { createFakeMessage } from '$lib/bus/fakeMessage';
 import type {
   FakerMessage,
@@ -169,8 +168,7 @@ function readConfig(): string | null {
 
 function reloadConfig(rawYaml: string) {
   try {
-    const parsed = new ParseableConfig(parse(rawYaml));
-    const fullConfig = parsed.toFullConfig();
+    const fullConfig = parseYaml(rawYaml);
 
     if (!senderWs) {
       console.warn('Bus not connected yet, deferring config load');
@@ -184,7 +182,9 @@ function reloadConfig(rawYaml: string) {
     controller = new Controller(fullConfig, senderWs);
     controller.setBroadcastImportant((active) => {
       if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-        senderWs.send(JSON.stringify({ type: 'control', op: 'important', importantActive: active }));
+        senderWs.send(
+          JSON.stringify({ type: 'control', op: 'important', importantActive: active })
+        );
       }
     });
     controller.start();

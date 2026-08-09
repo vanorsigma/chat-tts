@@ -1,24 +1,21 @@
 import type { ChatCommand } from './registry';
+import { definitionFor } from './definitions';
 import { getOverlayConfig } from '../constants';
 import { getSubTier } from '$lib/api/subtiers';
 import { random } from '$lib/utils';
 
 export function getBaseChance(commandName: string): number {
-  const chances = getOverlayConfig().commandChances as Record<string, number> | undefined;
-  return chances?.[commandName] ?? chances?.default ?? 90;
+  const chances = getOverlayConfig().commandChancesConfig as unknown as Record<
+    string,
+    number | undefined
+  >;
+  return chances[commandName] ?? chances['default'] ?? 90;
 }
 
 export function commandChanceKey(commandIndicator: ChatCommand): string {
-  const map: Record<string, string> = {
-    '%si': 'showimage',
-    '%showimage': 'showimage',
-    '%pa': 'playaudio',
-    '%playsound': 'playaudio',
-    '%playaudio': 'playaudio',
-    '%chicken': 'checkin',
-    '%checkin': 'checkin'
-  };
-  return map[commandIndicator] ?? commandIndicator.slice(1);
+  const def = definitionFor(commandIndicator);
+  if (!def?.chance) return 'default';
+  return def.names[0].slice(1);
 }
 
 export interface CommandChance {

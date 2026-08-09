@@ -2,110 +2,21 @@ import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import {
   asChatCommand,
   COMMAND_HELP,
-  COMMAND_SECTION,
   REQUIRES_ARGS,
   type ChatCommand
 } from './registry';
+import { definitionFor } from './definitions';
+import { COMMAND_HANDLERS } from './dispatch';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import type { ChatMessage } from '@twurple/chat';
 import { getOverlayConfig, isSectionDisabled } from '../constants';
-import {
-  transferHandler,
-  givePointsHandler,
-  getPointsHandler,
-  checkInHandler,
-  medianHandler
-} from './handlers/economy';
-import {
-  maxwellHandler,
-  flashbangHandler,
-  blackSilenceHandler,
-  triggerBlackSilenceEffects,
-  mistakeHandler,
-  selfThoughtHandler,
-  grayscaleHandler,
-  cutHandler
-} from './handlers/redeems';
-import { mediaHandler } from './handlers/media';
-import {
-  buyHandler,
-  sellHandler,
-  stocksHandler,
-  endStreamHandler as stockEndStreamHandler
-} from './handlers/stockmarket';
-import {
-  goodnightkissHandler,
-  settitleHandler,
-  giveKarmaHandler,
-  togglesHandler
-} from './handlers/interactive';
-import {
-  blockHandler,
-  killHandler,
-  restartHandler,
-  resetCooldownHandler
-} from './handlers/moderation';
-import { gambaHandler } from './handlers/gamba';
-import { lotteryHandler } from './handlers/lottery';
-import { checkHandler } from './handlers/evaluate';
-import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
-import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
+import { triggerBlackSilenceEffects } from './handlers/redeems';
 import { addBitBoost, flushBitBoosts } from '$lib/api/bits';
 import { karmaStore, importantStore } from '../stores';
 import { enqueueGambaSpin } from '../gamba/queue';
 import { SUB_BITS_GAMBA_ITEMS } from '../gamba/gamba';
 import { parseDuration } from '$lib/duration';
 import { CommandGate, type GateExemptionProvider } from './gate';
-
-const PASS_THROUGH_COMMANDS = new Set([
-  '%bid',
-  '%endbid',
-  '%distract',
-  '%rotate',
-  '%refreshVoice',
-  '%important',
-  '%unimportant'
-]);
-
-const OVERLAY_HANDLED_COMMANDS = new Set([
-  '%poll',
-  '%endpoll',
-  '%prediction',
-  '%endprediction',
-  '%chicken',
-  '%checkin',
-  '%flashbang',
-  '%blacksilence',
-  '%points',
-  '%givepoints',
-  '%transfer',
-  '%maxwell',
-  '%mistake',
-  '%si',
-  '%showimage',
-  '%pa',
-  '%playsound',
-  '%playaudio',
-  '%restart',
-  '%undress',
-  '%stars',
-  '%hearts',
-  '%block',
-  '%unblock',
-  '%kill',
-  '%grayscale',
-  '%cut',
-  '%endstream',
-  '%gamba',
-  '%lottery',
-  '%selfthought',
-  '%goodnightkiss',
-  '%settitle',
-  '%givekarma',
-  '%resetcooldown',
-  '%important',
-  '%unimportant'
-]);
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
@@ -121,7 +32,7 @@ export class Commands implements OverlayObserver {
   private importantExpiry = 0;
   private importantTicker: ReturnType<typeof setInterval> | null = null;
 
-  private busWs?: WebSocket = undefined;
+  busWs?: WebSocket = undefined;
 
   constructor(dispatchers?: OverlayDispatchers) {
     this.dispatchers = dispatchers;
@@ -149,13 +60,16 @@ export class Commands implements OverlayObserver {
     callback: () => void
   ) {
     const now = Date.now();
-    const lastUsed = this.cooldowns.get(commandKey) ?? 0;
+    const key = commandKey.startsWith('%') ? commandKey.slice(1) : commandKey;
+    const lastUsed = this.cooldowns.get(key) ?? 0;
     const cooldown =
-      (getOverlayConfig().commandCooldowns as Record<string, number | undefined>)[commandKey] ??
-      10000;
+      (getOverlayConfig().commandCooldownsConfig as unknown as Record<
+        string,
+        number | undefined
+      >)[key] ?? 10000;
     if (now >= lastUsed + cooldown) {
       callback();
-      this.cooldowns.set(commandKey, now);
+      this.cooldowns.set(key, now);
     } else {
       dispatcher.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'command under cooldown', message.id);
     }
@@ -211,7 +125,8 @@ export class Commands implements OverlayObserver {
       return;
     }
 
-    const sectionKey = COMMAND_SECTION[commandIndicator];
+    const definition = definitionFor(commandIndicator);
+    const sectionKey = definition?.section?.key;
     if (sectionKey && isSectionDisabled(sectionKey)) {
       dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -221,10 +136,7 @@ export class Commands implements OverlayObserver {
       return;
     }
 
-    if (
-      OVERLAY_HANDLED_COMMANDS.has(commandIndicator) &&
-      !PASS_THROUGH_COMMANDS.has(commandIndicator)
-    ) {
+    if (definition?.gateMode === 'overlay') {
       void this.gate.run(
         commandIndicator,
         dispatcher,
@@ -282,175 +194,28 @@ export class Commands implements OverlayObserver {
     dispatcher: OverlayDispatchers,
     message: ChatMessage
   ) {
-    switch (commandIndicator) {
-      case '%poll':
-        this.callOnlyIfPastCooldown('poll', dispatcher, message, () =>
-          pollCommandHandler(dispatcher, message)
-        );
-        break;
-      case '%endpoll':
-        endPollCommandHandler(dispatcher, message);
-        break;
-      case '%prediction':
-        this.callOnlyIfPastCooldown('prediction', dispatcher, message, () =>
-          predictionCommandHandler(dispatcher, message)
-        );
-        break;
-      case '%endprediction':
-        endPredictionCommandHandler(dispatcher, message);
-        break;
-      case '%chicken':
-      case '%checkin':
-        checkInHandler(dispatcher, message, this.busWs);
-        break;
-      case '%flashbang':
-        this.callOnlyIfPastCooldown('flashbang', dispatcher, message, () =>
-          flashbangHandler(dispatcher, message)
-        );
-        break;
-      case '%blacksilence':
-        if (this.busWs) blackSilenceHandler(dispatcher, message, this.busWs);
-        else dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
-        break;
-      case '%median':
-        medianHandler(dispatcher, message);
-        break;
-      case '%points':
-        getPointsHandler(dispatcher, message);
-        break;
-      case '%givepoints':
-        givePointsHandler(dispatcher, message);
-        break;
-      case '%transfer':
-        transferHandler(dispatcher, message);
-        break;
-      case '%maxwell':
-        maxwellHandler(dispatcher, message);
-        break;
-      case '%mistake':
-        mistakeHandler(dispatcher, message);
-        break;
-      case '%si':
-      case '%showimage':
-        mediaHandler(dispatcher, message, {
-          kind: 'image',
-          cost: getOverlayConfig().showImage.cost,
-          karma: getOverlayConfig().showImage.karma,
-          freeUser: getOverlayConfig().showImage.user
-        });
-        break;
-      case '%pa':
-      case '%playsound':
-      case '%playaudio':
-        mediaHandler(dispatcher, message, {
-          kind: 'audio',
-          cost: getOverlayConfig().playAudio.cost,
-          karma: getOverlayConfig().playAudio.karma,
-          freeUser: getOverlayConfig().playAudio.user
-        });
-        break;
-      case '%buy':
-        buyHandler(this, dispatcher, message);
-        break;
-      case '%sell':
-        sellHandler(dispatcher, message);
-        break;
-      case '%stocks':
-        stocksHandler(dispatcher, message);
-        break;
-      case '%endstream':
-        stockEndStreamHandler(dispatcher, message);
-        if (message.userInfo.isBroadcaster) {
-          void this.flushBits(dispatcher, message);
-        }
-        break;
-      case '%gamba':
-        gambaHandler(this, dispatcher, message);
-        break;
-      case '%lottery':
-        lotteryHandler(this, dispatcher, message);
-        break;
-      case '%selfthought':
-        this.callOnlyIfPastCooldown('selfthought', dispatcher, message, () =>
-          selfThoughtHandler(dispatcher, message)
-        );
-        break;
-      case '%goodnightkiss':
-        goodnightkissHandler(dispatcher, message);
-        break;
-      case '%settitle':
-        settitleHandler(dispatcher, message);
-        break;
-      case '%givekarma':
-        giveKarmaHandler(dispatcher, message);
-        break;
-      case '%restart':
-        restartHandler(dispatcher, message);
-        break;
-      case '%resetcooldown':
-        resetCooldownHandler(this, dispatcher, message);
-        break;
-      case '%undress':
-        this.callOnlyIfPastCooldown('undress', dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Undress')
-        );
-        break;
-      case '%stars':
-        this.callOnlyIfPastCooldown('stars', dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Stars')
-        );
-        break;
-      case '%hearts':
-        this.callOnlyIfPastCooldown('hearts', dispatcher, message, () =>
-          togglesHandler(dispatcher, message, 'Hearts')
-        );
-        break;
-      case '%block':
-        this.callOnlyIfPastCooldown('block', dispatcher, message, () =>
-          blockHandler(this, dispatcher, message, 'block')
-        );
-        break;
-      case '%unblock':
-        this.callOnlyIfPastCooldown('unblock', dispatcher, message, () =>
-          blockHandler(this, dispatcher, message, 'unblock')
-        );
-        break;
-      case '%kill':
-        this.callOnlyIfPastCooldown('kill', dispatcher, message, () =>
-          killHandler(dispatcher, message)
-        );
-        break;
-      case '%important':
-        this.importantHandler(dispatcher, message);
-        break;
-      case '%unimportant':
-        this.unimportantHandler(dispatcher, message);
-        break;
-      case '%grayscale':
-        this.callOnlyIfPastCooldown('grayscale', dispatcher, message, () => {
-          if (this.busWs) grayscaleHandler(dispatcher, message, this.busWs);
-          else
-            dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
-        });
-        break;
-      case '%cut':
-        if (this.busWs) cutHandler(dispatcher, message, this.busWs, this);
-        else dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
-        break;
-      case '%check':
-        checkHandler(this, dispatcher, message);
-        break;
-      // Pass-through commands (handled elsewhere)
-      case '%bid':
-      case '%endbid':
-      case '%distract':
-      case '%rotate':
-      case '%refreshVoice':
-        break;
+    const definition = definitionFor(commandIndicator);
+    const runner = COMMAND_HANDLERS[commandIndicator];
+    if (!definition || !runner) return;
+
+    const sectionConfig = definition.section
+      ? (getOverlayConfig() as unknown as Record<string, unknown>)[definition.section.key]
+      : undefined;
+
+    if (definition.needsBus && !this.busWs) {
+      dispatcher.sendMessageAsUser(message.channelId!, `tell vanor he's tupid `, message.id);
+      return;
+    }
+
+    const run = () => runner(this, dispatcher, message, sectionConfig);
+    if (definition.cooldown && !definition.manualCooldown) {
+      this.callOnlyIfPastCooldown(commandIndicator, dispatcher, message, run);
+    } else {
+      void run();
     }
   }
 
-  private importantHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  importantHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
     const u = message.userInfo;
     const isMod = u.isBroadcaster || u.isMod;
     if (!isMod && !u.isVip) {
@@ -505,7 +270,7 @@ export class Commands implements OverlayObserver {
     );
   }
 
-  private unimportantHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  unimportantHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
     const u = message.userInfo;
     if (!(u.isBroadcaster || u.isMod)) {
       dispatcher.sendMessageAsUser(
@@ -534,7 +299,7 @@ export class Commands implements OverlayObserver {
     dispatcher.sendMessageAsUser(channelId, 'Important mode ended.', replyTo);
   }
 
-  private async flushBits(dispatcher: OverlayDispatchers, message: ChatMessage) {
+  async flushBits(dispatcher: OverlayDispatchers, message: ChatMessage) {
     try {
       await flushBitBoosts();
     } catch (e) {

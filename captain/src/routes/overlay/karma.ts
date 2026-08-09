@@ -67,13 +67,13 @@ export class KarmaContainer implements OverlayObserver {
   async onMessage(message: ChatMessage) {
     if (message.userInfo.badges.has('bot-badge')) return;
 
-    const karmaMatches = getOverlayConfig()
-      .karma.map.keys()
-      .filter((k) => message.text.includes(k))
-      .toArray();
+    const karmaMap = getOverlayConfig().karmaConfig.karmaMap;
+    const karmaMatches = karmaMap
+      .filter((entry) => message.text.includes(entry.command))
+      .map((entry) => entry.command);
     if (karmaMatches.length > 0) {
       const firstMatch = karmaMatches.at(0)!;
-      const karmaValue = getOverlayConfig().karma.map.get(firstMatch)!;
+      const karmaValue = karmaMap.find((entry) => entry.command === firstMatch)!.karma;
       this.updateGlobalKarma(karmaValue);
       this.updateScale(karmaValue, message.text);
     }
@@ -89,8 +89,8 @@ export class KarmaContainer implements OverlayObserver {
     const adjustmentNumber = calculateAdjustmentNumbers(
       this.currentKarma,
       currentAngle,
-      getOverlayConfig().karma.min,
-      getOverlayConfig().karma.max
+      getOverlayConfig().karmaConfig.min,
+      getOverlayConfig().karmaConfig.max
     );
     this.moveToAdjustmentNumbers(this.collection, adjustmentNumber, true);
     this.drawCollection(this.collection, true);
@@ -120,14 +120,14 @@ export class KarmaContainer implements OverlayObserver {
 
     this.app.stage.addChild(totalKarmaText);
     this.app.stage.addChild(newKarmaText);
-    if (Math.abs(diffKarma) >= getOverlayConfig().karma.dingThreshold && this.clip) {
+    if (Math.abs(diffKarma) >= getOverlayConfig().karmaConfig.dingThreshold && this.clip) {
       const clampedDiff = Math.min(
-        Math.max(diffKarma, getOverlayConfig().karma.min),
-        getOverlayConfig().karma.max
+        Math.max(diffKarma, getOverlayConfig().karmaConfig.min),
+        getOverlayConfig().karmaConfig.max
       );
       const svalue = scurve(
-        ((Math.abs(clampedDiff) - getOverlayConfig().karma.min) /
-          (getOverlayConfig().karma.max - getOverlayConfig().karma.min)) *
+        ((Math.abs(clampedDiff) - getOverlayConfig().karmaConfig.min) /
+          (getOverlayConfig().karmaConfig.max - getOverlayConfig().karmaConfig.min)) *
           2
       );
       const value = svalue * 0.1;
@@ -157,8 +157,8 @@ export class KarmaContainer implements OverlayObserver {
     const positionCalc = calculateAdjustmentNumbers(
       0,
       currentAngle,
-      getOverlayConfig().karma.min,
-      getOverlayConfig().karma.max
+      getOverlayConfig().karmaConfig.min,
+      getOverlayConfig().karmaConfig.max
     );
     this.moveToAdjustmentNumbers(this.collection!, positionCalc);
   }

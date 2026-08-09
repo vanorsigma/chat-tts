@@ -26,7 +26,7 @@ export class WatchStreakTracker implements OverlayViewerMilestoneObserver {
   }
 
   handleWatchStreak(username: string, channelId: string, watchStreak: number) {
-    const { streakInterval } = getOverlayConfig().watchStreak;
+    const { streakInterval } = getOverlayConfig().watchStreakConfig;
     if (!streakInterval || watchStreak % streakInterval !== 0) return;
 
     const multiplier = watchStreak;

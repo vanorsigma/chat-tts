@@ -60,16 +60,23 @@ export class StockMarket {
   }
 
   approvedStocks(): string[] {
-    return getOverlayConfig().stockMarket.approvedStocks;
+    return getOverlayConfig().stockMarketConfig.approvedStocks;
   }
 
-  async buy(user: string, stock: string, points: number, skipChance = false, overpay = 0, check = false): Promise<BuyResponse> {
+  async buy(
+    user: string,
+    stock: string,
+    points: number,
+    skipChance = false,
+    overpay = 0,
+    check = false
+  ): Promise<BuyResponse> {
     if (!this.approvedStocks().includes(stock)) {
       throw new StockMarketError(`Unknown stock: ${stock}`);
     }
 
     const price = currentPriceOrThrow(stock);
-    const cfg = getOverlayConfig().stockMarket;
+    const cfg = getOverlayConfig().stockMarketConfig;
 
     console.log(
       `[stock-market] buy request: user=${user} stock=${stock} points=${points} price=${price} overpay=${overpay}`
@@ -207,7 +214,7 @@ export class StockMarket {
   }
 
   async checkin(user: string): Promise<void> {
-    const cfg = getOverlayConfig().stockMarket;
+    const cfg = getOverlayConfig().stockMarketConfig;
     for (const stock of this.approvedStocks()) {
       await this.grantPoints(user, stock, cfg.checkinGrantPoints);
     }

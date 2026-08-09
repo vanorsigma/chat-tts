@@ -3,7 +3,7 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import { checkCostAddIfEnough, PEOPLE_WHO_CHECKED_IN } from '../middleware';
 import { requireUsername } from './shared';
 import { getPointsForUser } from '$lib/api/points';
-import { getOverlayConfig } from '../../constants';
+import type { OverlayCheckInConfig } from '$lib/config';
 import { checkinUser } from '../../checkinInterface';
 import { GLOBAL_STOCK_MARKET } from '../../stock/market';
 import { apiGetMedian } from '$lib/api/stock-market';
@@ -104,7 +104,8 @@ export function medianHandler(dispatcher: OverlayDispatchers, message: ChatMessa
 export async function checkInHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  sender: WebSocket | undefined = undefined
+  sender: WebSocket | undefined = undefined,
+  config: OverlayCheckInConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
@@ -116,7 +117,7 @@ export async function checkInHandler(
 
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `vedalWave @${username} here's +${getOverlayConfig().checkIn.points} vanorDollars`,
+    `vedalWave @${username} here's +${config.points} vanorDollars`,
     message.id
   );
   PEOPLE_WHO_CHECKED_IN.push(username);
@@ -125,7 +126,7 @@ export async function checkInHandler(
     dispatcher,
     message.channelId!,
     username,
-    getOverlayConfig().checkIn.points,
+    config.points,
     message.id
   ))!;
 

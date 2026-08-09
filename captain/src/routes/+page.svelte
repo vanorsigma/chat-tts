@@ -2,6 +2,7 @@
   import ConfigEditor from '$lib/ConfigEditor.svelte';
   import Faker from '$lib/Faker.svelte';
   import { configSchema } from '$lib/config/schema';
+  import { defaultPositions } from '$lib/config/defaults';
   import { onDestroy, onMount } from 'svelte';
   import { writable } from 'svelte/store';
   import type { LogMessage } from '$lib/bus/messages';
@@ -87,7 +88,11 @@
       currentPlayingSongId = song.id;
       sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'load', song } });
     }
-    sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
+    sendBus({
+      type: 'song-control',
+      page: activeMusicPage,
+      command: { type: 'play', volume, rate }
+    });
   }
   function sendPause() {
     sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'pause' } });
@@ -107,7 +112,11 @@
         page: activeMusicPage,
         command: { type: 'load', song: next }
       });
-      sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
+      sendBus({
+        type: 'song-control',
+        page: activeMusicPage,
+        command: { type: 'play', volume, rate }
+      });
     } else {
       currentPlayingSongId = '';
     }
@@ -180,7 +189,11 @@
               page: activeMusicPage,
               command: { type: 'load', song: next }
             });
-            sendBus({ type: 'song-control', page: activeMusicPage, command: { type: 'play', volume, rate } });
+            sendBus({
+              type: 'song-control',
+              page: activeMusicPage,
+              command: { type: 'play', volume, rate }
+            });
           }
         }
       } catch {
@@ -275,16 +288,7 @@
         saveStatus = 'Saved';
         configData = JSON.parse(JSON.stringify(configData));
         if (configData) {
-          const positions = configData.overlayPositionsConfig ?? {
-            artistWidgetX: 20,
-            artistWidgetY: 20,
-            rightPanelX: 1520,
-            rightPanelY: 0,
-            wheelX: '50%',
-            wheelY: '50%',
-            wheelWidth: '60vmin',
-            wheelHeight: '60vmin'
-          };
+          const positions = configData.overlayPositionsConfig ?? defaultPositions;
           sendBus({ type: 'overlayPositions', positions });
         }
       } else {

@@ -3,6 +3,15 @@ import type { ChatMessage } from '@twurple/chat';
 import { checkCostAddIfEnough } from '../middleware';
 import { requireUsername, withCostOrFreeUser } from './shared';
 import { getOverlayConfig } from '../../constants';
+import type {
+  OverlayBlackSilenceConfig,
+  OverlayCutConfig,
+  OverlayFlashbangConfig,
+  OverlayGrayscaleConfig,
+  OverlayMaxwellConfig,
+  OverlayMistakeConfig,
+  OverlaySelfThoughtConfig
+} from '$lib/config';
 import {
   flashbangStore,
   blackSilenceStore,
@@ -26,7 +35,7 @@ function cancelBlackSilenceEffects(ws: WebSocket) {
     JSON.stringify({
       type: 'picom-shader',
       op: 'DISABLE',
-      shader: getOverlayConfig().grayscale.shader
+      shader: getOverlayConfig().grayscaleConfig?.shader ?? ''
     })
   );
   cutStore.finish(ws);
@@ -34,7 +43,7 @@ function cancelBlackSilenceEffects(ws: WebSocket) {
 
 export function triggerBlackSilenceEffects(ws: WebSocket) {
   blackSilenceStore.increment();
-  karmaStore.updateKarma(getOverlayConfig().blackSilence.karma, 'Black Silence');
+  karmaStore.updateKarma(getOverlayConfig().blackSilenceConfig.karma, 'Black Silence');
   cancelBlackSilenceEffects(ws);
 
   ws.send(
@@ -49,28 +58,30 @@ export function triggerBlackSilenceEffects(ws: WebSocket) {
       type: 'tts',
       command: {
         type: 'disable',
-        duration: getOverlayConfig().blackSilence.durationMs / 1000
+        duration: getOverlayConfig().blackSilenceConfig.durationMs / 1000
       }
     } as DisableTTS)
   );
 }
 
-export async function maxwellHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function maxwellHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlayMaxwellConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
-  await withCostOrFreeUser(
-    dispatcher,
-    message,
-    getOverlayConfig().maxwell.user,
-    getOverlayConfig().maxwell.cost,
-    () => {
-      maxwellStore.increment();
-    }
-  );
+  await withCostOrFreeUser(dispatcher, message, config.user, config.cost, () => {
+    maxwellStore.increment();
+  });
 }
 
-export async function flashbangHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function flashbangHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlayFlashbangConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
@@ -79,15 +90,15 @@ export async function flashbangHandler(dispatcher: OverlayDispatchers, message: 
       dispatcher,
       message.channelId!,
       username,
-      -getOverlayConfig().flashbang.cost,
+      -config.cost,
       message.id
     )
   ) {
     flashbangStore.increment();
-    karmaStore.updateKarma(getOverlayConfig().flashbang.karma, 'Flashbang');
+    karmaStore.updateKarma(config.karma, 'Flashbang');
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `throwing a flashbang, -${getOverlayConfig().flashbang.cost}`,
+      `throwing a flashbang, -${config.cost}`,
       message.id
     );
   }
@@ -96,52 +107,43 @@ export async function flashbangHandler(dispatcher: OverlayDispatchers, message: 
 export async function blackSilenceHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  ws: WebSocket
+  ws: WebSocket,
+  config: OverlayBlackSilenceConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
 
-  await withCostOrFreeUser(
-    dispatcher,
-    message,
-    getOverlayConfig().blackSilence.user,
-    getOverlayConfig().blackSilence.cost,
-    () => {
-      triggerBlackSilenceEffects(ws);
-    }
-  );
+  await withCostOrFreeUser(dispatcher, message, config.user, config.cost, () => {
+    triggerBlackSilenceEffects(ws);
+  });
 }
 
-export async function mistakeHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function mistakeHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlayMistakeConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
-  await withCostOrFreeUser(
-    dispatcher,
-    message,
-    getOverlayConfig().mistake.user,
-    getOverlayConfig().mistake.cost,
-    () => {
-      mistakeStore.increment();
-      karmaStore.updateKarma(getOverlayConfig().mistake.karma, 'Mistake Redeem');
-    }
-  );
+  await withCostOrFreeUser(dispatcher, message, config.user, config.cost, () => {
+    mistakeStore.increment();
+    karmaStore.updateKarma(config.karma, 'Mistake Redeem');
+  });
 }
 
-export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function selfThoughtHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlaySelfThoughtConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
   const text = message.text.split(' ').slice(1).join(' ');
 
   if (
-    await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -getOverlayConfig().selfThought.cost,
-      message.id
-    )
+    await checkCostAddIfEnough(dispatcher, message.channelId!, username, -config.cost, message.id)
   ) {
     const msg = encodeURIComponent(text);
     const response = await fetch(`${PUBLIC_SELF_THOUGHT_URL}/processMessage?message=${msg}`);
@@ -156,14 +158,14 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
         dispatcher,
         message.channelId!,
         username,
-        getOverlayConfig().selfThought.cost,
+        config.cost,
         message.id
       ))!;
     } else {
-      karmaStore.updateKarma(getOverlayConfig().selfThought.karma, 'Self Thought');
+      karmaStore.updateKarma(config.karma, 'Self Thought');
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `-${getOverlayConfig().selfThought.cost}`,
+        `-${config.cost}`,
         message.id
       );
     }
@@ -173,26 +175,21 @@ export async function selfThoughtHandler(dispatcher: OverlayDispatchers, message
 export async function grayscaleHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  ws: WebSocket
+  ws: WebSocket,
+  config: OverlayGrayscaleConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
 
   if (
-    await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -getOverlayConfig().grayscale.cost,
-      message.id
-    )
+    await checkCostAddIfEnough(dispatcher, message.channelId!, username, -config.cost, message.id)
   ) {
-    karmaStore.updateKarma(getOverlayConfig().grayscale.karma, 'Grayscale');
+    karmaStore.updateKarma(config.karma, 'Grayscale');
     ws.send(
       JSON.stringify({
         type: 'picom-shader',
         op: 'ENABLE',
-        shader: getOverlayConfig().grayscale.shader
+        shader: config.shader
       })
     );
     if (grayscaleDisableTimer) clearTimeout(grayscaleDisableTimer);
@@ -201,14 +198,14 @@ export async function grayscaleHandler(
         JSON.stringify({
           type: 'picom-shader',
           op: 'DISABLE',
-          shader: getOverlayConfig().grayscale.shader
+          shader: config.shader
         })
       );
       grayscaleDisableTimer = null;
-    }, getOverlayConfig().grayscale.durationMs);
+    }, config.durationMs);
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `-${getOverlayConfig().grayscale.cost}`,
+      `-${config.cost}`,
       message.id
     );
   }
@@ -218,6 +215,7 @@ async function innerCutHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
   ws: WebSocket,
+  config: OverlayCutConfig,
   skipCost = false
 ) {
   const username = requireUsername(message);
@@ -225,7 +223,7 @@ async function innerCutHandler(
   if (!cutStore.hasCapacity) return;
 
   const doCut = () => {
-    karmaStore.updateKarma(getOverlayConfig().cut.karma, 'Cut');
+    karmaStore.updateKarma(config.karma, 'Cut');
     cutStore.doCut(ws);
   };
 
@@ -234,28 +232,23 @@ async function innerCutHandler(
     return;
   }
 
-  await withCostOrFreeUser(
-    dispatcher,
-    message,
-    getOverlayConfig().cut.user,
-    getOverlayConfig().cut.cost,
-    doCut
-  );
+  await withCostOrFreeUser(dispatcher, message, config.user, config.cost, doCut);
 }
 
 export async function cutHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
   ws: WebSocket,
-  commands: Commands
+  commands: Commands,
+  config: OverlayCutConfig
 ) {
   if (!cutStore.videoActive) {
     console.debug('Cut session has not started yet!');
     commands.callOnlyIfPastCooldown('cut', dispatcher, message, () =>
-      innerCutHandler(dispatcher, message, ws)
+      innerCutHandler(dispatcher, message, ws, config)
     );
     return;
   }
   console.debug('Cut session has started, bypassing cooldown restrictions.');
-  innerCutHandler(dispatcher, message, ws, true);
+  innerCutHandler(dispatcher, message, ws, config, true);
 }

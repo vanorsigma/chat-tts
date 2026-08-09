@@ -23,7 +23,7 @@ export class Heartrate implements StockProvider {
   private _current: number;
 
   constructor(url: string) {
-    this._current = getOverlayConfig().model.initialHeartrate;
+    this._current = getOverlayConfig().modelConfig.initialHeartrate;
     this.ws = new ReconnectingWebSocket(url);
     this.ws.onmessage = (data) => this.onMessage(data);
     GLOBAL_PROVIDER_REGISTRY.register(this);

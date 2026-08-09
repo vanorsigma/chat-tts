@@ -1,9 +1,10 @@
 import { parse } from 'yaml';
+import { configSchema, type FieldSchema } from './config/schema';
+import { mergeConfig } from './config/defaults';
+import { ConfigParsingError, validateConfig } from './config/validate';
+import type { SchemaToType, Equal } from './config/types';
 
-interface RangeConfigOptional {
-  minimum?: number;
-  maximum?: number;
-}
+export { ConfigParsingError };
 
 interface RangeConfig {
   minimum: number;
@@ -20,14 +21,6 @@ export interface AlternativePitchControl {
 }
 
 export interface StandaloneSongConfig {}
-
-export interface DistractConfigOptional {
-  enabled?: boolean;
-  distractCooldown?: number;
-  rotateCooldown?: number;
-  distractChance?: number;
-  rotateChance?: number;
-}
 
 export interface DistractConfig {
   enabled: boolean;
@@ -163,7 +156,7 @@ export interface OverlayPredictionConfig {}
 export interface OverlayEconomyConfig {}
 
 export interface OverlayWatchStreakConfig {
-  streakInterval?: number;
+  streakInterval: number;
 }
 
 export interface OverlayEndstreamConfig {}
@@ -183,23 +176,25 @@ export interface OverlayStockMarketConfig {
 }
 
 export interface OverlayCommandCooldownsConfig {
-  poll?: number;
-  prediction?: number;
-  flashbang?: number;
-  selfthought?: number;
-  undress?: number;
-  stars?: number;
-  hearts?: number;
-  block?: number;
-  unblock?: number;
-  kill?: number;
-  gamba?: number;
-  buy?: number;
-  sell?: number;
+  poll: number;
+  prediction: number;
+  flashbang: number;
+  selfthought: number;
+  undress: number;
+  stars: number;
+  hearts: number;
+  block: number;
+  unblock: number;
+  kill: number;
+  grayscale: number;
+  cut: number;
 }
 
 export interface OverlayCommandChancesConfig {
-  [command: string]: number;
+  default: number;
+  flashbang: number;
+  grayscale: number;
+  cut: number;
 }
 
 export interface OverlayPositionsConfig {
@@ -209,10 +204,10 @@ export interface OverlayPositionsConfig {
   rightPanelY: number;
   pinX: number;
   pinY: number;
-  wheelX?: string;
-  wheelY?: string;
-  wheelWidth?: string;
-  wheelHeight?: string;
+  wheelX: string;
+  wheelY: string;
+  wheelWidth: string;
+  wheelHeight: string;
 }
 
 export interface StartingSoonArtEntry {
@@ -231,21 +226,6 @@ export interface RemoteVoiceConfig {
 export interface RemoteChatTTSControllerConfig {}
 
 export interface DelegateVoiceToOverlayConfig {}
-
-export interface MakiConfigOptional {
-  twitchClientId?: string;
-  twitchClientSecret?: string;
-  broadcasterName?: string;
-  openrouterApiKey?: string;
-  makiModel?: string;
-  evaluatorModel?: string;
-  deepReasoningModel?: string;
-  deepReasoningMaxTokens?: number;
-  maxTokens?: number;
-  communicationBusUrl?: string;
-  screenshotDisplay?: number;
-  textSpeed?: number;
-}
 
 export interface MakiConfig {
   twitchClientId: string;
@@ -277,365 +257,10 @@ export interface DynamicConfig {
   songPitchSpeedAffected: boolean;
 }
 
-export class ConfigParsingError extends Error {}
-
-export class ParseableConfig {
-  channelName?: string;
-  commandsDisabled: boolean;
-  startingSoonConfig?: StartingSoonConfig;
-  alternativePitchControl?: AlternativePitchControl;
-  voices?: string[];
-  pitchRange?: RangeConfigOptional;
-  rateRange?: RangeConfigOptional;
-  filteredExps?: string[];
-  soundEffects?: SoundEffect[];
-  standaloneSongConfig?: StandaloneSongConfig;
-  remoteVoiceConfig?: RemoteVoiceConfig;
-  distractConfig?: DistractConfigOptional;
-  remoteChatTTS?: RemoteChatTTSControllerConfig;
-  delegateVoiceToOverlay?: DelegateVoiceToOverlayConfig;
-  ignorePrefix?: string;
-  makiConfig?: MakiConfigOptional;
-
-  overlayModerationConfig?: OverlayModerationConfig;
-  overlayBlackSilenceConfig?: OverlayBlackSilenceConfig;
-  overlayFlashbangConfig?: OverlayFlashbangConfig;
-  overlayMaxwellConfig?: OverlayMaxwellConfig;
-  overlayGrayscaleConfig?: OverlayGrayscaleConfig;
-  overlayCutConfig?: OverlayCutConfig;
-  overlayMistakeConfig?: OverlayMistakeConfig;
-  overlayShowImageConfig?: OverlayShowImageConfig;
-  overlayPlayAudioConfig?: OverlayPlayAudioConfig;
-  overlayResetCooldownConfig?: OverlayResetCooldownConfig;
-  overlaySelfThoughtConfig?: OverlaySelfThoughtConfig;
-  overlayGoodNightKissConfig?: OverlayGoodNightKissConfig;
-  overlaySetTitleConfig?: OverlaySetTitleConfig;
-  overlayKarmaConfig?: OverlayKarmaConfig;
-  overlayModelConfig?: OverlayModelConfig;
-  overlayCaptchaConfig?: OverlayCaptchaConfig;
-  overlayCheckInConfig?: OverlayCheckInConfig;
-  overlayPollConfig?: OverlayPollConfig;
-  overlayPredictionConfig?: OverlayPredictionConfig;
-  overlayEconomyConfig?: OverlayEconomyConfig;
-  overlayWatchStreakConfig?: OverlayWatchStreakConfig;
-  overlayEndstreamConfig?: OverlayEndstreamConfig;
-  overlayBidConfig?: OverlayBidConfig;
-  overlayVoiceConfig?: OverlayVoiceConfig;
-  overlayRestartConfig?: OverlayRestartConfig;
-  overlayCommandCooldownsConfig?: OverlayCommandCooldownsConfig;
-  overlayCommandChancesConfig?: OverlayCommandChancesConfig;
-  overlayStockMarketConfig?: OverlayStockMarketConfig;
-  overlayPositionsConfig?: OverlayPositionsConfig;
-  overlayRedeemConfig?: RedeemConfig;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(arbitraryObject: any) {
-    const nonOptionalFields = ['channelName', 'commandsDisabled'];
-
-    for (const field of nonOptionalFields) {
-      if (!Object.hasOwn(arbitraryObject, field)) {
-        throw new ConfigParsingError(`Field ${field} is missing from the config, cannot continue`);
-      }
-    }
-
-    this.channelName = arbitraryObject['channelName'];
-    console.log(`Config parsed for channel: ${this.channelName}`);
-    this.commandsDisabled = arbitraryObject['commandsDisabled'] ?? false;
-    this.startingSoonConfig = arbitraryObject['startingSoonConfig'];
-    this.alternativePitchControl = arbitraryObject['alternativePitchControl'];
-    this.voices = arbitraryObject['voices'];
-    this.pitchRange = arbitraryObject['pitchRange'];
-    this.rateRange = arbitraryObject['rateRange'];
-    this.filteredExps = arbitraryObject['filteredExps'];
-    this.soundEffects = arbitraryObject['soundEffects'];
-    this.standaloneSongConfig = arbitraryObject['standaloneSongConfig'];
-    this.remoteVoiceConfig = arbitraryObject['remoteVoiceConfig'];
-    this.distractConfig = arbitraryObject['distractConfig'];
-    this.remoteChatTTS = arbitraryObject['remoteChatTTS'];
-    this.delegateVoiceToOverlay = arbitraryObject['delegateVoiceToOverlay'];
-    this.ignorePrefix = arbitraryObject['ignorePrefix'] ?? '~';
-    this.makiConfig = arbitraryObject['makiConfig'];
-
-    this.overlayModerationConfig = arbitraryObject['moderationConfig'];
-    this.overlayBlackSilenceConfig = arbitraryObject['blackSilenceConfig'];
-    this.overlayFlashbangConfig = arbitraryObject['flashbangConfig'];
-    this.overlayMaxwellConfig = arbitraryObject['maxwellConfig'];
-    this.overlayGrayscaleConfig = arbitraryObject['grayscaleConfig'];
-    this.overlayCutConfig = arbitraryObject['cutConfig'];
-    this.overlayMistakeConfig = arbitraryObject['mistakeConfig'];
-    this.overlayShowImageConfig = arbitraryObject['showImageConfig'];
-    this.overlayPlayAudioConfig = arbitraryObject['playAudioConfig'];
-    this.overlayResetCooldownConfig = arbitraryObject['resetCooldownConfig'];
-    this.overlaySelfThoughtConfig = arbitraryObject['selfThoughtConfig'];
-    this.overlayGoodNightKissConfig = arbitraryObject['goodNightKissConfig'];
-    this.overlaySetTitleConfig = arbitraryObject['setTitleConfig'];
-    this.overlayKarmaConfig = arbitraryObject['karmaConfig'];
-    this.overlayModelConfig = arbitraryObject['modelConfig'];
-    this.overlayCaptchaConfig = arbitraryObject['captchaConfig'];
-    this.overlayCheckInConfig = arbitraryObject['checkInConfig'];
-    this.overlayPollConfig = arbitraryObject['pollConfig'];
-    this.overlayPredictionConfig = arbitraryObject['predictionConfig'];
-    this.overlayEconomyConfig = arbitraryObject['economyConfig'];
-    this.overlayWatchStreakConfig = arbitraryObject['watchStreakConfig'];
-    this.overlayEndstreamConfig = arbitraryObject['endstreamConfig'];
-    this.overlayBidConfig = arbitraryObject['bidConfig'];
-    this.overlayVoiceConfig = arbitraryObject['voiceConfig'];
-    this.overlayRestartConfig = arbitraryObject['restartConfig'];
-    this.overlayCommandCooldownsConfig = arbitraryObject['commandCooldownsConfig'];
-    this.overlayCommandChancesConfig = arbitraryObject['commandChancesConfig'];
-    this.overlayStockMarketConfig = arbitraryObject['stockMarketConfig'];
-    this.overlayPositionsConfig = arbitraryObject['overlayPositionsConfig'];
-    this.overlayRedeemConfig = arbitraryObject['redeemConfig'];
-  }
-
-  toFullConfig(): FullConfig {
-    return {
-      channelName: this.channelName ?? '',
-      commandsDisabled: this.commandsDisabled,
-      startingSoonConfig: {
-        images: this.startingSoonConfig?.images ?? []
-      },
-      voices: this.voices ?? [],
-      alternativePitchControl: this.alternativePitchControl,
-      pitchRange: {
-        maximum: this.pitchRange?.maximum ?? 1.3,
-        minimum: this.pitchRange?.minimum ?? 0.95
-      },
-      rateRange: {
-        maximum: this.rateRange?.maximum ?? 2.0,
-        minimum: this.rateRange?.minimum ?? 0.7
-      },
-      filteredExps: this.filteredExps ?? [],
-      soundEffects: this.soundEffects ?? [],
-      standaloneSongConfig: this.standaloneSongConfig,
-      remoteVoiceConfig: this.remoteVoiceConfig,
-      dynamicConfig: {
-        songPitchSpeedAffected: false
-      },
-      distractConfig: this.distractConfig
-        ? {
-            enabled: false,
-            distractCooldown: 900,
-            rotateCooldown: 300,
-            distractChance: 0.001,
-            rotateChance: 0.01,
-            ...this.distractConfig
-          }
-        : undefined,
-      moderationConfig: this.overlayModerationConfig
-        ? {
-            moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
-            unblockableCommands: [
-              '%restart',
-              '%block',
-              '%unblock',
-              '%endstream',
-              '%refreshVoice',
-              '%rotate',
-              '%distract'
-            ],
-            blockMinimumBid: 1000,
-            killCost: 2000,
-            ...this.overlayModerationConfig
-          }
-        : undefined,
-      blackSilenceConfig: this.overlayBlackSilenceConfig
-        ? {
-            user: 'nikitakik228',
-            durationMs: 10000,
-            cost: 500,
-            karma: 50,
-            ...this.overlayBlackSilenceConfig
-          }
-        : undefined,
-      flashbangConfig: this.overlayFlashbangConfig
-        ? { cost: 500, karma: -100, ...this.overlayFlashbangConfig }
-        : undefined,
-      maxwellConfig: this.overlayMaxwellConfig
-        ? {
-            cost: 100,
-            user: '5kuli',
-            cooldownMs: 30000,
-            limit: 100,
-            ...this.overlayMaxwellConfig
-          }
-        : undefined,
-      grayscaleConfig: this.overlayGrayscaleConfig
-        ? {
-            cost: 1000,
-            karma: -100,
-            shader: '00-grayscale',
-            durationMs: 10000,
-            ...this.overlayGrayscaleConfig
-          }
-        : undefined,
-      cutConfig: this.overlayCutConfig
-        ? {
-            cost: 1000,
-            user: 'owobred',
-            karma: -100,
-            shader: '01-cut',
-            durationMs: 91962,
-            momentDelayMs: 8150,
-            ...this.overlayCutConfig
-          }
-        : undefined,
-      mistakeConfig: this.overlayMistakeConfig
-        ? { cost: 5000, user: 'mr_auto', karma: -1000, ...this.overlayMistakeConfig }
-        : undefined,
-      showImageConfig: this.overlayShowImageConfig
-        ? {
-            cost: 10000,
-            user: 'mayoigo_qwq',
-            cooldownMs: 60000,
-            karma: -200,
-            ...this.overlayShowImageConfig
-          }
-        : undefined,
-      playAudioConfig: this.overlayPlayAudioConfig
-        ? {
-            cost: 10000,
-            user: 'SpookiestSpooks',
-            karma: -100,
-            ...this.overlayPlayAudioConfig
-          }
-        : undefined,
-      resetCooldownConfig: this.overlayResetCooldownConfig
-        ? { cost: 20000, ...this.overlayResetCooldownConfig }
-        : { cost: 20000 },
-      selfThoughtConfig: this.overlaySelfThoughtConfig
-        ? { cost: 5000, karma: -200, ...this.overlaySelfThoughtConfig }
-        : undefined,
-      goodNightKissConfig: this.overlayGoodNightKissConfig
-        ? {
-            cost: 5000,
-            user: 'pastel8844',
-            karma: -300,
-            timeoutDurationSec: 1800,
-            ...this.overlayGoodNightKissConfig
-          }
-        : undefined,
-      setTitleConfig: this.overlaySetTitleConfig
-        ? {
-            cost: 1000,
-            karmaRequirement: 100,
-            karmaModifier: -0.3,
-            user: 'sekatsu1',
-            ...this.overlaySetTitleConfig
-          }
-        : undefined,
-      karmaConfig: this.overlayKarmaConfig
-        ? {
-            min: -5000,
-            max: 5000,
-            dingThreshold: 250,
-            decayRate: 0.01,
-            karmaMap: [
-              { command: '%rotate', karma: -100 },
-              { command: '%distract', karma: -200 }
-            ],
-            togglesKarma: [
-              { name: 'Hearts', karma: 5.0 },
-              { name: 'Stars', karma: 5.0 },
-              { name: 'Undress', karma: 50.0 }
-            ],
-            ...this.overlayKarmaConfig
-          }
-        : undefined,
-      modelConfig: this.overlayModelConfig
-        ? {
-            initialHeartrate: 50,
-            blushHrThreshold: 80,
-            despairHrThreshold: 50,
-            ...this.overlayModelConfig
-          }
-        : undefined,
-      captchaConfig: this.overlayCaptchaConfig
-        ? { points: 500, karma: 100, durationMs: 30000, ...this.overlayCaptchaConfig }
-        : undefined,
-      checkInConfig: this.overlayCheckInConfig
-        ? { points: 999.99, ...this.overlayCheckInConfig }
-        : undefined,
-      pollConfig: this.overlayPollConfig,
-      predictionConfig: this.overlayPredictionConfig,
-      economyConfig: this.overlayEconomyConfig,
-      watchStreakConfig: this.overlayWatchStreakConfig
-        ? { streakInterval: 5, ...this.overlayWatchStreakConfig }
-        : undefined,
-      endstreamConfig: this.overlayEndstreamConfig,
-      bidConfig: this.overlayBidConfig,
-      voiceConfig: this.overlayVoiceConfig,
-      restartConfig: this.overlayRestartConfig,
-      stockMarketConfig: this.overlayStockMarketConfig
-        ? {
-            cycleIntervalMs: 15000,
-            checkinGrantPoints: 1000,
-            approvedStocks: ['HEART'],
-            buyFailSteepness: 8,
-            overpayFactor: 0.1,
-            ...this.overlayStockMarketConfig
-          }
-        : undefined,
-      commandCooldownsConfig: {
-        poll: 10000,
-        prediction: 10000,
-        flashbang: 10000,
-        selfthought: 10000,
-        undress: 1000,
-        stars: 1000,
-        hearts: 1000,
-        block: 10000,
-        unblock: 10000,
-        kill: 10000,
-        gamba: 60000,
-        buy: 2000,
-        sell: 2000,
-        ...this.overlayCommandCooldownsConfig
-      },
-      commandChancesConfig: {
-        default: 90,
-        flashbang: 40,
-        ...this.overlayCommandChancesConfig
-      },
-      overlayPositionsConfig: {
-        wheelX: '50%',
-        wheelY: '50%',
-        wheelWidth: '60vmin',
-        wheelHeight: '60vmin',
-        artistWidgetX: 20,
-        artistWidgetY: 20,
-        rightPanelX: 1520,
-        rightPanelY: 0,
-        pinX: 760,
-        pinY: 40,
-        ...this.overlayPositionsConfig
-      },
-      redeemConfig: this.overlayRedeemConfig ?? { redeems: [] },
-      remoteChatTTS: this.remoteChatTTS,
-      delegateVoiceToOverlay: this.delegateVoiceToOverlay,
-      ignorePrefix: this.ignorePrefix ?? '~',
-      makiConfig: {
-        twitchClientId: this.makiConfig?.twitchClientId ?? '',
-        twitchClientSecret: this.makiConfig?.twitchClientSecret ?? '',
-        broadcasterName: this.makiConfig?.broadcasterName ?? '',
-        openrouterApiKey: this.makiConfig?.openrouterApiKey ?? '',
-        makiModel: this.makiConfig?.makiModel ?? 'google/gemini-2.5-flash-lite',
-        evaluatorModel: this.makiConfig?.evaluatorModel ?? 'qwen/qwen3-coder-30b-a3b-instruct',
-        deepReasoningModel: this.makiConfig?.deepReasoningModel ?? 'google/gemini-3.6-flash',
-        deepReasoningMaxTokens: this.makiConfig?.deepReasoningMaxTokens ?? 4096,
-        maxTokens: this.makiConfig?.maxTokens ?? 1024,
-        communicationBusUrl: this.makiConfig?.communicationBusUrl ?? 'ws://localhost:3001/senders',
-        screenshotDisplay: this.makiConfig?.screenshotDisplay ?? 1,
-        textSpeed: this.makiConfig?.textSpeed ?? 30
-      }
-    };
-  }
-}
-
 export interface FullConfig {
   channelName: string;
   commandsDisabled: boolean;
-  startingSoonConfig?: StartingSoonConfig;
+  startingSoonConfig: StartingSoonConfig;
   alternativePitchControl?: AlternativePitchControl;
   voices: string[];
   pitchRange: RangeConfig;
@@ -645,34 +270,34 @@ export interface FullConfig {
   standaloneSongConfig?: StandaloneSongConfig;
   remoteVoiceConfig?: RemoteVoiceConfig;
   distractConfig?: DistractConfig;
-  moderationConfig?: OverlayModerationConfig;
-  blackSilenceConfig?: OverlayBlackSilenceConfig;
+  moderationConfig: OverlayModerationConfig;
+  blackSilenceConfig: OverlayBlackSilenceConfig;
   flashbangConfig?: OverlayFlashbangConfig;
-  maxwellConfig?: OverlayMaxwellConfig;
+  maxwellConfig: OverlayMaxwellConfig;
   mistakeConfig?: OverlayMistakeConfig;
   grayscaleConfig?: OverlayGrayscaleConfig;
-  cutConfig?: OverlayCutConfig;
-  showImageConfig?: OverlayShowImageConfig;
+  cutConfig: OverlayCutConfig;
+  showImageConfig: OverlayShowImageConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
   resetCooldownConfig: OverlayResetCooldownConfig;
   goodNightKissConfig?: OverlayGoodNightKissConfig;
   setTitleConfig?: OverlaySetTitleConfig;
-  karmaConfig?: OverlayKarmaConfig;
-  modelConfig?: OverlayModelConfig;
-  captchaConfig?: OverlayCaptchaConfig;
+  karmaConfig: OverlayKarmaConfig;
+  modelConfig: OverlayModelConfig;
+  captchaConfig: OverlayCaptchaConfig;
   checkInConfig?: OverlayCheckInConfig;
   pollConfig?: OverlayPollConfig;
   predictionConfig?: OverlayPredictionConfig;
   economyConfig?: OverlayEconomyConfig;
-  watchStreakConfig?: { streakInterval: number };
+  watchStreakConfig: OverlayWatchStreakConfig;
   endstreamConfig?: OverlayEndstreamConfig;
   bidConfig?: OverlayBidConfig;
   voiceConfig?: OverlayVoiceConfig;
   restartConfig?: OverlayRestartConfig;
-  stockMarketConfig?: OverlayStockMarketConfig;
-  commandCooldownsConfig?: OverlayCommandCooldownsConfig;
-  commandChancesConfig?: OverlayCommandChancesConfig;
+  stockMarketConfig: OverlayStockMarketConfig;
+  commandCooldownsConfig: OverlayCommandCooldownsConfig;
+  commandChancesConfig: OverlayCommandChancesConfig;
   overlayPositionsConfig: OverlayPositionsConfig;
   dynamicConfig: DynamicConfig;
   remoteChatTTS?: RemoteChatTTSControllerConfig;
@@ -682,6 +307,48 @@ export interface FullConfig {
   redeemConfig: RedeemConfig;
 }
 
-export function parseYaml(input: string): ParseableConfig {
-  return new ParseableConfig(parse(input));
+export function parseConfig(raw: unknown): FullConfig {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new ConfigParsingError('Config must be an object');
+  }
+  const obj = raw as Record<string, unknown>;
+  for (const field of configSchema as readonly FieldSchema[]) {
+    if (field.required && field.kind !== 'optional-object' && !Object.hasOwn(obj, field.key)) {
+      throw new ConfigParsingError(
+        `Field ${field.key} is missing from the config, cannot continue`
+      );
+    }
+  }
+  validateConfig(configSchema, obj);
+  return mergeConfig(configSchema, obj);
 }
+
+export function parseYaml(input: string): FullConfig {
+  return parseConfig(parse(input));
+}
+
+type _Expect<T extends true> = T;
+
+type _ConfigShape = SchemaToType<typeof configSchema>;
+type _HandConfig = Omit<FullConfig, 'dynamicConfig'>;
+
+type _KeysMatch<H extends object, D extends object> = [
+  Exclude<keyof H, keyof D>,
+  Exclude<keyof D, keyof H>
+] extends [never, never]
+  ? true
+  : false;
+
+type _PerFieldMatch<H extends object, D extends object> = {
+  [K in keyof H & keyof D]: Equal<H[K], D[K]>;
+}[keyof H & keyof D];
+
+// Compile-time check that FullConfig matches the shape implied by configSchema.
+// Fix drift in the interfaces above or in schema.ts / commands/definitions.ts.
+type _ConfigShapeParity = _Expect<
+  _KeysMatch<_HandConfig, _ConfigShape> extends true
+    ? _PerFieldMatch<_HandConfig, _ConfigShape> extends true
+      ? true
+      : false
+    : false
+>;

@@ -121,7 +121,7 @@ export function createShowImageStore() {
           const firstIndex = imageUrls.findIndex(([url]) => url === imageUrl);
           imageUrls = [...imageUrls.slice(0, firstIndex), ...imageUrls.slice(firstIndex + 1)];
           pub.notify(imageUrls);
-        }, getOverlayConfig().showImage.cooldownMs)
+        }, getOverlayConfig().showImageConfig.cooldownMs)
       ]
     ];
     pub.notify(imageUrls);
@@ -253,17 +253,32 @@ export function createImportantStore() {
   let remainingMs = $state(0);
 
   return {
-    get active() { return active; },
-    get phase() { return phase; },
-    get remainingMs() { return remainingMs; },
+    get active() {
+      return active;
+    },
+    get phase() {
+      return phase;
+    },
+    get remainingMs() {
+      return remainingMs;
+    },
     activate(durSec: number) {
       active = true;
       phase = 'glowing';
       expiry = Date.now() + durSec * 1000;
       remainingMs = durSec * 1000;
     },
-    tick(now: number) { remainingMs = Math.max(0, expiry - now); },
-    toHidden() { phase = 'hidden'; },
-    deactivate() { active = false; phase = 'idle'; expiry = 0; remainingMs = 0; }
+    tick(now: number) {
+      remainingMs = Math.max(0, expiry - now);
+    },
+    toHidden() {
+      phase = 'hidden';
+    },
+    deactivate() {
+      active = false;
+      phase = 'idle';
+      expiry = 0;
+      remainingMs = 0;
+    }
   };
 }

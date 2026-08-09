@@ -2,12 +2,20 @@ import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import { checkCostAddIfEnough, TOGGLE_EXPIRY, TOGGLE_COOLDOWN } from '../middleware';
 import { requireUsername } from './shared';
-import { getOverlayConfig } from '../../constants';
+import type {
+  OverlayGoodNightKissConfig,
+  OverlayKarmaConfig,
+  OverlaySetTitleConfig
+} from '$lib/config';
 import { goodnightKissStore, karmaStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
 import { random } from '$lib/utils';
 
-export async function goodnightkissHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function goodnightkissHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlayGoodNightKissConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
@@ -19,7 +27,7 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
       message.channelId!,
       userid,
       'Good night! EvilTuckk',
-      getOverlayConfig().goodNightKiss.timeoutDurationSec,
+      config.timeoutDurationSec,
       isMod
     );
     return;
@@ -33,12 +41,12 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
   const targetUserId = message.userInfo.userId;
 
   if (
-    message.userInfo.userName === getOverlayConfig().goodNightKiss.user ||
+    message.userInfo.userName === config.user ||
     (await checkCostAddIfEnough(
       dispatcher,
       message.channelId!,
       username,
-      -getOverlayConfig().goodNightKiss.cost,
+      -config.cost,
       message.id
     ))
   ) {
@@ -49,25 +57,29 @@ export async function goodnightkissHandler(dispatcher: OverlayDispatchers, messa
       fast_version: random() < 0.1,
       isMod: message.userInfo.isMod
     });
-    karmaStore.updateKarma(getOverlayConfig().goodNightKiss.karma, 'Good Night Kiss');
+    karmaStore.updateKarma(config.karma, 'Good Night Kiss');
 
-    if (message.userInfo.userName === getOverlayConfig().goodNightKiss.user) {
+    if (message.userInfo.userName === config.user) {
       dispatcher.sendMessageAsUser(message.channelId!, 'ok', message.id);
     } else {
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `why did u claim this -${getOverlayConfig().goodNightKiss.cost}`,
+        `why did u claim this -${config.cost}`,
         message.id
       );
     }
   }
 }
 
-export async function settitleHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
+export async function settitleHandler(
+  dispatcher: OverlayDispatchers,
+  message: ChatMessage,
+  config: OverlaySetTitleConfig
+) {
   const username = requireUsername(message);
   if (!username) return;
 
-  if (karmaStore.karma < getOverlayConfig().setTitle.karmaRequirement) {
+  if (karmaStore.karma < config.karmaRequirement) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
       'chat does not have enough karma for this',
@@ -79,7 +91,7 @@ export async function settitleHandler(dispatcher: OverlayDispatchers, message: C
   const title = message.text.split(' ').slice(1).join(' ');
   if (title.trim().length === 0) return;
 
-  if (username === getOverlayConfig().setTitle.user) {
+  if (username === config.user) {
     dispatcher.rawSendMessageAsUser(message.channelId!, `!settitle ${title}`);
     return;
   }
@@ -89,7 +101,7 @@ export async function settitleHandler(dispatcher: OverlayDispatchers, message: C
       dispatcher,
       message.channelId!,
       username,
-      -getOverlayConfig().setTitle.cost,
+      -config.cost,
       message.id
     ))
   )
@@ -98,11 +110,11 @@ export async function settitleHandler(dispatcher: OverlayDispatchers, message: C
   const approverObserver = new ApprovableObserver(
     dispatcher,
     message,
-    [getOverlayConfig().setTitle.user],
+    [config.user],
     () => {
       dispatcher.rawSendMessageAsUser(message.channelId!, `!settitle ${title}`);
       karmaStore.setKarma(
-        getOverlayConfig().setTitle.karmaModifier * karmaStore.karma,
+        config.karmaModifier * karmaStore.karma,
         'Set Title karma'
       );
     },
@@ -114,10 +126,11 @@ export async function settitleHandler(dispatcher: OverlayDispatchers, message: C
 export async function togglesHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  blendShape: 'Hearts' | 'Stars' | 'Undress'
+  blendShape: 'Hearts' | 'Stars' | 'Undress',
+  config: OverlayKarmaConfig
 ) {
   const karmaValue = karmaStore.karma;
-  const requiredKarma = getOverlayConfig().karma.toggles.get(blendShape);
+  const requiredKarma = config.togglesKarma.find((toggle) => toggle.name === blendShape)?.karma;
   if (!requiredKarma) return;
   if (karmaValue < requiredKarma) {
     dispatcher.sendMessageAsUser(

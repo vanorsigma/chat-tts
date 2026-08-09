@@ -1,5 +1,16 @@
-const disabledSections = new Set<string>();
+import { mergeConfig } from '$lib/config/defaults';
+import { configSchema, type FieldSchema } from '$lib/config/schema';
+import { parseConfig } from '$lib/config';
+import type { FullConfig } from '$lib/config';
 
+const commandSectionKeys = new Set(
+  (configSchema as readonly FieldSchema[])
+    .filter((field) => field.commandSection)
+    .map((field) => field.key)
+);
+
+let _overlayConfig: FullConfig = mergeConfig(configSchema, {});
+let disabledSections = new Set<string>();
 let delegateVoiceToOverlay = false;
 
 export function isSectionDisabled(sectionKey: string): boolean {
@@ -10,211 +21,27 @@ export function isDelegateVoiceToOverlay(): boolean {
   return delegateVoiceToOverlay;
 }
 
-const _overlayConfig = {
-  moderation: {
-    moderatorUsers: ['pastel8844', 'deplytha', 'asmodeus_desu'],
-    unblockableCommands: [
-      '%restart',
-      '%block',
-      '%unblock',
-      '%endstream',
-      '%refreshVoice',
-      '%rotate',
-      '%distract'
-    ],
-    blockMinimumBid: 1000,
-    killCost: 2000
-  },
-  blackSilence: { user: 'nikitakik228', durationMs: 10000, cost: 500, karma: 50 },
-  flashbang: { cost: 500, karma: -100 },
-  maxwell: { cost: 100, user: '5kuli', cooldownMs: 30000, limit: 100 },
-  mistake: { cost: 5000, user: 'mr_auto', karma: -1000 },
-  showImage: { cost: 10000, user: 'mayoigo_qwq', cooldownMs: 60000, karma: -200 },
-  playAudio: { cost: 10000, user: 'SpookiestSpooks', karma: -100 },
-  resetCooldown: { cost: 20000 },
-  grayscale: { cost: 1000, karma: -100, shader: '00-grayscale', durationMs: 120000 },
-  cut: {
-    cost: 1000,
-    user: 'owobred',
-    karma: -100,
-    shader: '01-cut',
-    durationMs: 91962,
-    momentDelayMs: 8150
-  },
-  selfThought: { cost: 5000, karma: -200 },
-  goodNightKiss: { cost: 5000, user: 'pastel8844', karma: -300, timeoutDurationSec: 1800 },
-  setTitle: { cost: 1000, karmaRequirement: 100, karmaModifier: -0.3, user: 'sekatsu1' },
-  checkIn: { points: 999.99 },
-  stockMarket: {
-    cycleIntervalMs: 15000,
-    checkinGrantPoints: 1000,
-    approvedStocks: ['HEART'],
-    buyFailSteepness: 8,
-    overpayFactor: 0.1
-  },
-  karma: {
-    min: -5000,
-    max: 5000,
-    dingThreshold: 250,
-    decayRate: 0.01,
-    map: new Map<string, number>([
-      ['%rotate', -100],
-      ['%distract', -200]
-    ]),
-    toggles: new Map<string, number>([
-      ['Hearts', 5.0],
-      ['Stars', 5.0],
-      ['Undress', 50.0]
-    ])
-  },
-  model: { initialHeartrate: 50, blushHrThreshold: 80, despairHrThreshold: 50 },
-  captcha: { points: 500, karma: 100, durationMs: 30000 },
-  poll: {},
-  prediction: {},
-  economy: {},
-  endstream: {},
-  watchStreak: { streakInterval: 5 },
-  bid: {},
-  voice: {},
-  restart: {},
-  distract: {},
-  commandCooldowns: {
-    poll: 10000,
-    prediction: 10000,
-    flashbang: 10000,
-    selfthought: 10000,
-    undress: 1000,
-    stars: 1000,
-    hearts: 1000,
-    block: 10000,
-    unblock: 10000,
-    kill: 10000,
-    gamba: 60000,
-    buy: 2000,
-    sell: 2000,
-    grayscale: 10000,
-    cut: 60000,
-  },
-  commandChances: {
-    default: 90,
-    flashbang: 40,
-    grayscale: 40,
-    cut: 30,
-  },
-  positions: {
-    artistWidgetX: 20,
-    artistWidgetY: 20,
-    rightPanelX: 1520,
-    rightPanelY: 0
-  },
-  makiConfig: { textSpeed: 30 },
-  ignorePrefix: '~'
-};
+export type OverlayConfig = FullConfig;
 
-export function getOverlayConfig() {
+export function getOverlayConfig(): FullConfig {
   return _overlayConfig;
 }
-
-interface ApiKarmaEntry {
-  command: string;
-  karma: number;
-}
-interface ApiToggleEntry {
-  name: string;
-  karma: number;
-}
-
-const COMMAND_SECTION_API_KEYS = new Set([
-  'moderationConfig',
-  'blackSilenceConfig',
-  'flashbangConfig',
-  'maxwellConfig',
-  'mistakeConfig',
-  'showImageConfig',
-  'playAudioConfig',
-  'selfThoughtConfig',
-  'goodNightKissConfig',
-  'setTitleConfig',
-  'checkInConfig',
-  'stockMarketConfig',
-  'karmaConfig',
-  'modelConfig',
-  'captchaConfig',
-  'pollConfig',
-  'predictionConfig',
-  'economyConfig',
-  'endstreamConfig',
-  'bidConfig',
-  'voiceConfig',
-  'restartConfig',
-  'distractConfig',
-  'grayscaleConfig',
-  'cutConfig',
-]);
 
 export function applyOverlayConfig(raw?: Record<string, unknown>): void {
   if (!raw) return;
 
-  _overlayConfig.ignorePrefix = (raw.ignorePrefix as string) ?? _overlayConfig.ignorePrefix;
+  const parsed = parseConfig(raw);
+  const nextDisabledSections = computeDisabledSections(raw);
+
   delegateVoiceToOverlay = !!raw.delegateVoiceToOverlay;
+  _overlayConfig = parsed;
+  disabledSections = nextDisabledSections;
+}
 
-  const sectionMap: Record<string, keyof typeof _overlayConfig> = {
-    moderationConfig: 'moderation',
-    blackSilenceConfig: 'blackSilence',
-    flashbangConfig: 'flashbang',
-    maxwellConfig: 'maxwell',
-    mistakeConfig: 'mistake',
-    showImageConfig: 'showImage',
-    playAudioConfig: 'playAudio',
-    resetCooldownConfig: 'resetCooldown',
-    selfThoughtConfig: 'selfThought',
-    goodNightKissConfig: 'goodNightKiss',
-    setTitleConfig: 'setTitle',
-    checkInConfig: 'checkIn',
-    stockMarketConfig: 'stockMarket',
-    karmaConfig: 'karma',
-    modelConfig: 'model',
-    captchaConfig: 'captcha',
-    pollConfig: 'poll',
-    predictionConfig: 'prediction',
-    economyConfig: 'economy',
-    endstreamConfig: 'endstream',
-    watchStreakConfig: 'watchStreak',
-    bidConfig: 'bid',
-    voiceConfig: 'voice',
-    restartConfig: 'restart',
-    distractConfig: 'distract',
-    grayscaleConfig: 'grayscale',
-    cutConfig: 'cut',
-    commandCooldownsConfig: 'commandCooldowns',
-    commandChancesConfig: 'commandChances',
-    overlayPositionsConfig: 'positions',
-    makiConfig: 'makiConfig'
-  };
-
-  for (const [apiKey, internalKey] of Object.entries(sectionMap)) {
-    const section = raw[apiKey] as Record<string, unknown> | undefined;
-    if (section) {
-      Object.assign(_overlayConfig[internalKey] as Record<string, unknown>, section);
-    }
-    if (COMMAND_SECTION_API_KEYS.has(apiKey)) {
-      if (section) {
-        disabledSections.delete(internalKey);
-      } else {
-        disabledSections.add(internalKey);
-      }
-    }
+function computeDisabledSections(raw: Record<string, unknown>): Set<string> {
+  const disabled = new Set<string>();
+  for (const key of commandSectionKeys) {
+    if (raw[key] === undefined) disabled.add(key);
   }
-
-  const karmaRaw = raw.karmaConfig as Record<string, unknown> | undefined;
-  if (karmaRaw?.karmaMap) {
-    _overlayConfig.karma.map = new Map(
-      (karmaRaw.karmaMap as ApiKarmaEntry[]).map((e) => [e.command, e.karma])
-    );
-  }
-  if (karmaRaw?.togglesKarma) {
-    _overlayConfig.karma.toggles = new Map(
-      (karmaRaw.togglesKarma as ApiToggleEntry[]).map((e) => [e.name, e.karma])
-    );
-  }
+  return disabled;
 }

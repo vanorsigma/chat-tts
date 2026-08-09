@@ -288,7 +288,7 @@ export class ResetAllCooldown extends GambaItem {
     TOGGLE_EXPIRY.clear();
     ctx.dispatcher.sendMessageAsUser(
       ctx.channelId,
-      `All overlay cooldowns reset by the gamba wheel! (-${getOverlayConfig().resetCooldown.cost}VD value)`
+      `All overlay cooldowns reset by the gamba wheel! (-${getOverlayConfig().resetCooldownConfig.cost}VD value)`
     );
   }
 }
@@ -421,5 +421,5 @@ export const STREAK_GAMBA_ITEMS: GambaItem[] = [
   new GiveEveryoneStockGrantItem(10, 'HEART', 100),
   new GiveEveryoneIncreasedChances(10, 10),
   new ResetAllCooldown(10),
-  new GiveStockGrantItem(5, 'HEART', 100),
+  new GiveStockGrantItem(5, 'HEART', 100)
 ];

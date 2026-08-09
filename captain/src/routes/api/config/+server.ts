@@ -1,9 +1,8 @@
 import { readFileSync, existsSync, writeFileSync, renameSync } from 'fs';
 import { join } from 'path';
 import { json, text } from '@sveltejs/kit';
-import { parse as parseYaml } from 'yaml';
 import { stringify as stringifyYaml } from 'yaml';
-import { ConfigParsingError, ParseableConfig } from '$lib/config';
+import { ConfigParsingError, parseConfig, parseYaml as parseConfigYaml } from '$lib/config';
 
 const CONFIG_PATH = join(process.cwd(), 'config.yml');
 
@@ -15,8 +14,7 @@ export function GET() {
 
   const raw = readFileSync(CONFIG_PATH, 'utf-8');
   try {
-    const config = new ParseableConfig(parseYaml(raw));
-    return json(config.toFullConfig());
+    return json(parseConfigYaml(raw));
   } catch (e) {
     if (e instanceof ConfigParsingError) {
       return json({ error: e.message }, { status: 422 });
@@ -35,8 +33,7 @@ export async function POST({ request }) {
   }
 
   try {
-    const config = new ParseableConfig(body);
-    const full = config.toFullConfig();
+    const full = parseConfig(body);
     const yamlStr = stringifyYaml(full);
 
     const tmpPath = CONFIG_PATH + '.tmp';

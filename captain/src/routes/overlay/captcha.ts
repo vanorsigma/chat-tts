@@ -68,7 +68,7 @@ export class CaptchaObserver implements OverlayObserver {
       if (!this.solved) {
         this.onSolve();
       }
-    }, getOverlayConfig().captcha.durationMs);
+    }, getOverlayConfig().captchaConfig.durationMs);
   }
 
   get value(): string {
@@ -87,13 +87,13 @@ export class CaptchaObserver implements OverlayObserver {
         this.dispatcher,
         message.channelId!,
         username,
-        getOverlayConfig().captcha.points
+        getOverlayConfig().captchaConfig.points
       );
       this.dispatcher.sendMessageAsUser(
         message.channelId!,
-        `${username} claimed ${getOverlayConfig().captcha.points}! Rolling gatcha...`
+        `${username} claimed ${getOverlayConfig().captchaConfig.points}! Rolling gatcha...`
       );
-      karmaStore.updateKarma(getOverlayConfig().captcha.karma, 'Captcha');
+      karmaStore.updateKarma(getOverlayConfig().captchaConfig.karma, 'Captcha');
 
       enqueueGambaSpin(
         {

@@ -19,8 +19,8 @@ export function createKarmaStore() {
   function setKarma(newKarma: number, message?: string) {
     const oldKarma = karma;
     karma = Math.min(
-      getOverlayConfig().karma.max,
-      Math.max(getOverlayConfig().karma.min, newKarma)
+      getOverlayConfig().karmaConfig.max,
+      Math.max(getOverlayConfig().karmaConfig.min, newKarma)
     );
     informSubscribers(oldKarma, message);
   }
@@ -30,7 +30,7 @@ export function createKarmaStore() {
       const decayFactor = timedCache.get(message) ?? 0.0;
       const decayValue = decayFactor * Math.abs(diffKarma);
       diffKarma -= decayValue;
-      timedCache.put(message, decayFactor + getOverlayConfig().karma.decayRate);
+      timedCache.put(message, decayFactor + getOverlayConfig().karmaConfig.decayRate);
     }
 
     setKarma(karma + diffKarma, message);

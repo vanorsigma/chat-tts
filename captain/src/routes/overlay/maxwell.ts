@@ -56,7 +56,7 @@ export class MaxwellContainer {
   }
 
   async spawnMaxwell(interval: number) {
-    if (this.maxwells.length >= getOverlayConfig().maxwell.limit) return;
+    if (this.maxwells.length >= getOverlayConfig().maxwellConfig.limit) return;
 
     const { width, height } = this.app.screen;
 

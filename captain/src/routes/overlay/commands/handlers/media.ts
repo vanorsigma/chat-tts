@@ -5,24 +5,21 @@ import { requireUsername } from './shared';
 import { showImageStore, playAudioStore, karmaStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
 import { isTagExist, getAttachmentUrlForTag, registerTag } from '$lib/api/attachments';
+import type { OverlayPlayAudioConfig, OverlayShowImageConfig } from '$lib/config';
 
-interface MediaConfig {
-  kind: 'image' | 'audio';
-  cost: number;
-  karma: number;
-  freeUser: string;
-}
+type MediaConfig = OverlayShowImageConfig | OverlayPlayAudioConfig;
 
 export async function mediaHandler(
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
+  kind: 'image' | 'audio',
   config: MediaConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
 
-  const store = config.kind === 'image' ? showImageStore : playAudioStore;
-  const karmaLabel = config.kind === 'image' ? 'Show Image' : 'Play Audio';
+  const store = kind === 'image' ? showImageStore : playAudioStore;
+  const karmaLabel = kind === 'image' ? 'Show Image' : 'Play Audio';
 
   const args = message.text.replaceAll('  ', ' ').split(' ').slice(1);
   if (args.length < 1) {
@@ -59,13 +56,13 @@ export async function mediaHandler(
     } catch (e) {
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        `cannot add tag ${config.kind}: ${e}`,
+        `cannot add tag ${kind}: ${e}`,
         message.id
       );
     }
   };
 
-  if (username === config.freeUser) {
+  if (username === config.user) {
     dispatcher.sendMessageAsUser(message.channelId!, 'ok', message.id);
     await addUrl();
     return;
@@ -89,7 +86,7 @@ export async function mediaHandler(
     const approverObserver = new ApprovableObserver(
       dispatcher,
       message,
-      [config.freeUser],
+      [config.user],
       () => addUrl(),
       () => dispatcher.sendMessageAsUser(message.channelId!, 'unfortunate', message.id)
     );

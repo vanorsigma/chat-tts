@@ -219,7 +219,7 @@
   let cyclerSnapshot: CyclerSnapshot = $state({
     symbol: 'HEART',
     label: 'Heartrate',
-    current: getOverlayConfig().model.initialHeartrate,
+    current: getOverlayConfig().modelConfig.initialHeartrate,
     history: []
   });
 
@@ -440,7 +440,11 @@
       const rawConfig = await res.json();
       console.log(`Applying overlay config...`);
       if (res.ok) {
-        applyOverlayConfig(rawConfig);
+        try {
+          applyOverlayConfig(rawConfig);
+        } catch (e) {
+          console.warn('Failed to apply overlay config:', e);
+        }
         if (rawConfig.overlayPositionsConfig) {
           const src = rawConfig.overlayPositionsConfig as OverlayPositionsConfig;
           positionStore.set({ ...DEFAULT_POSITIONS, ...src });
@@ -619,12 +623,12 @@
     console.log('Twitch client created');
 
     heartrate.subscribe((hr: number) => {
-      if (hr < getOverlayConfig().model.blushHrThreshold) {
+      if (hr < getOverlayConfig().modelConfig.blushHrThreshold) {
         modelUpdater.hideBlendShape('Blush');
       } else {
         modelUpdater.showBlendShape('Blush');
       }
-      if (hr < getOverlayConfig().model.despairHrThreshold) {
+      if (hr < getOverlayConfig().modelConfig.despairHrThreshold) {
         modelUpdater.showBlendShape('Despair');
       } else {
         modelUpdater.hideBlendShape('Despair');
@@ -727,7 +731,7 @@
     });
 
     maxwellStore.subscribe(async (_maxwellCount: number) => {
-      await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwell.cooldownMs);
+      await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwellConfig.cooldownMs);
     });
   });
 
@@ -757,7 +761,7 @@
         songAudioEngine?.play();
         wasPlayingBeforeSilence = false;
       }
-    }, getOverlayConfig().blackSilence.durationMs);
+    }, getOverlayConfig().blackSilenceConfig.durationMs);
   }
 
   function onBlackSilenceDone() {

@@ -3,7 +3,7 @@ import type { ChatMessage } from '@twurple/chat';
 import type { Commands } from '../index';
 import { checkCostAddIfEnough, resetAllOverlayCooldowns, resetUserCooldowns } from '../middleware';
 import { requireUsername } from './shared';
-import { getOverlayConfig } from '../../constants';
+import type { OverlayModerationConfig, OverlayResetCooldownConfig } from '$lib/config';
 import { asChatCommand, UNBLOCKABLE } from '../registry';
 import { makeStandardYesNoBid } from '../../bid.svelte';
 import { endStreamHandler } from './stockmarket';
@@ -12,7 +12,8 @@ export async function blockHandler(
   commands: Commands,
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  action: 'block' | 'unblock'
+  action: 'block' | 'unblock',
+  config: OverlayModerationConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
@@ -47,7 +48,10 @@ export async function blockHandler(
     return;
   }
 
-  if (getOverlayConfig().moderation.unblockableCommands.includes(commandToBlock) || UNBLOCKABLE.has(commandToBlock)) {
+  if (
+    config.unblockableCommands.includes(commandToBlock) ||
+    UNBLOCKABLE.has(commandToBlock)
+  ) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `Cannot perform this action on ${commandToBlock}`,
@@ -194,7 +198,8 @@ export async function killHandler(dispatcher: OverlayDispatchers, message: ChatM
 export async function resetCooldownHandler(
   commands: Commands,
   dispatcher: OverlayDispatchers,
-  message: ChatMessage
+  message: ChatMessage,
+  config: OverlayResetCooldownConfig
 ) {
   const username = requireUsername(message);
   if (!username) return;
@@ -215,11 +220,7 @@ export async function resetCooldownHandler(
     }
 
     resetAllOverlayCooldowns(commands);
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      'All overlay cooldowns reset!',
-      message.id
-    );
+    dispatcher.sendMessageAsUser(message.channelId!, 'All overlay cooldowns reset!', message.id);
     return;
   }
 
@@ -227,18 +228,14 @@ export async function resetCooldownHandler(
     if (!isModOrBroadcaster) {
       dispatcher.sendMessageAsUser(
         message.channelId!,
-        'only moderators can reset another user\'s cooldowns',
+        "only moderators can reset another user's cooldowns",
         message.id
       );
       return;
     }
 
     resetUserCooldowns(commands, modifier);
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `@${modifier}'s cooldowns reset`,
-      message.id
-    );
+    dispatcher.sendMessageAsUser(message.channelId!, `@${modifier}'s cooldowns reset`, message.id);
     return;
   }
 
@@ -247,7 +244,7 @@ export async function resetCooldownHandler(
       dispatcher,
       message.channelId!,
       username,
-      -getOverlayConfig().resetCooldown.cost,
+      -config.cost,
       message.id
     ))
   )
@@ -256,7 +253,7 @@ export async function resetCooldownHandler(
   resetUserCooldowns(commands, username);
   dispatcher.sendMessageAsUser(
     message.channelId!,
-    `@${username}'s cooldowns reset (-${getOverlayConfig().resetCooldown.cost}VD)`,
+    `@${username}'s cooldowns reset (-${config.cost}VD)`,
     message.id
   );
 }

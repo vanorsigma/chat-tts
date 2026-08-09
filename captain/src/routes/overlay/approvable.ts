@@ -37,7 +37,7 @@ export class ApprovableObserver implements OverlayObserver {
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `${getOverlayConfig()
-        .moderation.moderatorUsers.concat(authorisedUsers)
+        .moderationConfig.moderatorUsers.concat(authorisedUsers)
         .map((name) => `@${name}`)
         .join(' ')} PLEASE check request by ${message.userInfo.userName} (ID ${this.id})`
     );
