@@ -308,10 +308,8 @@
     if (!configData) return;
     reinitVoiceBusy = true;
     try {
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configData)
+      const res = await fetch('/api/voice/reinit', {
+        method: 'POST'
       });
       if (res.ok) {
         reinitVoiceStatus = 'Voice controller reinitialized';

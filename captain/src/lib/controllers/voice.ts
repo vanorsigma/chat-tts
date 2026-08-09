@@ -17,6 +17,7 @@ export interface VoiceController {
   speak(username: string, text: string): Promise<void>;
   getVoiceMapForUser(user: ChatUser): Promise<NewVoiceSettings | null>;
   refreshUser(user: ChatUser): void;
+  sendInitializationMessage(config: FullConfig): Promise<void>;
   cancel(): void;
 }
 
@@ -24,7 +25,7 @@ export class RemoteVoiceController implements VoiceController {
   private baseurl: string;
 
   constructor(config: FullConfig) {
-    this.baseurl = config.remoteVoiceConfig?.controlURL ?? 'http://localhost:3123';
+    this.baseurl = config.remoteVoiceConfig?.controlURL || 'http://localhost:3123';
     console.log(`Voice controller configured at ${this.baseurl}`);
     this.connectWithRetry(config);
   }
