@@ -3,6 +3,7 @@
   import Faker from '$lib/Faker.svelte';
   import { configSchema } from '$lib/config/schema';
   import { defaultPositions } from '$lib/config/defaults';
+  import type { OverlayPositionsConfig } from '$lib/config';
   import { onDestroy, onMount } from 'svelte';
   import { writable } from 'svelte/store';
   import type { LogMessage } from '$lib/bus/messages';
@@ -301,6 +302,16 @@
     setTimeout(() => (saveStatus = ''), 3000);
   }
 
+  let positionsRaf = 0;
+
+  function onPositionsLive(positions: OverlayPositionsConfig) {
+    if (positionsRaf) return;
+    positionsRaf = requestAnimationFrame(() => {
+      positionsRaf = 0;
+      sendBus({ type: 'overlayPositions', positions });
+    });
+  }
+
   const scrollToBottom = (node: HTMLElement, _data: unknown[]) => {
     const scroll = () => {
       if (!tail) return;
@@ -331,7 +342,7 @@
   </h2>
   {#if !configCollapsed}
     {#if configData}
-      <ConfigEditor schema={configSchema} data={configData} />
+      <ConfigEditor schema={configSchema} data={configData} {onPositionsLive} />
       <button onclick={onSaveConfig}>Save Config</button>
       {#if saveStatus}
         <span class="save-status">{saveStatus}</span>

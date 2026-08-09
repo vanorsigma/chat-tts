@@ -200,14 +200,20 @@ export interface OverlayCommandChancesConfig {
 export interface OverlayPositionsConfig {
   artistWidgetX: number;
   artistWidgetY: number;
+  artistWidgetWidth: number;
+  artistWidgetHeight: number;
   rightPanelX: number;
   rightPanelY: number;
+  rightPanelWidth: number;
+  rightPanelHeight: number;
   pinX: number;
   pinY: number;
-  wheelX: string;
-  wheelY: string;
-  wheelWidth: string;
-  wheelHeight: string;
+  pinWidth: number;
+  pinHeight: number;
+  wheelX: number;
+  wheelY: number;
+  wheelWidth: number;
+  wheelHeight: number;
 }
 
 export interface StartingSoonArtEntry {

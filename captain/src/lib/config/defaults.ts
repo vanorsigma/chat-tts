@@ -80,12 +80,18 @@ export const defaultPositions = (positionsSchema
   : {
       artistWidgetX: 20,
       artistWidgetY: 20,
+      artistWidgetWidth: 360,
+      artistWidgetHeight: 90,
       rightPanelX: 1520,
       rightPanelY: 0,
+      rightPanelWidth: 400,
+      rightPanelHeight: 1080,
       pinX: 760,
       pinY: 40,
-      wheelX: '50%',
-      wheelY: '50%',
-      wheelWidth: '60vmin',
-      wheelHeight: '60vmin'
+      pinWidth: 400,
+      pinHeight: 120,
+      wheelX: 960,
+      wheelY: 540,
+      wheelWidth: 648,
+      wheelHeight: 648
     }) as unknown as OverlayPositionsConfig;

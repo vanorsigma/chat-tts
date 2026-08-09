@@ -115,7 +115,7 @@
 {#if segments.length > 0}
   <div
     class="gamba-widget"
-    style="left:{$positionStore.wheelX}; top:{$positionStore.wheelY}; width:{$positionStore.wheelWidth}; height:{$positionStore.wheelHeight};"
+    style="left:{$positionStore.wheelX}px; top:{$positionStore.wheelY}px; width:{$positionStore.wheelWidth}px; height:{$positionStore.wheelHeight}px;"
   >
     <div class="gamba-wheel-container">
       {#if username}

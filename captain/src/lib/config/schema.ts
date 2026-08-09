@@ -1,8 +1,20 @@
-import { COMMAND_COOLDOWNS_CONFIG, COMMAND_CHANCES_CONFIG, COMMAND_DEFINITIONS } from '../../routes/overlay/commands/definitions';
+import {
+  COMMAND_COOLDOWNS_CONFIG,
+  COMMAND_CHANCES_CONFIG,
+  COMMAND_DEFINITIONS
+} from '../../routes/overlay/commands/definitions';
 
 export interface Preset {
   label: string;
   values: Record<string, unknown>;
+}
+
+export interface WidgetGroupDef {
+  id: string;
+  label: string;
+  prefix: string;
+  /** Whether X/Y refer to the widget's center (e.g. wheel) or top-left corner */
+  origin: 'topLeft' | 'center';
 }
 
 export interface FieldSchema {
@@ -28,6 +40,8 @@ export interface FieldSchema {
   listObjectFields?: readonly FieldSchema[];
   objectFields?: readonly FieldSchema[];
   presets?: Preset[];
+  /** Widget groups for the position editor; only used by overlayPositionsConfig */
+  widgetGroups?: readonly WidgetGroupDef[];
   /** Command-backed section: gated on/off by the overlay based on its presence in config */
   commandSection?: boolean;
   /** Always materialized in FullConfig even when absent from the raw config */
@@ -311,17 +325,18 @@ export const configSchema = [
     presets: [
       {
         label: 'Wheel: center',
-        values: { wheelX: '50%', wheelY: '50%', wheelWidth: '60vmin', wheelHeight: '60vmin' }
+        values: { wheelX: 960, wheelY: 540, wheelWidth: 648, wheelHeight: 648 }
       },
       {
         label: 'Wheel: small bottom-right',
-        values: {
-          wheelX: 'calc(100% - 200px)',
-          wheelY: 'calc(100% - 180px)',
-          wheelWidth: '280px',
-          wheelHeight: '280px'
-        }
+        values: { wheelX: 1720, wheelY: 900, wheelWidth: 280, wheelHeight: 280 }
       }
+    ],
+    widgetGroups: [
+      { id: 'artist', label: 'Artist widget', prefix: 'artistWidget', origin: 'topLeft' },
+      { id: 'rightPanel', label: 'Right panel', prefix: 'rightPanel', origin: 'topLeft' },
+      { id: 'pin', label: 'Pinned message', prefix: 'pin', origin: 'topLeft' },
+      { id: 'wheel', label: 'Gamba wheel', prefix: 'wheel', origin: 'center' }
     ],
     objectFields: [
       {
@@ -338,6 +353,24 @@ export const configSchema = [
         kind: 'number',
         label: 'Artist widget Y',
         default: 20,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'artistWidgetWidth',
+        kind: 'number',
+        label: 'Artist widget width',
+        default: 360,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'artistWidgetHeight',
+        kind: 'number',
+        label: 'Artist widget height',
+        default: 90,
         min: 0,
         max: 1080,
         step: 1
@@ -361,6 +394,24 @@ export const configSchema = [
         step: 1
       },
       {
+        key: 'rightPanelWidth',
+        kind: 'number',
+        label: 'Right panel width',
+        default: 400,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'rightPanelHeight',
+        kind: 'number',
+        label: 'Right panel height',
+        default: 1080,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
         key: 'pinX',
         kind: 'number',
         label: 'Pinned message X',
@@ -379,32 +430,58 @@ export const configSchema = [
         step: 1
       },
       {
+        key: 'pinWidth',
+        kind: 'number',
+        label: 'Pinned message width',
+        default: 400,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'pinHeight',
+        kind: 'number',
+        label: 'Pinned message height',
+        default: 120,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
         key: 'wheelX',
-        kind: 'text',
-        label: 'Wheel X',
-        default: '50%',
-        placeholder: 'e.g. 50%, 100px'
+        kind: 'number',
+        label: 'Wheel X (center)',
+        default: 960,
+        min: 0,
+        max: 1920,
+        step: 1
       },
       {
         key: 'wheelY',
-        kind: 'text',
-        label: 'Wheel Y',
-        default: '50%',
-        placeholder: 'e.g. 50%, calc(100% - 300px)'
+        kind: 'number',
+        label: 'Wheel Y (center)',
+        default: 540,
+        min: 0,
+        max: 1080,
+        step: 1
       },
       {
         key: 'wheelWidth',
-        kind: 'text',
+        kind: 'number',
         label: 'Wheel width',
-        default: '60vmin',
-        placeholder: 'e.g. 90vmin, 280px, 50%'
+        default: 648,
+        min: 0,
+        max: 1920,
+        step: 1
       },
       {
         key: 'wheelHeight',
-        kind: 'text',
+        kind: 'number',
         label: 'Wheel height',
-        default: '60vmin',
-        placeholder: 'e.g. 90vmin, 280px, 50%'
+        default: 648,
+        min: 0,
+        max: 1080,
+        step: 1
       }
     ]
   },

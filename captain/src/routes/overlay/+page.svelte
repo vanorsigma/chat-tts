@@ -779,7 +779,7 @@
 >
   <div
     class="overlay-artist-widget"
-    style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px;"
+    style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px; width: {$positionStore.artistWidgetWidth}px; height: {$positionStore.artistWidgetHeight}px;"
   >
     <ArtistWidget
       song={overlaySong}
@@ -813,7 +813,10 @@
     </div>
   {/if}
   {#if currentPin}
-    <div class="pinnedMessage" style="left: {$positionStore.pinX}px; top: {$positionStore.pinY}px;">
+    <div
+      class="pinnedMessage"
+      style="left: {$positionStore.pinX}px; top: {$positionStore.pinY}px; width: {$positionStore.pinWidth}px; height: {$positionStore.pinHeight}px;"
+    >
       <span class="pinUser">{currentPin.username}</span>
       <span class="pinText">{currentPin.text}</span>
       <span class="pinKiki">{currentPin.kamoji} {currentPin.emoji}</span>
@@ -900,7 +903,7 @@
 
   <div
     class="rightpanel"
-    style="left: {$positionStore.rightPanelX}px; top: {$positionStore.rightPanelY}px;"
+    style="left: {$positionStore.rightPanelX}px; top: {$positionStore.rightPanelY}px; width: {$positionStore.rightPanelWidth}px; height: {$positionStore.rightPanelHeight}px;"
   >
     {#if pollStore.data}
       <div class="grey-box">
@@ -1003,6 +1006,11 @@
     z-index: 100;
   }
 
+  .overlay-artist-widget :global(.artist-widget) {
+    width: 100%;
+    height: 100%;
+  }
+
   .streamelements {
     width: 100%;
     height: 100%;
@@ -1059,7 +1067,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-width: 400px;
+    box-sizing: border-box;
     pointer-events: none;
   }
 
@@ -1203,11 +1211,11 @@
     display: flex;
     flex-direction: column;
     position: absolute;
-    height: 100%;
-    width: 400px;
+    box-sizing: border-box;
     padding-top: 40px;
     padding-right: 10px;
     align-items: end;
+    overflow: hidden;
   }
 
   .stockPanel {
