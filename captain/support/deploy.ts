@@ -32,6 +32,28 @@ const commands = [
         .addStringOption((option) =>
           option.setName('shortname').setDescription('the shortname of the song').setRequired(true)
         )
+    ),
+  new SlashCommandBuilder()
+    .setName('font')
+    .setDescription('Manage the font registry')
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('submit')
+        .setDescription('submit a font for approval')
+        .addStringOption((option) =>
+          option.setName('fontname').setDescription('the font registry name').setRequired(true)
+        )
+        .addAttachmentOption((option) =>
+          option.setName('fontfile').setDescription('the font file to register').setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('list')
+        .setDescription('list all registered fonts')
+        .addNumberOption((option) =>
+          option.setName('page').setDescription('the page number').setRequired(false).setMinValue(1)
+        )
     )
 ];
 const clientId = process.env['DISCORD_CLIENT_ID'];

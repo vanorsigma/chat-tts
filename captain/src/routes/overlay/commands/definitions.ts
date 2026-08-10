@@ -243,6 +243,16 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay'
   }),
   defineCommand({
+    names: ['%font'],
+    section: section('fontConfig', 'Font', [
+      { key: 'cost', kind: 'number', label: 'Cost', default: 10000, min: 0, step: 1 },
+      { key: 'user', kind: 'text', label: 'VIP user', default: 'sqbika' }
+    ]),
+    gateMode: 'overlay',
+    requiresArgs: true,
+    help: '%font <fontname> | %font default'
+  }),
+  defineCommand({
     names: ['%flashbang'],
     section: section('flashbangConfig', 'Flashbang', [
       { key: 'cost', kind: 'number', label: 'Cost', default: 500, min: 0, step: 1 },

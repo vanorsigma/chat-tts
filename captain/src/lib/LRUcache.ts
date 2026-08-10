@@ -28,4 +28,8 @@ export class LRUCache<T> {
 
     this.values.set(key, value);
   }
+
+  public delete(key: string) {
+    this.values.delete(key);
+  }
 }

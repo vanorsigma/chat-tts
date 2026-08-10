@@ -48,3 +48,6 @@ songs/songs.json
 
 # Starting Soon
 static/startingsoon/*
+
+# Chatter Uploaded Fonts
+static/fonts/*

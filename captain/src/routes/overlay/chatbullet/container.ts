@@ -11,6 +11,7 @@ import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
 import { shouldSkipMessage } from '$lib/messageGuard';
 import type { SpeakTTS } from '$lib/remoteTTSMessages';
+import { getUserFont } from '$lib/api/font';
 
 const PADDING = 5;
 const CACHE_SIZE = 30;
@@ -29,6 +30,7 @@ export class ChatBulletContainer implements OverlayObserver {
   private busWs?: WebSocket;
   private cache = new LRUCache<Texture[]>(CACHE_SIZE);
   private subTierCache = new LRUCache<number>(CACHE_SIZE);
+  private fontCache = new LRUCache<string>(CACHE_SIZE);
 
   constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     this.app = app;
@@ -94,6 +96,43 @@ export class ChatBulletContainer implements OverlayObserver {
     return tier;
   }
 
+  private resolveUserFontFamily(userName: string): string {
+    const cached = this.fontCache.get(userName);
+    if (cached !== null) return cached;
+
+    // fire and forget: load the font and cache it, use 'Arial' for this message
+    void this.loadUserFont(userName);
+    return 'Arial';
+  }
+
+  private async loadUserFont(userName: string): Promise<void> {
+    let family = 'Arial';
+    try {
+      const userFont = await getUserFont(userName);
+      if (userFont) {
+        family = `font-user-${userName}`;
+        const face = new FontFace(family, `url(${userFont.url})`);
+        await face.load();
+        document.fonts.add(face);
+      }
+    } catch {
+      family = 'Arial';
+    }
+
+    this.fontCache.put(userName, family);
+  }
+
+  invalidateUserFont(userName: string): void {
+    this.fontCache.delete(userName);
+    const family = `font-user-${userName}`;
+    for (const face of document.fonts) {
+      if (face.family === family) {
+        document.fonts.delete(face);
+        break;
+      }
+    }
+  }
+
   private async willKikiReadMessage(message: ChatMessage): Promise<boolean> {
     if (message.userInfo.badges.has('bot-badge')) return false;
     if (message.text.toLowerCase().includes('kiki') || message.userInfo.isBroadcaster) return true;
@@ -119,13 +158,14 @@ export class ChatBulletContainer implements OverlayObserver {
     const parts = await splitMessage(message.emoteOffsets, message.text);
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
+    const selectedFamily = this.resolveUserFontFamily(message.userInfo.userName);
 
     if (await this.willKikiReadMessage(message)) {
       const kikiResponse = await this.kiki.fetchKikiResponse(
         displayName ?? 'anonymous',
         message.text
       );
-      this.spawnBullet(displayName, parts, kikiResponse, color);
+      this.spawnBullet(displayName, parts, kikiResponse, color, selectedFamily);
 
       if (kikiResponse?.pin_worthy) {
         pinStore.set({
@@ -138,7 +178,7 @@ export class ChatBulletContainer implements OverlayObserver {
         this.dispatcher.pinChatMessage(PUBLIC_TARGET_CHANNEL_ID, message.id, 60);
       }
     } else {
-      this.spawnBullet(displayName, parts, null, color);
+      this.spawnBullet(displayName, parts, null, color, selectedFamily);
     }
 
     if (isDelegateVoiceToOverlay() && this.busWs?.readyState === WebSocket.OPEN) {
@@ -161,7 +201,8 @@ export class ChatBulletContainer implements OverlayObserver {
     displayName: string | null,
     parts: BulletPart[],
     kikiResponse: KikiResponse | null,
-    color: string = '#D3D3D3'
+    color: string = '#D3D3D3',
+    selectedFamily: string = 'Arial'
   ) {
     const { width, height } = this.app.screen;
     const rate = Math.max(random(), 0.25) * (1000 / 60);
@@ -178,7 +219,7 @@ export class ChatBulletContainer implements OverlayObserver {
       const displayNameText = new Text({
         text: displayName,
         style: {
-          fontFamily: 'Arial',
+          fontFamily: selectedFamily,
           fontSize: 24,
           fill: fillColor,
           stroke: { color: strokeColor, width: 2 }
@@ -194,7 +235,7 @@ export class ChatBulletContainer implements OverlayObserver {
       const kikiText = new Text({
         text: `${kikiResponse.kamoji} ${kikiResponse.emoji}`,
         style: new TextStyle({
-          fontFamily: 'Arial',
+          fontFamily: selectedFamily,
           fontSize: 24,
           fill: 'pink'
         })
@@ -231,7 +272,7 @@ export class ChatBulletContainer implements OverlayObserver {
 
       if (isTextBulletPart(part)) {
         const textStyle: TextStyle = new TextStyle({
-          fontFamily: 'Arial',
+          fontFamily: selectedFamily,
           fontSize: 48,
           fill: fillColor,
           stroke: { color: strokeColor, width: 2 }

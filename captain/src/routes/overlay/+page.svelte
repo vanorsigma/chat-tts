@@ -68,7 +68,8 @@
   import {
     isOverlayPositionsMessage,
     isTokenRefreshedMessage,
-    isConfigUpdatedMessage
+    isConfigUpdatedMessage,
+    isFontChangedMessage
   } from '$lib/bus/messages';
   import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
@@ -485,6 +486,9 @@
         }
         if (isOverlayPositionsMessage(data)) {
           positionStore.set({ ...DEFAULT_POSITIONS, ...data.positions });
+        }
+        if (isFontChangedMessage(data)) {
+          chatBulletBackend?.invalidateUserFont(data.username);
         }
         if (isConfigUpdatedMessage(data)) {
           try {

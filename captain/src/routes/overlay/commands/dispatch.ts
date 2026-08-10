@@ -8,6 +8,7 @@ import type {
   OverlayCheckInConfig,
   OverlayCutConfig,
   OverlayFlashbangConfig,
+  OverlayFontConfig,
   OverlayGoodNightKissConfig,
   OverlayGrayscaleConfig,
   OverlayKarmaConfig,
@@ -49,10 +50,16 @@ import {
   giveKarmaHandler,
   togglesHandler
 } from './handlers/interactive';
-import { blockHandler, killHandler, restartHandler, resetCooldownHandler } from './handlers/moderation';
+import {
+  blockHandler,
+  killHandler,
+  restartHandler,
+  resetCooldownHandler
+} from './handlers/moderation';
 import { gambaHandler } from './handlers/gamba';
 import { lotteryHandler } from './handlers/lottery';
 import { checkHandler } from './handlers/evaluate';
+import { fontCommandHandler } from './handlers/font';
 import { pollCommandHandler, endPollCommandHandler } from '../poll.svelte';
 import { predictionCommandHandler, endPredictionCommandHandler } from '../prediction.svelte';
 
@@ -132,7 +139,9 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
   '%important': (commands, dispatcher, message) => commands.importantHandler(dispatcher, message),
   '%unimportant': (commands, dispatcher, message) =>
     commands.unimportantHandler(dispatcher, message),
-  '%check': (commands, dispatcher, message) => checkHandler(commands, dispatcher, message)
+  '%check': (commands, dispatcher, message) => checkHandler(commands, dispatcher, message),
+  '%font': (commands, dispatcher, message, config) =>
+    fontCommandHandler(commands, dispatcher, message, config as OverlayFontConfig)
 };
 
 type _Expect<T extends true> = T;

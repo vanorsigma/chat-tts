@@ -149,6 +149,11 @@ export interface OverlayCheckInConfig {
   points: number;
 }
 
+export interface OverlayFontConfig {
+  cost: number;
+  user: string;
+}
+
 export interface OverlayPollConfig {}
 
 export interface OverlayPredictionConfig {}
@@ -296,6 +301,7 @@ export interface FullConfig {
   modelConfig: OverlayModelConfig;
   captchaConfig: OverlayCaptchaConfig;
   checkInConfig?: OverlayCheckInConfig;
+  fontConfig?: OverlayFontConfig;
   pollConfig?: OverlayPollConfig;
   predictionConfig?: OverlayPredictionConfig;
   economyConfig?: OverlayEconomyConfig;

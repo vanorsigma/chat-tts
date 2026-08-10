@@ -119,6 +119,9 @@ captchaConfig:
   durationMs: 30000
 checkInConfig:
   points: 999.99
+fontConfig:
+  cost: 10000
+  user: sqbika
 
 stockMarketConfig:
   cycleIntervalMs: 15000

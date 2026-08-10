@@ -94,6 +94,11 @@ export interface KarmaUpdateMessage {
   label?: string;
 }
 
+export interface FontChangedMessage {
+  type: 'font-changed';
+  username: string;
+}
+
 export interface TokenRefreshedMessage {
   type: 'tokenRefreshed';
   account: 'bot' | 'broadcaster';
@@ -104,7 +109,8 @@ export type ClientToServer =
   | FakerSubMessage
   | FakerBitsMessage
   | FakerWatchStreakMessage
-  | ControlMessage;
+  | ControlMessage
+  | FontChangedMessage;
 
 export type ServerToClient =
   | LogMessage
@@ -183,6 +189,12 @@ export function isPredictionUpdateMessage(obj: unknown): obj is PredictionUpdate
 export function isKarmaUpdateMessage(obj: unknown): obj is KarmaUpdateMessage {
   return (
     typeof obj === 'object' && obj !== null && (obj as KarmaUpdateMessage).type === 'karma-update'
+  );
+}
+
+export function isFontChangedMessage(obj: unknown): obj is FontChangedMessage {
+  return (
+    typeof obj === 'object' && obj !== null && (obj as FontChangedMessage).type === 'font-changed'
   );
 }
 
