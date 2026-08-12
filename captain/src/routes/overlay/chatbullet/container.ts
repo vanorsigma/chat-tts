@@ -11,7 +11,7 @@ import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
 import { shouldSkipMessage } from '$lib/messageGuard';
 import type { SpeakTTS } from '$lib/remoteTTSMessages';
-import { getUserFont } from '$lib/api/font';
+import { getFontUrl } from '$lib/api/font';
 
 const PADDING = 5;
 const CACHE_SIZE = 30;
@@ -96,25 +96,27 @@ export class ChatBulletContainer implements OverlayObserver {
     return tier;
   }
 
-  private resolveUserFontFamily(userName: string): string {
+  private async resolveUserFontFamily(userName: string): Promise<string> {
     const cached = this.fontCache.get(userName);
     if (cached !== null) return cached;
 
     // fire and forget: load the font and cache it, use 'Arial' for this message
-    void this.loadUserFont(userName);
+    const loadPromise = this.loadUserFont(userName);
+    await Promise.race([loadPromise, new Promise((resolve) => setTimeout(resolve, 50))]);
+
+    // re-check the cache in case the load completed fast
+    const after = this.fontCache.get(userName);
+    if (after !== null) return after;
     return 'Arial';
   }
 
   private async loadUserFont(userName: string): Promise<void> {
     let family = 'Arial';
     try {
-      const userFont = await getUserFont(userName);
-      if (userFont) {
-        family = `font-user-${userName}`;
-        const face = new FontFace(family, `url(${userFont.url})`);
-        await face.load();
-        document.fonts.add(face);
-      }
+      family = `font-user-${userName}`;
+      const face = new FontFace(family, `url(${getFontUrl(userName)})`);
+      await face.load();
+      document.fonts.add(face);
     } catch {
       family = 'Arial';
     }
@@ -158,7 +160,7 @@ export class ChatBulletContainer implements OverlayObserver {
     const parts = await splitMessage(message.emoteOffsets, message.text);
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
-    const selectedFamily = this.resolveUserFontFamily(message.userInfo.userName);
+    const selectedFamily = await this.resolveUserFontFamily(message.userInfo.userName);
 
     if (await this.willKikiReadMessage(message)) {
       const kikiResponse = await this.kiki.fetchKikiResponse(

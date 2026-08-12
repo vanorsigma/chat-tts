@@ -53,14 +53,13 @@ const FONT_PREVIEW_TEXT = 'The Quick Brown Fox Jumps Over The Lazy Dog';
 const ALLOWED_FONT_EXTENSIONS = ['.woff2', '.woff', '.ttf', '.otf', '.svg'];
 const MAX_FONT_SIZE = 1024 * 1024;
 const FONTNAME_PATTERN = /^[a-zA-Z0-9_-]{1,32}$/;
-const STATIC_FONTS_DIR = path.join(process.cwd(), 'static', 'fonts');
-const BUILD_FONTS_DIR = path.join(process.cwd(), 'build', 'client', 'fonts');
+const FONTS_DIR = path.join(process.cwd(), 'fonts');
 const APPROVAL_EXPIRY_MS = 5 * 60 * 1000;
 const FONT_TMP_DIR = fsSync.mkdtempSync(path.join(os.tmpdir(), 'fontbot-'));
 
-if (!fsSync.existsSync(STATIC_FONTS_DIR)) {
+if (!fsSync.existsSync(FONTS_DIR)) {
   console.error(
-    'You must launch this script in the root directory of Captain, where ./static/fonts is accessible.'
+    'You must launch this script in the root directory of Captain, where ./fonts is accessible.'
   );
   process.exit(0);
 }
@@ -413,15 +412,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         try {
           if (btn.customId === `approve:${pendingId}`) {
             const filename = `${pending.fontname}${ext}`;
-            await fs.copyFile(pending.temp_path, path.join(STATIC_FONTS_DIR, filename));
-            try {
-              await fs.copyFile(pending.temp_path, path.join(BUILD_FONTS_DIR, filename));
-            } catch (e) {
-              console.warn(
-                `Cannot copy font ${pending.temp_path} into ${path.join(BUILD_FONTS_DIR)}. Do we have an active build?`
-              );
-              console.warn('Skipping the copy to the previous error.');
-            }
+            await fs.copyFile(pending.temp_path, path.join(FONTS_DIR, filename));
             await saveApprovedFont(pending.fontname, filename);
             console.log(`Font ${pending.fontname} approved by ${btn.user.username}.`);
             await btn.update({

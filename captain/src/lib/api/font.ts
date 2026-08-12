@@ -1,16 +1,5 @@
-export interface UserFont {
-  fontname: string;
-  filename: string;
-  url: string;
-}
-
-export async function getUserFont(username: string): Promise<UserFont | null> {
-  const response = await fetch(`/api/font?user=${encodeURIComponent(username)}`);
-  if (response.status !== 200) return null;
-
-  const data = (await response.json()) as UserFont | { default: true };
-  if ('default' in data) return null;
-  return data;
+export function getFontUrl(username: string): string {
+  return `/fonts?user=${encodeURIComponent(username)}`;
 }
 
 export async function listFontNames(): Promise<string[]> {
