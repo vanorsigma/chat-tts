@@ -314,6 +314,20 @@ export const configSchema = [
       }
     ]
   },
+  {
+    key: 'newChatterConfig',
+    kind: 'optional-object',
+    label: 'New Chatter Greeting',
+    alwaysPresent: true,
+    objectFields: [
+      {
+        key: 'greeting',
+        kind: 'text',
+        label: 'Greeting',
+        placeholder: 'Welcome {user}!'
+      }
+    ]
+  },
   ...commandSections,
   COMMAND_COOLDOWNS_CONFIG,
   COMMAND_CHANCES_CONFIG,

@@ -117,6 +117,8 @@ captchaConfig:
   points: 500
   karma: 100
   durationMs: 30000
+newChatterConfig:
+  greeting: 'Welcome {user}!'
 checkInConfig:
   points: 999.99
 fontConfig:

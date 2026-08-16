@@ -76,6 +76,7 @@
   import GambaWheel from './gamba/GambaWheel.svelte';
   import { SubTracker } from './subTracker';
   import { WatchStreakTracker } from './watchStreakTracker';
+  import { NewChatterGreeter } from './newChatterGreeter';
 
   let chatBulletContainer: HTMLDivElement;
   let heartrate = new Heartrate(PUBLIC_HEARTRATE_URL);
@@ -685,6 +686,7 @@
     dispatchers.addObserver(commands);
     let _subTracker = new SubTracker(dispatchers, commands);
     let _watchStreakTracker = new WatchStreakTracker(dispatchers, commands);
+    let _newChatterGreeter = new NewChatterGreeter(dispatchers);
     twitchClient.connect();
     console.log('Twitch connected');
 

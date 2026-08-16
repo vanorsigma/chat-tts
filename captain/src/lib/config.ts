@@ -166,6 +166,10 @@ export interface OverlayWatchStreakConfig {
   streakInterval: number;
 }
 
+export interface OverlayNewChatterConfig {
+  greeting: string;
+}
+
 export interface OverlayEndstreamConfig {}
 
 export interface OverlayBidConfig {}
@@ -306,6 +310,7 @@ export interface FullConfig {
   predictionConfig?: OverlayPredictionConfig;
   economyConfig?: OverlayEconomyConfig;
   watchStreakConfig: OverlayWatchStreakConfig;
+  newChatterConfig: OverlayNewChatterConfig;
   endstreamConfig?: OverlayEndstreamConfig;
   bidConfig?: OverlayBidConfig;
   voiceConfig?: OverlayVoiceConfig;
