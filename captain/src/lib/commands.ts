@@ -13,30 +13,6 @@ export class RefreshVoice extends Command {
   }
 }
 
-export class Rotate extends Command {
-  lastTimestamp: number = 0;
-
-  async processCommandMessage(controller: Controller, message: ChatMessage) {
-    if (controller.trinketController === undefined) {
-      return true;
-    }
-
-    if (
-      this.lastTimestamp + (controller.config.distractConfig?.rotateCooldown ?? 0) * 1000 >
-      Date.now()
-    ) {
-      console.log(`${message.userInfo.userName} tried to rotate, but it was under cooldown.`);
-      return true;
-    }
-    this.lastTimestamp = Date.now();
-
-    await controller.trinketController.sendRotate();
-
-    console.log(`${message.userInfo.userName} rotated the screen.`);
-    return true;
-  }
-}
-
 export class Distract extends Command {
   lastTimestamp: number = 0;
 
@@ -80,7 +56,6 @@ export class Unimportant extends Command {
 
 export const COMMANDS = new Map([
   ['refreshvoice', new RefreshVoice()],
-  ['rotate', new Rotate()],
   ['distract', new Distract()],
   ['unimportant', new Unimportant()]
 ]);

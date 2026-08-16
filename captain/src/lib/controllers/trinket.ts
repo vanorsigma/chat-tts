@@ -30,24 +30,6 @@ export class TrinketController {
     );
   }
 
-  async sendRotate(): Promise<void> {
-    if (this.disabled) {
-      console.log('Trinkets are disabled');
-      return;
-    }
-
-    console.log('Sending rotation...');
-    this.socket.send(
-      JSON.stringify({
-        type: 'trinket',
-        command: {
-          type: 'rotate',
-          speed: (random() > 0.5 ? -1 : 1) * 10 ** (random() * 3)
-        }
-      })
-    );
-  }
-
   async cancel(): Promise<void> {
     console.log('Cancelling trinkets.');
     this.socket.send(JSON.stringify({ type: 'trinket', command: { type: 'cancel' } }));

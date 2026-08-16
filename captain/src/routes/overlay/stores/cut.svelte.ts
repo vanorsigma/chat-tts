@@ -1,33 +1,25 @@
 import { getOverlayConfig } from '../constants';
+import { createShaderAnimator } from './shaderAnimation';
 import { random } from '$lib/utils';
 
 export function createCutStore() {
   const maxCuts = 128; // TODO: config, but I want to refactor our configuration system first
   const shader = getOverlayConfig().cutConfig.shader;
+  const animator = createShaderAnimator(shader);
   let cutsIndex = $state<number>(-1);
   let videoActive = $state(false);
   let firstCutPending = false;
   const cutsSequenceStarted = $derived(cutsIndex >= 0);
   let subscribers: Array<(value: number) => void> = [];
 
-  let animationTimer: ReturnType<typeof setInterval> | null = null;
   let sequenceTimer: ReturnType<typeof setTimeout> | null = null;
   let firstCutTimer: ReturnType<typeof setTimeout> | null = null;
-  const animations: Array<{ slot: number; startedAt: number; durationMs: number }> = [];
 
   function updateAllSubscribers() {
     subscribers.forEach((subscriber) => subscriber(cutsIndex));
   }
 
-  function uniformName(base: string, slot: number) {
-    return slot === 0 ? base : `${base}${slot}`;
-  }
-
   function reset(sender: WebSocket) {
-    if (animationTimer) {
-      clearInterval(animationTimer);
-      animationTimer = null;
-    }
     if (sequenceTimer) {
       clearTimeout(sequenceTimer);
       sequenceTimer = null;
@@ -36,48 +28,9 @@ export function createCutStore() {
       clearTimeout(firstCutTimer);
       firstCutTimer = null;
     }
-    animations.length = 0;
     videoActive = false;
     firstCutPending = false;
-
-    sender.send(JSON.stringify({ type: 'picom-shader', op: 'DISABLE', shader }));
-    sender.send(JSON.stringify({ type: 'picom-shader', op: 'CLEARSTATE', shader }));
-  }
-
-  function startAnimation(sender: WebSocket) {
-    if (animationTimer) return;
-
-    animationTimer = setInterval(() => {
-      const now = performance.now();
-      const parameters: Record<string, number> = {};
-      const unfinishedAnimations: typeof animations = [];
-
-      for (const animation of animations) {
-        const progress = Math.min(
-          1,
-          Math.max(0, (now - animation.startedAt) / animation.durationMs)
-        );
-        parameters[uniformName('animationProgress', animation.slot)] = progress;
-        if (progress < 1) unfinishedAnimations.push(animation);
-      }
-
-      animations.splice(0, animations.length, ...unfinishedAnimations);
-      if (Object.keys(parameters).length > 0) {
-        sender.send(
-          JSON.stringify({
-            type: 'picom-shader',
-            op: 'ENABLE',
-            shader,
-            parameters
-          })
-        );
-      }
-
-      if (animations.length === 0 && animationTimer) {
-        clearInterval(animationTimer);
-        animationTimer = null;
-      }
-    }, 1000 / 60);
+    animator.reset(sender);
   }
 
   function sendAnimatedCut(
@@ -89,22 +42,12 @@ export function createCutStore() {
     animationScale: number,
     durationMs: number
   ) {
-    sender.send(
-      JSON.stringify({
-        type: 'picom-shader',
-        op: 'ENABLE',
-        shader,
-        parameters: {
-          [uniformName('angle', idx)]: angle,
-          [uniformName('offsetX', idx)]: offsetX,
-          [uniformName('offsetY', idx)]: offsetY,
-          [uniformName('animationProgress', idx)]: 0,
-          [uniformName('animationScale', idx)]: animationScale
-        }
-      })
-    );
-    animations.push({ slot: idx, startedAt: performance.now(), durationMs });
-    startAnimation(sender);
+    animator.animate(sender, idx, durationMs, {
+      [animator.uniformName('angle', idx)]: angle,
+      [animator.uniformName('offsetX', idx)]: offsetX,
+      [animator.uniformName('offsetY', idx)]: offsetY,
+      [animator.uniformName('animationScale', idx)]: animationScale
+    });
   }
 
   function doCut(sender: WebSocket) {

@@ -16,6 +16,7 @@ import {
   createImportantStore
 } from './rest.svelte';
 import { createCutStore } from './cut.svelte';
+import { createRotateStore } from './rotate';
 
 export const pollStore = createPollStore();
 export const predictionStore = createPredictionStore();
@@ -31,6 +32,7 @@ export const biddingStore = createBiddingStore();
 export const pinStore = createPinStore();
 export const importantStore = createImportantStore();
 export const cutStore = createCutStore();
+export const rotateStore = createRotateStore();
 
 export { positionStore, DEFAULT_POSITIONS } from './positions.svelte';
 

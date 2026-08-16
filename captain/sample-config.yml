@@ -20,10 +20,10 @@ makiConfig:
   screenshotDisplay: 1
 distractConfig:
   distractCooldown: 1800
-  rotateCooldown: 300
   distractChance: 0.001
-  rotateChance: 0.01
   enabled: true
+rotateConfig:
+  shader: 02-rotate
 remoteChatTTS: {}
 standaloneSongConfig: {}
 

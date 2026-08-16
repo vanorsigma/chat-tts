@@ -16,7 +16,6 @@ from trinket.frames.emote_guess import create_emote_window_from_emote_set_id
 from trinket.frames.song_guess import make_song_windows
 from trinket.frames.boss_fight import make_boss_fight
 from trinket.frames.warning import WarningFrame, WarningLevel
-from trinket.frames.rotate import RotateFrame
 from trinket.support import CancellationToken
 from trinket.receiver.ws import TTSWebsocketClient
 from trinket.receiver.model import Command
@@ -42,7 +41,7 @@ def calculate_warning_level(
 
 class TrinketController:
     """
-    Manages the lifecycle of warning/rotate frames,
+    Manages the lifecycle of warning frames,
     processes incoming commands from the WebSocket,
     and schedules work on the GUI thread via QTimer.
     """
@@ -54,7 +53,6 @@ class TrinketController:
         self.cancelled = CancellationToken()
         self.task_queue: Queue[Command] = Queue()
         self.warning_frame = WarningFrame()
-        self.rotate_frame: RotateFrame | None = None
 
     def on_ws_message(self, command: Command) -> None:
         self.task_queue.put(command)
@@ -76,16 +74,9 @@ class TrinketController:
                     self.warning_frame.close()
                 logger.info("Going to spawn distractions")
                 self.spawn_distractions()
-            case "rotate":
-                if self.rotate_frame is not None:
-                    self.rotate_frame.close()
-                self.rotate_frame = RotateFrame(command.command.speed)
-                self.rotate_frame.show()
             case "cancel":
                 if self.warning_frame is not None:
                     self.warning_frame.close()
-                if self.rotate_frame is not None:
-                    self.rotate_frame.close()
             case _:
                 logger.warning("Unknown command type: %s", command.command.type)
 

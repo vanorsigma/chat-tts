@@ -18,10 +18,12 @@ import {
   maxwellStore,
   mistakeStore,
   karmaStore,
-  cutStore
+  cutStore,
+  rotateStore
 } from '../../stores';
 import type { CancelTTS, DisableTTS } from '$lib/remoteTTSMessages';
 import { PUBLIC_SELF_THOUGHT_URL } from '$env/static/public';
+import { random } from '$lib/utils';
 import type { Commands } from '..';
 
 let grayscaleDisableTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,13 +88,7 @@ export async function flashbangHandler(
   if (!username) return;
 
   if (
-    await checkCostAddIfEnough(
-      dispatcher,
-      message.channelId!,
-      username,
-      -config.cost,
-      message.id
-    )
+    await checkCostAddIfEnough(dispatcher, message.channelId!, username, -config.cost, message.id)
   ) {
     flashbangStore.increment();
     karmaStore.updateKarma(config.karma, 'Flashbang');
@@ -163,11 +159,7 @@ export async function selfThoughtHandler(
       ))!;
     } else {
       karmaStore.updateKarma(config.karma, 'Self Thought');
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        `-${config.cost}`,
-        message.id
-      );
+      dispatcher.sendMessageAsUser(message.channelId!, `-${config.cost}`, message.id);
     }
   }
 }
@@ -203,11 +195,7 @@ export async function grayscaleHandler(
       );
       grayscaleDisableTimer = null;
     }, config.durationMs);
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `-${config.cost}`,
-      message.id
-    );
+    dispatcher.sendMessageAsUser(message.channelId!, `-${config.cost}`, message.id);
   }
 }
 
@@ -251,4 +239,15 @@ export async function cutHandler(
   }
   console.debug('Cut session has started, bypassing cooldown restrictions.');
   innerCutHandler(dispatcher, message, ws, config, true);
+}
+
+export function rotateHandler(dispatcher: OverlayDispatchers, message: ChatMessage, ws: WebSocket) {
+  const username = requireUsername(message);
+  if (!username) return;
+
+  const speed = (random() > 0.5 ? -1 : 1) * 10 ** (random() * 3);
+  const durationMs = 60000 / Math.abs(speed);
+
+  rotateStore.doRotate(ws, Math.sign(speed) * 360, durationMs);
+  dispatcher.sendMessageAsUser(message.channelId!, 'spinning the screen', message.id);
 }

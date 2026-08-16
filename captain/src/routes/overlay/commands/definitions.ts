@@ -494,7 +494,16 @@ export const COMMAND_DEFINITIONS = [
     cooldown: { default: 10000 }
   }),
   defineCommand({
-    names: ['%rotate', '%distract'],
+    names: ['%rotate'],
+    section: alwaysSection('rotateConfig', 'Rotate', [
+      { key: 'shader', kind: 'text', label: 'Shader name', default: '02-rotate' }
+    ]),
+    gateMode: 'overlay',
+    cooldown: { default: 300000 },
+    needsBus: true
+  }),
+  defineCommand({
+    names: ['%distract'],
     section: section('distractConfig', 'Distract', [
       { key: 'enabled', kind: 'boolean', label: 'Enabled', default: false },
       {
@@ -506,27 +515,10 @@ export const COMMAND_DEFINITIONS = [
         step: 1
       },
       {
-        key: 'rotateCooldown',
-        kind: 'number',
-        label: 'Rotate cooldown (s)',
-        default: 300,
-        min: 0,
-        step: 1
-      },
-      {
         key: 'distractChance',
         kind: 'number',
         label: 'Distract chance',
         default: 0.001,
-        min: 0,
-        max: 1,
-        step: 0.001
-      },
-      {
-        key: 'rotateChance',
-        kind: 'number',
-        label: 'Rotate chance',
-        default: 0.01,
         min: 0,
         max: 1,
         step: 0.001

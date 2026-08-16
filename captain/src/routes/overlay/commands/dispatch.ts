@@ -35,7 +35,8 @@ import {
   mistakeHandler,
   selfThoughtHandler,
   grayscaleHandler,
-  cutHandler
+  cutHandler,
+  rotateHandler
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
 import {
@@ -134,6 +135,7 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
     grayscaleHandler(dispatcher, message, commands.busWs!, config as OverlayGrayscaleConfig),
   '%cut': (commands, dispatcher, message, config) =>
     cutHandler(dispatcher, message, commands.busWs!, commands, config as OverlayCutConfig),
+  '%rotate': (commands, dispatcher, message) => rotateHandler(dispatcher, message, commands.busWs!),
   '%resetcooldown': (commands, dispatcher, message, config) =>
     resetCooldownHandler(commands, dispatcher, message, config as OverlayResetCooldownConfig),
   '%important': (commands, dispatcher, message) => commands.importantHandler(dispatcher, message),

@@ -31,28 +31,16 @@ class DistractSubcommand(DataClassJsonMixin):
     type: Literal["distract"] = "distract"
 
 
-@dataclass
-class RotateSubcommand(DataClassJsonMixin):
-    """
-    Begins a rotation
-    """
-
-    speed: int
-    type: Literal["rotate"] = "rotate"
-
-
 def _subcommand_deserializer(
-    value: Union[dict[Any, Any], CancelSubcommand, DistractSubcommand, RotateSubcommand],
-) -> Union[CancelSubcommand, DistractSubcommand, RotateSubcommand]:
-    if isinstance(value, (CancelSubcommand, DistractSubcommand, RotateSubcommand)):
+    value: Union[dict[Any, Any], CancelSubcommand, DistractSubcommand],
+) -> Union[CancelSubcommand, DistractSubcommand]:
+    if isinstance(value, (CancelSubcommand, DistractSubcommand)):
         return value
     match value.get("type"):
         case "cancel":
             return CancelSubcommand.from_dict(value)
         case "distract":
             return DistractSubcommand.from_dict(value)
-        case "rotate":
-            return RotateSubcommand.from_dict(value)
         case _:
             raise ValueError("Invalid type")
 
@@ -63,7 +51,7 @@ class Command(DataClassJsonMixin):
     A trinket command from the websocket
     """
 
-    command: Union[CancelSubcommand, DistractSubcommand, RotateSubcommand] = field(
+    command: Union[CancelSubcommand, DistractSubcommand] = field(
         metadata=config(decoder=_subcommand_deserializer),
     )
     type: Literal["trinket"] = "trinket"

@@ -13,7 +13,7 @@
     },
     {
         "name": "%rotate",
-        "description": "Rotates the model overlay with random speed and direction."
+        "description": "Rotates the screen with random speed and direction."
     },
     {
         "name": "%goodnightkiss clear",

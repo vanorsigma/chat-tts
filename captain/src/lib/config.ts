@@ -25,9 +25,7 @@ export interface StandaloneSongConfig {}
 export interface DistractConfig {
   enabled: boolean;
   distractCooldown: number;
-  rotateCooldown: number;
   distractChance: number;
-  rotateChance: number;
 }
 
 export interface OverlayModerationConfig {
@@ -70,6 +68,10 @@ export interface OverlayCutConfig {
   shader: string;
   durationMs: number;
   momentDelayMs: number;
+}
+
+export interface OverlayRotateConfig {
+  shader: string;
 }
 
 export interface OverlayMistakeConfig {
@@ -200,6 +202,7 @@ export interface OverlayCommandCooldownsConfig {
   kill: number;
   grayscale: number;
   cut: number;
+  rotate: number;
 }
 
 export interface OverlayCommandChancesConfig {
@@ -295,6 +298,7 @@ export interface FullConfig {
   mistakeConfig?: OverlayMistakeConfig;
   grayscaleConfig?: OverlayGrayscaleConfig;
   cutConfig: OverlayCutConfig;
+  rotateConfig: OverlayRotateConfig;
   showImageConfig: OverlayShowImageConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
