@@ -55,6 +55,14 @@ const commands = [
           option.setName('page').setDescription('the page number').setRequired(false).setMinValue(1)
         )
     )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('delete')
+        .setDescription('delete a registered font')
+        .addStringOption((option) =>
+          option.setName('fontname').setDescription('the font registry name').setRequired(true)
+        )
+    )
 ];
 const clientId = process.env['DISCORD_CLIENT_ID'];
 const guildId = process.env['DISCORD_GUILD_ID'];

@@ -566,6 +566,29 @@ export function saveApprovedFont(fontname: string, filename: string): Promise<vo
   });
 }
 
+export function deleteFont(fontname: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM fonts WHERE fontname = ?', [fontname], (e: Error | null) => {
+      if (e) {
+        console.warn('database error', e);
+        reject(e);
+        return;
+      }
+
+      db.run('DELETE FROM user_fonts WHERE fontname = ?', [fontname], (e: Error | null) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
+
+        console.log(`Font deleted: ${fontname}`);
+        resolve();
+      });
+    });
+  });
+}
+
 export function savePendingFont(
   fontname: string,
   tempPath: string,

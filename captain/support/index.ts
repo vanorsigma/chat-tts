@@ -17,8 +17,10 @@ import {
 } from 'discord.js';
 import { Synth } from 'beepbox/esm/synth/synth';
 import {
+  deleteFont,
   deletePendingFont,
   deleteSong,
+  getFont,
   getPendingFont,
   getSong,
   initDbIfRequired,
@@ -471,6 +473,47 @@ client.on(Events.InteractionCreate, async (interaction) => {
         formatEntry: (entry) => `${entry.fontname} (${entry.filename})`,
         errorMessage: 'Error listing fonts'
       });
+    }
+
+    if (interaction.options.getSubcommand(true) === 'delete') {
+      const fontname = interaction.options.getString('fontname', true).trim().toLowerCase();
+      const isApprover =
+        [fontUserId, adminUser].includes(interaction.user.id) ||
+        (fontApproveRoleId !== undefined && memberHasRole(interaction.member, fontApproveRoleId));
+
+      if (!isApprover) {
+        console.warn(
+          `${interaction.user.username} tried to delete font ${fontname} without permission`
+        );
+        await interaction.reply({
+          content: "You don't have permission to delete fonts",
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      const font = await getFont(fontname);
+      if (!font) {
+        console.warn(`Font ${fontname} not found for deletion.`);
+        await interaction.reply({
+          content: `Error deleting ${fontname}`,
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      console.log(`Deleting font ${fontname}...`);
+      try {
+        await deleteFont(fontname);
+        await fs.rm(path.join(FONTS_DIR, font.filename), { force: true });
+      } catch (e) {
+        console.warn(`Failed to delete font ${fontname}`, e);
+        await interaction.reply({ content: `Error deleting ${fontname}` });
+        return;
+      }
+
+      console.log(`Font ${fontname} deleted.`);
+      await interaction.reply({ content: `Deleted ${fontname}` });
     }
   }
 
