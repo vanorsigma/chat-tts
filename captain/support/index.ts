@@ -42,6 +42,14 @@ import path from 'path';
 import dotenv from 'dotenv';
 dotenv.config();
 
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+
 const token = process.env['DISCORD_BOT'];
 const adminUser = process.env['DISCORD_ADMIN_USER'];
 const songChannelId = process.env['DISCORD_SONG_CHANNEL_ID'];
@@ -191,13 +199,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     );
 
     if (interaction.options.getSubcommand(true) === 'save') {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const shortname = interaction.options.getString('shortname', true);
       const base64File = interaction.options.getAttachment('base64', true);
       console.log(`Saving song ${shortname}...`);
       const response = await fetch(base64File.url);
       if (response.status !== 200) {
         console.warn(`Failed to fetch song data for ${shortname}`);
-        await interaction.reply({ content: `Error saving ${shortname}!` });
+        await interaction.editReply({ content: `Error saving ${shortname}!` });
         return;
       }
       const base64 = (await response.text())
@@ -205,19 +214,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .replace('https://jummb.us/#', '')
         .trim();
       try {
-        // TODO: try to parse
         new Synth(base64);
         await saveSong(shortname, interaction.user.username, base64);
       } catch {
         console.warn(`Invalid song data for ${shortname}`);
-        await interaction.reply({
+        await interaction.editReply({
           content: `Error saving ${shortname}, please copy + paste the entire beepbox link in your attachment`
         });
         return;
       }
 
       console.log(`Song ${shortname} saved successfully.`);
-      await interaction.reply({ content: `Successfully saved ${shortname}!` });
+      await interaction.editReply({ content: `Successfully saved ${shortname}!` });
     }
 
     if (interaction.options.getSubcommand(true) === 'list') {
@@ -313,11 +321,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      await interaction.deferReply();
+
       console.log(`Submitting font ${fontname}...`);
       const response = await fetch(fontFile.url);
       if (response.status !== 200) {
         console.warn(`Failed to fetch font data for ${fontname}`);
-        await interaction.reply({ content: `Error submitting ${fontname}!` });
+        await interaction.followUp({
+          content: `Error submitting ${fontname}!`,
+          flags: MessageFlags.Ephemeral
+        });
         return;
       }
       const fontBytes = Buffer.from(await response.arrayBuffer());
@@ -342,7 +355,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.warn(`Failed to render preview for font ${fontname}`);
         await fs.rm(tempPath, { force: true });
         await deletePendingFont(pendingId);
-        await interaction.reply({ content: `Error submitting ${fontname}, invalid font file` });
+        await interaction.followUp({
+          content: `Error submitting ${fontname}, invalid font file`,
+          flags: MessageFlags.Ephemeral
+        });
         return;
       }
 
@@ -354,7 +370,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setCustomId(`deny:${pendingId}`)
         .setLabel('Deny')
         .setStyle(ButtonStyle.Danger);
-      const row = new ActionRowBuilder().addComponents(approve, deny);
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(approve, deny);
       const previewAttachment = new AttachmentBuilder(preview, { name: `${fontname}${ext}.png` });
 
       const mentions = [
@@ -364,11 +380,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ].filter((m) => m !== null);
       const expiryTimestamp = Math.floor((Date.now() + APPROVAL_EXPIRY_MS) / 1000);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: `New font submission: \`${fontname}\` (${ext}) by ${interaction.user.username}, expires <t:${expiryTimestamp}:R>\n${mentions.join(' ')}`,
         files: [previewAttachment],
         components: [row]
-      } as InteractionReplyOptions);
+      });
       const message = await interaction.fetchReply();
       await updatePendingFontMessageId(pendingId, message.id);
 
