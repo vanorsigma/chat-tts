@@ -103,11 +103,22 @@ function applyImportantMode(ctrl: Controller, active: boolean, _durationSec: num
 }
 
 let _pendingConfig: string | null = null;
+let busReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleBusReconnect() {
+  if (busReconnectTimer) return;
+  busReconnectTimer = setTimeout(() => {
+    busReconnectTimer = null;
+    connectToBus();
+  }, 2000);
+}
 
 function connectToBus() {
   console.log('Connecting to the bus...');
-  senderWs = new WebSocket(`${BUS_URL}/senders`);
-  senderWs.on('open', () => {
+
+  const sWs = new WebSocket(`${BUS_URL}/senders`);
+  senderWs = sWs;
+  sWs.on('open', () => {
     wireLogger();
     setTokenRefreshBroadcaster((msg) => {
       if (senderWs && senderWs.readyState === WebSocket.OPEN) {
@@ -122,18 +133,26 @@ function connectToBus() {
       reloadConfig(raw);
     }
   });
-  senderWs.on('error', () => {
+  sWs.on('error', (err) => {
     console.error(
-      'Unable to connect to the sender bus. We will retry, but this is typically a much more serious issue'
+      'Unable to connect to the sender bus. We will retry, but this is typically a much more serious issue',
+      err?.message ?? err
     );
-    setTimeout(connectToBus, 2000);
+    if (senderWs === sWs) senderWs = null;
+    scheduleBusReconnect();
+  });
+  sWs.on('close', () => {
+    console.warn('Sender bus connection closed. Reconnecting...');
+    if (senderWs === sWs) senderWs = null;
+    scheduleBusReconnect();
   });
 
-  receiverWs = new WebSocket(`${BUS_URL}/receivers`);
-  receiverWs.on('open', () => {
+  const rWs = new WebSocket(`${BUS_URL}/receivers`);
+  receiverWs = rWs;
+  rWs.on('open', () => {
     console.log('Connected to the receiver bus');
   });
-  receiverWs.on('message', (data) => {
+  rWs.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
       if (msg.type === 'faker') {
@@ -153,11 +172,18 @@ function connectToBus() {
       console.warn('Received a malformed message, ignoring.');
     }
   });
-  receiverWs.on('error', () => {
+  rWs.on('error', (err) => {
     console.error(
-      'Unable to connect to the receiver bus. We will retry, but this is typically a much more serious issue'
+      'Unable to connect to the receiver bus. We will retry, but this is typically a much more serious issue',
+      err?.message ?? err
     );
-    setTimeout(connectToBus, 2000);
+    if (receiverWs === rWs) receiverWs = null;
+    scheduleBusReconnect();
+  });
+  rWs.on('close', () => {
+    console.warn('Receiver bus connection closed. Reconnecting...');
+    if (receiverWs === rWs) receiverWs = null;
+    scheduleBusReconnect();
   });
 }
 
@@ -179,7 +205,7 @@ function reloadConfig(rawYaml: string) {
       controller.end().catch((e) => console.warn('Error ending controller:', e));
     }
 
-    controller = new Controller(fullConfig, senderWs);
+    controller = new Controller(fullConfig, getSenderWs);
     controller.setBroadcastImportant((active) => {
       if (senderWs && senderWs.readyState === WebSocket.OPEN) {
         senderWs.send(

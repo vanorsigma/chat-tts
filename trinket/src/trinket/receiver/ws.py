@@ -4,7 +4,7 @@ Websocket Client
 
 import logging
 from typing import Callable
-from websocket import create_connection, WebSocketTimeoutException
+from websocket import create_connection, WebSocketException, WebSocketTimeoutException
 
 from trinket.receiver.model import Command
 from trinket.support import CancellationToken
@@ -58,10 +58,16 @@ class TTSWebsocketClient:  # pylint: disable=too-few-public-methods
                 self._recv_loop()
             except WebSocketTimeoutException:
                 continue
-            except (ConnectionError, OSError) as e:
+            except (WebSocketException, ConnectionError, OSError) as e:
                 logger.warning(
                     "WS connection error: %s; reconnecting in %ds", e, backoff
                 )
+                if self.ws is not None:
+                    try:
+                        self.ws.close()
+                    except Exception:  # pylint: disable=broad-except
+                        pass
+                    self.ws = None
 
             if not self.cancellation.is_cancelled():
                 self.cancellation.wait(backoff)

@@ -175,6 +175,13 @@
         if (msg.type === 'log') {
           const line: LogLine = { ...(msg as LogMessage), _id: _nextLogId++ };
           logs.update((l) => [...l.slice(-500), line]);
+          fetch('/api/log', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: event.data
+          });
         }
         if (isSongStateMessage(msg)) {
           currentPlayingSongId = msg.songId ?? '';

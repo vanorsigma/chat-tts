@@ -51,6 +51,15 @@ export function setBroadcastFn(fn: BroadcastFn) {
   broadcastFn = fn;
 }
 
+export function insertLogEntry(entry: LogMessage, broadcast: boolean = true) {
+  pushRing(entry);
+  appendToFile(entry);
+
+  if (broadcastFn && broadcast) {
+    broadcastFn(entry);
+  }
+}
+
 export function installConsoleHijack() {
   if (_hijacked) return;
   _hijacked = true;
@@ -81,18 +90,14 @@ export function installConsoleHijack() {
 
       const entry: LogMessage = {
         type: 'log',
+        source: 'captain',
         level: levels[level],
         ts: Date.now(),
         msg,
         args: args.length > 1 ? args.slice(1) : undefined
       };
 
-      pushRing(entry);
-      appendToFile(entry);
-
-      if (broadcastFn) {
-        broadcastFn(entry);
-      }
+      insertLogEntry(entry);
     };
   }
 

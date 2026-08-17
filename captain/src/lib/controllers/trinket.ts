@@ -1,12 +1,12 @@
-import type WebSocket from 'ws';
+import WebSocket from 'ws';
 import { random } from '$lib/utils';
 
 export class TrinketController {
-  private socket: WebSocket;
+  private getSocket: () => WebSocket | null;
   private disabled: boolean = false;
 
-  constructor(enabled: boolean, socket: WebSocket) {
-    this.socket = socket;
+  constructor(enabled: boolean, getSocket: () => WebSocket | null) {
+    this.getSocket = getSocket;
     this.disabled = !enabled;
   }
 
@@ -24,14 +24,26 @@ export class TrinketController {
       return;
     }
 
+    const socket = this.getSocket();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send distraction: bus socket is not connected');
+      return;
+    }
+
     console.log('Sending distraction...');
-    this.socket.send(
+    socket.send(
       JSON.stringify({ type: 'trinket', command: { type: 'distract', annoyance: random() } })
     );
   }
 
   async cancel(): Promise<void> {
+    const socket = this.getSocket();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('Cannot cancel trinkets: bus socket is not connected');
+      return;
+    }
+
     console.log('Cancelling trinkets.');
-    this.socket.send(JSON.stringify({ type: 'trinket', command: { type: 'cancel' } }));
+    socket.send(JSON.stringify({ type: 'trinket', command: { type: 'cancel' } }));
   }
 }

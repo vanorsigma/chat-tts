@@ -566,6 +566,24 @@ export function saveApprovedFont(fontname: string, filename: string): Promise<vo
   });
 }
 
+export function listUsersForFont(fontname: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    db.all(
+      'SELECT username FROM user_fonts WHERE fontname = ?',
+      [fontname],
+      (e: Error | null, result: { username: string }[]) => {
+        if (e) {
+          console.warn('database error', e);
+          reject(e);
+          return;
+        }
+
+        resolve(result.map((row) => row.username));
+      }
+    );
+  });
+}
+
 export function deleteFont(fontname: string): Promise<void> {
   return new Promise((resolve, reject) => {
     db.run('DELETE FROM fonts WHERE fontname = ?', [fontname], (e: Error | null) => {

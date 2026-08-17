@@ -62,6 +62,7 @@ export function installConsoleHijack(busSocket: ReconnectingWebSocket) {
 
       const entry: LogMessage = {
         type: 'log',
+        source: 'startingsoon',
         level: levels[level],
         ts: Date.now(),
         msg,

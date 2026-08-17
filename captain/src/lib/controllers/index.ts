@@ -52,7 +52,7 @@ export class Controller implements ChatTTSOrchestrator {
     this._broadcastImportant?.(active);
   }
 
-  constructor(config: FullConfig, senderWs: WebSocket) {
+  constructor(config: FullConfig, getSenderWs: () => WebSocket | null) {
     console.log(`Creating controller for channel ${config.channelName}...`);
     this.twitch = createNewTwitchClientV2(config.channelName);
     if (config.remoteVoiceConfig) {
@@ -63,12 +63,12 @@ export class Controller implements ChatTTSOrchestrator {
     this.filters = config.filteredExps;
     if (config.standaloneSongConfig) {
       console.log('Initializing song controller...');
-      this.songController = new RemoteSongController(senderWs);
+      this.songController = new RemoteSongController(getSenderWs);
     } else console.error('No song controller configuration. Will ignore');
 
     this.trinketController =
       config.distractConfig != null
-        ? new TrinketController(config.distractConfig?.enabled, senderWs)
+        ? new TrinketController(config.distractConfig?.enabled, getSenderWs)
         : undefined;
     this.remoteChatTTSController = config.remoteChatTTS
       ? new RemoteChatTTSController(this)

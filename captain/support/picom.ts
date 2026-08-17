@@ -68,7 +68,9 @@ export function startPicomService() {
           const commands: string[] = [];
           if (msg.parameters) {
             for (const [name, value] of Object.entries(msg.parameters)) {
-              commands.push(`SET ${name} float ${value}`);
+              // Scope each uniform to this shader so independent shaders never
+              // share an argument space (e.g. 00-cut's `angle` vs 02-rotate's).
+              commands.push(`SET ${msg.shader}.${name} float ${value}`);
             }
           }
 

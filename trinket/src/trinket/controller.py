@@ -55,6 +55,7 @@ class TrinketController:
         self.warning_frame = WarningFrame()
 
     def on_ws_message(self, command: Command) -> None:
+        print('Received', command)
         self.task_queue.put(command)
 
     def on_timer_tick(self, timer: QTimer) -> None:

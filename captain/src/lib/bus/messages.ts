@@ -2,6 +2,7 @@ import type { OverlayPositionsConfig } from '$lib/config';
 
 export interface LogMessage {
   type: 'log';
+  source: 'captain' | 'overlay' | 'startingsoon';
   level: 'info' | 'warn' | 'error' | 'debug';
   ts: number;
   msg: string;

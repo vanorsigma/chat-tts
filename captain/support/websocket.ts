@@ -53,3 +53,12 @@ export function startWebsocketServer() {
     console.error('WebSocket server error:', err);
   });
 }
+
+export function broadcastToReceivers(payload: unknown) {
+  const message = JSON.stringify(payload);
+  receiverSockets.forEach((receiverWs) => {
+    if (receiverWs.readyState === WebSocket.OPEN) {
+      receiverWs.send(message);
+    }
+  });
+}

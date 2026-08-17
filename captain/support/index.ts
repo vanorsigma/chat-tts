@@ -27,12 +27,13 @@ import {
   listFonts,
   listPendingFonts,
   listSongs,
+  listUsersForFont,
   saveApprovedFont,
   savePendingFont,
   saveSong,
   updatePendingFontMessageId
 } from '../src/lib/server/db';
-import { startWebsocketServer } from './websocket';
+import { broadcastToReceivers, startWebsocketServer } from './websocket';
 import { startPicomService } from './picom';
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 import { randomUUID } from 'crypto';
@@ -382,16 +383,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ].filter((m) => m !== null);
       const expiryTimestamp = Math.floor((Date.now() + APPROVAL_EXPIRY_MS) / 1000);
 
-      await interaction.editReply({
+      const submissionApprovalMsg = await interaction.followUp({
         content: `New font submission: \`${fontname}\` (${ext}) by ${interaction.user.username}, expires <t:${expiryTimestamp}:R>\n${mentions.join(' ')}`,
         files: [previewAttachment],
         components: [row]
       });
-      const message = await interaction.fetchReply();
-      await updatePendingFontMessageId(pendingId, message.id);
+      await interaction.deleteReply();
+
+      await updatePendingFontMessageId(pendingId, submissionApprovalMsg.id);
 
       let resolved = false;
-      const collector = message.createMessageComponentCollector({ time: APPROVAL_EXPIRY_MS });
+      const collector = submissionApprovalMsg.createMessageComponentCollector({
+        time: APPROVAL_EXPIRY_MS
+      });
 
       collector.on('collect', async (btn) => {
         if (resolved) {
@@ -455,15 +459,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       collector.on('end', async () => {
         if (resolved) return;
-        const pending = await getPendingFont(pendingId);
-        if (pending) {
-          await fs.rm(pending.temp_path, { force: true });
-          await deletePendingFont(pendingId);
+
+        try {
+          const pending = await getPendingFont(pendingId);
+          if (pending) {
+            await fs.rm(pending.temp_path, { force: true });
+            await deletePendingFont(pendingId);
+          }
+        } catch (e) {
+          console.warn(`Failed to expire font approval for ${fontname}`, e);
         }
-        await interaction.editReply({
-          content: `Font \`${fontname}\` approval expired.`,
-          components: []
-        });
+
+        try {
+          await submissionApprovalMsg.edit({
+            content: `Font \`${fontname}\` approval expired.`,
+            components: []
+          });
+        } catch (e) {
+          console.warn(`Failed to mark font approval expired for ${fontname}`, e);
+        }
       });
     }
 
@@ -492,15 +506,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
       const font = await getFont(fontname);
       if (!font) {
         console.warn(`Font ${fontname} not found for deletion.`);
-        await interaction.reply({
-          content: `Error deleting ${fontname}`,
-          flags: MessageFlags.Ephemeral
+        await interaction.editReply({
+          content: `Error deleting ${fontname}`
         });
         return;
       }
+
+      const affectedUsers = await listUsersForFont(fontname);
 
       console.log(`Deleting font ${fontname}...`);
       try {
@@ -508,12 +525,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await fs.rm(path.join(FONTS_DIR, font.filename), { force: true });
       } catch (e) {
         console.warn(`Failed to delete font ${fontname}`, e);
-        await interaction.reply({ content: `Error deleting ${fontname}` });
+        await interaction.editReply({ content: `Error deleting ${fontname}` });
         return;
       }
 
+      for (const username of affectedUsers) {
+        broadcastToReceivers({ type: 'font-changed', username });
+      }
+
       console.log(`Font ${fontname} deleted.`);
-      await interaction.reply({ content: `Deleted ${fontname}` });
+      await interaction.editReply({ content: `Deleted ${fontname}` });
     }
   }
 
@@ -535,7 +556,7 @@ async function expireAllApprovals(): Promise<void> {
       console.warn(`Failed to remove temp file for ${p.fontname}`, e);
     }
     try {
-      const channel = await client.channels.fetch(songChannelId!);
+      const channel = await client.channels.fetch(fontChannelId!);
       if (channel instanceof TextChannel) {
         const msg = await channel.messages.fetch(p.message_id);
         await msg.edit({

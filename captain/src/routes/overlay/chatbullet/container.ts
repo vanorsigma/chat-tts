@@ -1,5 +1,5 @@
 import { makeAnimatedSprite, fetchAnimatedTextures, random, contrastColorFor } from '$lib/utils';
-import { Application, Container, TextStyle, Ticker, Text, Texture } from 'pixi.js';
+import { Application, Assets, Container, Sprite, TextStyle, Ticker, Text, Texture } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
 import { KikiAPI, type KikiResponse } from '../kikiapi';
@@ -31,6 +31,7 @@ export class ChatBulletContainer implements OverlayObserver {
   private cache = new LRUCache<Texture[]>(CACHE_SIZE);
   private subTierCache = new LRUCache<number>(CACHE_SIZE);
   private fontCache = new LRUCache<string>(CACHE_SIZE);
+  private badgeTextureCache = new LRUCache<Texture>(CACHE_SIZE);
 
   constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     this.app = app;
@@ -145,6 +146,15 @@ export class ChatBulletContainer implements OverlayObserver {
     return random() < 0.5;
   }
 
+  private async resolveBadgeUrls(badges: Map<string, string>): Promise<string[]> {
+    if (badges.size === 0) return [];
+
+    const urls = await Promise.all(
+      [...badges].map(async ([setId, version]) => this.dispatcher.getBadgeUrl(setId, version))
+    );
+    return urls.filter((url): url is string => url !== null);
+  }
+
   async onMessage(message: ChatMessage) {
     if (
       shouldSkipMessage({
@@ -161,13 +171,27 @@ export class ChatBulletContainer implements OverlayObserver {
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
     const selectedFamily = await this.resolveUserFontFamily(message.userInfo.userName);
+    const badges = message.userInfo.badges;
+    console.debug(`${displayName} has ${badges.size} badges`);
+    console.debug(
+      `${displayName}'s badges: ${JSON.stringify(new Array(...badges.entries().map(([badgeName, _]) => badgeName)))}`
+    );
+    const badgeUrls = await Promise.race([
+      this.resolveBadgeUrls(message.userInfo.badges),
+      new Promise<string[]>((resolve) =>
+        setTimeout(() => {
+          console.warn('Timeout while attempting to resolve badge URLs');
+          resolve([]);
+        }, 100)
+      )
+    ]);
 
     if (await this.willKikiReadMessage(message)) {
       const kikiResponse = await this.kiki.fetchKikiResponse(
         displayName ?? 'anonymous',
         message.text
       );
-      this.spawnBullet(displayName, parts, kikiResponse, color, selectedFamily);
+      this.spawnBullet(displayName, parts, kikiResponse, color, selectedFamily, badgeUrls);
 
       if (kikiResponse?.pin_worthy) {
         pinStore.set({
@@ -180,7 +204,7 @@ export class ChatBulletContainer implements OverlayObserver {
         this.dispatcher.pinChatMessage(PUBLIC_TARGET_CHANNEL_ID, message.id, 60);
       }
     } else {
-      this.spawnBullet(displayName, parts, null, color, selectedFamily);
+      this.spawnBullet(displayName, parts, null, color, selectedFamily, badgeUrls);
     }
 
     if (isDelegateVoiceToOverlay() && this.busWs?.readyState === WebSocket.OPEN) {
@@ -204,7 +228,8 @@ export class ChatBulletContainer implements OverlayObserver {
     parts: BulletPart[],
     kikiResponse: KikiResponse | null,
     color: string = '#D3D3D3',
-    selectedFamily: string = 'Arial'
+    selectedFamily: string = 'Arial',
+    badgeUrls: string[] = []
   ) {
     const { width, height } = this.app.screen;
     const rate = Math.max(random(), 0.25) * (1000 / 60);
@@ -217,6 +242,33 @@ export class ChatBulletContainer implements OverlayObserver {
 
     const container = new Container();
 
+    const BADGE_SIZE = 28;
+    const BADGE_GAP = 4;
+    let nameX = 0;
+
+    if (badgeUrls.length > 0) {
+      for (const url of badgeUrls) {
+        let texture = this.badgeTextureCache.get(url);
+        if (!texture) {
+          const loaded = (await Assets.load({
+            src: url,
+            loadParser: 'loadTextures'
+          })) as Texture | null;
+          if (!loaded) continue;
+          texture = loaded;
+          this.badgeTextureCache.put(url, loaded);
+        }
+
+        const badge = new Sprite(texture);
+        badge.height = BADGE_SIZE;
+        badge.width = (texture.width / texture.height) * BADGE_SIZE;
+        badge.x = nameX;
+        badge.y = y - 24 - (BADGE_SIZE - 24) / 2;
+        nameX += badge.width + BADGE_GAP;
+        container.addChild(badge);
+      }
+    }
+
     if (displayName) {
       const displayNameText = new Text({
         text: displayName,
@@ -228,7 +280,7 @@ export class ChatBulletContainer implements OverlayObserver {
         }
       });
 
-      displayNameText.x = 0;
+      displayNameText.x = nameX;
       displayNameText.y = y - 24;
       container.addChild(displayNameText);
     }

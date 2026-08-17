@@ -9,6 +9,7 @@ import type { ModelUpdater } from './modelupdater';
 import { LRUCache } from '$lib/LRUcache';
 import { planToTier } from '$lib/twitch';
 import { applyTimeoutTax } from './tax';
+import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 
 export interface OverlayObserver {
   onMessage(message: ChatMessage): void;
@@ -43,6 +44,8 @@ export class OverlayDispatchers {
   private api: ApiClient;
   private botId: string;
   public readonly modelUpdater: ModelUpdater;
+  private badgeCache: Map<string, string> | null = null;
+  private badgeLoadPromise: Promise<Map<string, string> | null> | null = null;
 
   constructor(twitch: ChatClient, api: ApiClient, modelUpdater: ModelUpdater, botId: string) {
     twitch.onMessage((_1, _2, _3, msg) => this.onMessage(msg));
@@ -61,6 +64,46 @@ export class OverlayDispatchers {
 
   updateApi(api: ApiClient): void {
     this.api = api;
+    this.badgeCache = null;
+    this.badgeLoadPromise = null;
+  }
+
+  private async loadBadgeSets(): Promise<Map<string, string> | null> {
+    const merged = new Map<string, string>();
+    const [globalSets, channelSets] = await Promise.all([
+      this.api.chat.getGlobalBadges(),
+      this.api.chat.getChannelBadges(PUBLIC_TARGET_CHANNEL_ID)
+    ]);
+    for (const set of [...globalSets, ...channelSets]) {
+      for (const version of set.versions) {
+        merged.set(`${set.id}/${version.id}`, version.getImageUrl(2));
+      }
+    }
+    return merged;
+  }
+
+  async getBadgeUrl(setId: string, version: string): Promise<string | null> {
+    if (!this.badgeCache) {
+      if (!this.badgeLoadPromise) {
+        this.badgeLoadPromise = this.loadBadgeSets().catch((e) => {
+          console.warn('Failed to load Twitch badge sets:', e);
+          this.badgeLoadPromise = null;
+          return null;
+        });
+      }
+      const map = await this.badgeLoadPromise;
+      if (!map) return null;
+      this.badgeCache = map;
+    }
+
+    const direct = this.badgeCache.get(`${setId}/${version}`);
+    if (direct) return direct;
+    const zero = this.badgeCache.get(`${setId}/0`);
+    if (zero) return zero;
+    for (const [key, url] of this.badgeCache) {
+      if (key.startsWith(`${setId}/`)) return url;
+    }
+    return null;
   }
 
   addObserver(observer: OverlayObserver) {

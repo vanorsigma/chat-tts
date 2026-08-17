@@ -1,4 +1,4 @@
-import type WebSocket from 'ws';
+import WebSocket from 'ws';
 
 export interface SongController {
   playSong(songname: string): Promise<boolean>;
@@ -7,27 +7,36 @@ export interface SongController {
 }
 
 export class RemoteSongController implements SongController {
-  private socket: WebSocket;
+  private getSocket: () => WebSocket | null;
 
-  constructor(socket: WebSocket) {
-    this.socket = socket;
+  constructor(getSocket: () => WebSocket | null) {
+    this.getSocket = getSocket;
     console.log('Remote song controller created.');
+  }
+
+  private send(payload: unknown) {
+    const socket = this.getSocket();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send song command: bus socket is not connected');
+      return;
+    }
+    socket.send(JSON.stringify(payload));
   }
 
   async playSong(songname: string): Promise<boolean> {
     console.log(`Playing song: ${songname}`);
-    this.socket.send(JSON.stringify({ type: 'play', songname: songname }));
+    this.send({ type: 'play', songname: songname });
     return true;
   }
 
   async changeSpeed(speed: number): Promise<void> {
     console.log(`Song speed changed to: ${speed}`);
-    this.socket.send(JSON.stringify({ type: 'speed', speed: speed }));
+    this.send({ type: 'speed', speed: speed });
   }
 
   cancelSong(): void {
     console.log('Cancelling song.');
-    this.socket.send(JSON.stringify({ type: 'cancel' }));
+    this.send({ type: 'cancel' });
   }
 }
 
