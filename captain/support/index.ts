@@ -382,13 +382,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
         fontUserId !== undefined ? `<@${fontUserId}>` : null
       ].filter((m) => m !== null);
       const expiryTimestamp = Math.floor((Date.now() + APPROVAL_EXPIRY_MS) / 1000);
+      await interaction.deleteReply();
 
-      const submissionApprovalMsg = await interaction.followUp({
+      const channel = interaction.channel;
+      if (!channel || !channel.isSendable()) {
+        console.error('This interaction did not happen in a channel');
+        return;
+      }
+
+      const submissionApprovalMsg = await channel.send({
         content: `New font submission: \`${fontname}\` (${ext}) by ${interaction.user.username}, expires <t:${expiryTimestamp}:R>\n${mentions.join(' ')}`,
         files: [previewAttachment],
         components: [row]
       });
-      await interaction.deleteReply();
 
       await updatePendingFontMessageId(pendingId, submissionApprovalMsg.id);
 
