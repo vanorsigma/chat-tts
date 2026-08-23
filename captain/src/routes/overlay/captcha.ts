@@ -76,7 +76,7 @@ export class CaptchaObserver implements OverlayObserver {
   }
 
   async onMessage(message: ChatMessage): Promise<void> {
-    if (message.text.includes(this.answer)) {
+    if (message.text.toLowerCase().includes(this.answer.toLowerCase())) {
       const username = message.userInfo.userName;
       if (!username) return;
 
