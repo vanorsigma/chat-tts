@@ -24,6 +24,7 @@ export class StartingSoonBulletContainer {
   private app: Application;
   private bulletProperties: BulletProperties[] = [];
   private images: StartingSoonArtEntry[] = [];
+  private imagesHistory: StartingSoonArtEntry[] = [];
   private imageTextureCache = new Map<string, Texture>();
   private imageSpawnTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,6 +35,7 @@ export class StartingSoonBulletContainer {
 
   setImages(images: StartingSoonArtEntry[]) {
     this.images = images;
+    this.imagesHistory = [];
     if (images.length > 0) {
       this.scheduleNextImageBullet();
     }
@@ -57,7 +59,15 @@ export class StartingSoonBulletContainer {
 
   private async spawnImageBullet() {
     if (this.images.length === 0) return;
-    const entry = this.images[Math.floor(random() * this.images.length)];
+
+    const available = this.images.filter((img) => !this.imagesHistory.includes(img));
+    const entry = available[Math.floor(random() * available.length)];
+
+    this.imagesHistory.push(entry);
+    if (this.imagesHistory.length > Math.floor(this.images.length / 2)) {
+      this.imagesHistory.shift();
+    }
+
     const url = `/startingsoon/${entry.file}`;
 
     let texture = this.imageTextureCache.get(url);
