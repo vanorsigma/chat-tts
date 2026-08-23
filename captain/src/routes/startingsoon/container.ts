@@ -79,12 +79,10 @@ export class StartingSoonBulletContainer {
     const sprite = new Sprite(texture);
     const attrText = new Text({
       text: entry.artist,
-      style: new TextStyle({ fontFamily: 'Arial', fontSize: 48, fill: '#ffffff' })
+      style: new TextStyle({ fontFamily: 'Arial', fontSize: 28, fill: '#ffffff' })
     });
 
     attrText.anchor.set(0.5, 0);
-    attrText.x = sprite.width / 2;
-    attrText.y = sprite.height + 4;
 
     container.addChild(sprite);
     container.addChild(attrText);
@@ -97,9 +95,13 @@ export class StartingSoonBulletContainer {
       scaleVal = maxH / totalH;
     }
     scaleVal *= 0.3 + random() * 0.4;
-    container.scale.set(scaleVal);
 
-    const finalH = totalH * container.scale.y;
+    sprite.scale.set(scaleVal);
+
+    attrText.x = sprite.width / 2;
+    attrText.y = sprite.height + 4;
+
+    const finalH = container.height;
     const y = random() * (screenH - finalH);
     const rate = (0.15 + random() * 0.35) * (1000 / 60);
 
