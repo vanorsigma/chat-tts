@@ -24,6 +24,7 @@ export class StartingSoonBulletContainer {
   private app: Application;
   private bulletProperties: BulletProperties[] = [];
   private images: StartingSoonArtEntry[] = [];
+  private imagesHistory: StartingSoonArtEntry[] = [];
   private imageTextureCache = new Map<string, Texture>();
   private imageSpawnTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,6 +35,7 @@ export class StartingSoonBulletContainer {
 
   setImages(images: StartingSoonArtEntry[]) {
     this.images = images;
+    this.imagesHistory = [];
     if (images.length > 0) {
       this.scheduleNextImageBullet();
     }
@@ -57,7 +59,15 @@ export class StartingSoonBulletContainer {
 
   private async spawnImageBullet() {
     if (this.images.length === 0) return;
-    const entry = this.images[Math.floor(random() * this.images.length)];
+
+    const available = this.images.filter((img) => !this.imagesHistory.includes(img));
+    const entry = available[Math.floor(random() * available.length)];
+
+    this.imagesHistory.push(entry);
+    if (this.imagesHistory.length > Math.floor(this.images.length / 2)) {
+      this.imagesHistory.shift();
+    }
+
     const url = `/startingsoon/${entry.file}`;
 
     let texture = this.imageTextureCache.get(url);
@@ -79,12 +89,10 @@ export class StartingSoonBulletContainer {
     const sprite = new Sprite(texture);
     const attrText = new Text({
       text: entry.artist,
-      style: new TextStyle({ fontFamily: 'Arial', fontSize: 48, fill: '#ffffff' })
+      style: new TextStyle({ fontFamily: 'Arial', fontSize: 28, fill: '#ffffff' })
     });
 
     attrText.anchor.set(0.5, 0);
-    attrText.x = sprite.width / 2;
-    attrText.y = sprite.height + 4;
 
     container.addChild(sprite);
     container.addChild(attrText);
@@ -97,9 +105,13 @@ export class StartingSoonBulletContainer {
       scaleVal = maxH / totalH;
     }
     scaleVal *= 0.3 + random() * 0.4;
-    container.scale.set(scaleVal);
 
-    const finalH = totalH * container.scale.y;
+    sprite.scale.set(scaleVal);
+
+    attrText.x = sprite.width / 2;
+    attrText.y = sprite.height + 4;
+
+    const finalH = container.height;
     const y = random() * (screenH - finalH);
     const rate = (0.15 + random() * 0.35) * (1000 / 60);
 
