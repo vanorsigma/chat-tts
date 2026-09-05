@@ -11,8 +11,6 @@ import { goodnightKissStore, karmaStore, raidStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
 import { random } from '$lib/utils';
 
-const GOODNIGHT_KISS_REDEEMERS: string[] = [];
-
 export async function raidHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   if (!message.userInfo.isBroadcaster) return;
 
@@ -94,22 +92,12 @@ export async function goodnightkissHandler(
     return;
   }
 
-  if (GOODNIGHT_KISS_REDEEMERS.includes(username)) {
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      'goodnightkiss can only be redeemed once per stream',
-      message.id
-    );
-    return;
-  }
-
   const targetUserId = message.userInfo.userId;
 
   if (
     message.userInfo.userName === config.user ||
     (await checkCostAddIfEnough(dispatcher, message.channelId!, username, -config.cost, message.id))
   ) {
-    GOODNIGHT_KISS_REDEEMERS.push(username);
     goodnightKissStore.setProperties({
       username: username ?? 'no username?',
       userid: targetUserId,

@@ -285,6 +285,17 @@ export class OverlayDispatchers {
     }
   }
 
+  private async raidRequest(method: 'POST' | 'DELETE', body?: Record<string, string>) {
+    const res = await fetch('/api/twitch/raid', {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (res.ok) return;
+    const data = await res.json().catch(() => null);
+    throw data ?? new Error(`HTTP ${res.status}`);
+  }
+
   async startRaid(channelId: string, targetUserId: string): Promise<boolean> {
     if (import.meta.env.DEV) {
       console.log(`Would have started a raid from ${channelId} to ${targetUserId}.`);
@@ -292,9 +303,7 @@ export class OverlayDispatchers {
     }
 
     try {
-      await this.api.asUser(this.botId, async (ctx) => {
-        await ctx.raids.startRaid(channelId, targetUserId);
-      });
+      await this.raidRequest('POST', { targetUserId });
       console.log(`startRaid: raid started from ${channelId} to ${targetUserId}`);
       return true;
     } catch (e) {
@@ -310,9 +319,7 @@ export class OverlayDispatchers {
     }
 
     try {
-      await this.api.asUser(this.botId, async (ctx) => {
-        await ctx.raids.cancelRaid(channelId);
-      });
+      await this.raidRequest('DELETE');
       console.log(`cancelRaid: raid canceled in ${channelId}`);
       return true;
     } catch (e) {

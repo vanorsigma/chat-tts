@@ -24,7 +24,8 @@ const BROADCASTER_SCOPES = [
   'channel:manage:predictions',
   'channel:read:predictions',
   'channel:read:redemptions',
-  'channel:manage:redemptions'
+  'channel:manage:redemptions',
+  'channel:manage:raids'
 ];
 const BOT_SCOPES = [
   'user:write:chat',
@@ -32,8 +33,7 @@ const BOT_SCOPES = [
   'moderator:read:chatters',
   'moderator:manage:banned_users',
   'moderator:manage:chat_messages',
-  'channel:read:subscriptions',
-  'channel:manage:raids'
+  'channel:read:subscriptions'
 ];
 const SCOPES = ACCOUNT === 'broadcaster' ? BROADCASTER_SCOPES : BOT_SCOPES;
 const TOKEN_FILE = join(process.cwd(), `tokens.${ACCOUNT}.json`);
