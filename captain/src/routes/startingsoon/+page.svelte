@@ -380,7 +380,6 @@
 <div class="startingsoon">
   <div class="visuals-layer" class:visible={showVisuals}>
     <Visualizer {analyser} />
-    <div bind:this={bulletDiv} class="bullet-canvas"></div>
   </div>
 
   <div class="vinyl-container" class:spinning={discSpinning}>
@@ -398,6 +397,8 @@
       </div>
     {/if}
   </div>
+
+  <div bind:this={bulletDiv} class="bullet-canvas"></div>
 
   {#if currentLetter}
     <div class="spam-letter">{spamLetterText}</div>
@@ -449,6 +450,8 @@
   .bullet-canvas {
     position: absolute;
     inset: 0;
+    z-index: 4;
+    pointer-events: none;
   }
 
   .vinyl-container {
