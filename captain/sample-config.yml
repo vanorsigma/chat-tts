@@ -53,7 +53,7 @@ flashbangConfig:
 maxwellConfig:
   cost: 100
   user: 5kuli
-  cooldownMs: 30000
+  durationMs: 30000
   limit: 100
 mistakeConfig:
   cost: 5000
@@ -62,7 +62,7 @@ mistakeConfig:
 showImageConfig:
   cost: 10000
   user: mayoigo_qwq
-  cooldownMs: 60000
+  durationMs: 60000
   karma: -200
 playAudioConfig:
   cost: 10000
@@ -137,6 +137,19 @@ stockMarketConfig:
     - symbol: KRMA
       enabled: true
       threshold: -2500
+
+commandCooldownsConfig:
+  rotate: 300000
+  cut: 60000
+  gamba: 60000
+  grayscale: 10000
+  poll: 10000
+  prediction: 10000
+userCommandCooldownsConfig:
+  bypassUsers:
+    - vanorgamma
+  gamba: 60000
+  buy: 60000
 
 soundEffects:
   - tag: '(metalpipes)'

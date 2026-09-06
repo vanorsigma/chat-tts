@@ -6,7 +6,6 @@ import { timeoutSecondsForFailChance } from '../chance';
 import { PEOPLE_WHO_CHECKED_IN } from '../middleware';
 import type { Commands } from '..';
 import { getPointsForUser } from '$lib/api/points';
-import { getOverlayConfig } from '../../constants';
 
 export async function buyHandler(
   commands: Commands,
@@ -55,12 +54,22 @@ export async function buyHandler(
 
   const skipChance = message.userInfo.isBroadcaster;
   const now = Date.now();
-  const userCooldownMs = getOverlayConfig().stockMarketConfig.cooldownMs;
-  const lastUser = commands.buyUserCooldowns.get(username) ?? 0;
-  if (now < lastUser + userCooldownMs) {
+
+  const globalWait = commands.cooldowns.globalRemainingMs('%buy', message.userInfo, now);
+  if (globalWait > 0) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `%buy is on cooldown for you (wait ${Math.ceil((lastUser + userCooldownMs - now) / 1000)}s)`,
+      `%buy is on global cooldown (wait ${Math.ceil(globalWait / 1000)}s)`,
+      message.id
+    );
+    return;
+  }
+
+  const userWait = commands.cooldowns.userRemainingMs('%buy', message.userInfo, now);
+  if (userWait > 0) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `%buy is on cooldown for you (wait ${Math.ceil(userWait / 1000)}s)`,
       message.id
     );
     return;
@@ -91,7 +100,7 @@ export async function buyHandler(
       const timeoutSec = timeoutSecondsForFailChance(failChance);
       const channelId = message.channelId!;
       const userId = message.userInfo.userId;
-      commands.buyUserCooldowns.set(username, now);
+      commands.cooldowns.recordUsage('%buy', message.userInfo, now);
       dispatcher.sendMessageAsUser(
         channelId,
         `@${username} fumbled %buy ${stock} (${failChance}% fail chance, investing: ${result.invested ?? '?'} VD) -> timeout ${timeoutSec}s`,
@@ -112,7 +121,7 @@ export async function buyHandler(
       return;
     }
 
-    commands.buyUserCooldowns.set(username, now);
+    commands.cooldowns.recordUsage('%buy', message.userInfo, now);
     dispatcher.sendMessageAsUser(
       message.channelId!,
       `@${username} invested ${result.invested}VD in ${stock} @ ${result.price!.toFixed(2)} ${stock}`,

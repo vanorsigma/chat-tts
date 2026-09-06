@@ -1,13 +1,7 @@
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
-import {
-  asChatCommand,
-  COMMAND_HELP,
-  REQUIRES_ARGS,
-  type ChatCommand
-} from './registry';
+import { asChatCommand, COMMAND_HELP, REQUIRES_ARGS, type ChatCommand } from './registry';
 import { definitionFor } from './definitions';
 import { COMMAND_HANDLERS } from './dispatch';
-import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
 import type { ChatMessage } from '@twurple/chat';
 import { getOverlayConfig, isSectionDisabled } from '../constants';
 import { triggerBlackSilenceEffects } from './handlers/redeems';
@@ -17,13 +11,12 @@ import { enqueueGambaSpin } from '../gamba/queue';
 import { SUB_BITS_GAMBA_ITEMS } from '../gamba/gamba';
 import { parseDuration } from '$lib/duration';
 import { CommandGate, type GateExemptionProvider } from './gate';
+import { CommandCooldowns } from '../cooldowns';
 
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   private gate = new CommandGate();
-  cooldowns: Map<string, number> = new Map();
-  gambaUserCooldowns: Map<string, number> = new Map();
-  buyUserCooldowns: Map<string, number> = new Map();
+  cooldowns = new CommandCooldowns();
   blacklist: Array<ChatCommand> = [];
   bitsBoosts: Map<string, number> = new Map();
 
@@ -51,28 +44,6 @@ export class Commands implements OverlayObserver {
 
   removeGateExemptionProvider(provider: GateExemptionProvider): void {
     this.gate.removeExemptionProvider(provider);
-  }
-
-  callOnlyIfPastCooldown(
-    commandKey: string,
-    dispatcher: OverlayDispatchers,
-    message: ChatMessage,
-    callback: () => void
-  ) {
-    const now = Date.now();
-    const key = commandKey.startsWith('%') ? commandKey.slice(1) : commandKey;
-    const lastUsed = this.cooldowns.get(key) ?? 0;
-    const cooldown =
-      (getOverlayConfig().commandCooldownsConfig as unknown as Record<
-        string,
-        number | undefined
-      >)[key] ?? 10000;
-    if (message.userInfo.isBroadcaster || now >= lastUsed + cooldown) {
-      callback();
-      this.cooldowns.set(key, now);
-    } else {
-      dispatcher.sendMessageAsUser(PUBLIC_TARGET_CHANNEL_ID, 'command under cooldown', message.id);
-    }
   }
 
   onMessage(message: ChatMessage): void {
@@ -208,11 +179,32 @@ export class Commands implements OverlayObserver {
     }
 
     const run = () => runner(this, dispatcher, message, sectionConfig);
-    if (definition.cooldown && !definition.manualCooldown) {
-      this.callOnlyIfPastCooldown(commandIndicator, dispatcher, message, run);
-    } else {
+    if (definition.manualCooldown) {
       void run();
+      return;
     }
+
+    const now = Date.now();
+    const globalWait = this.cooldowns.globalRemainingMs(commandIndicator, message.userInfo, now);
+    if (globalWait > 0) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `${commandIndicator} is on global cooldown (wait ${Math.ceil(globalWait / 1000)}s)`,
+        message.id
+      );
+      return;
+    }
+    const userWait = this.cooldowns.userRemainingMs(commandIndicator, message.userInfo, now);
+    if (userWait > 0) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `${commandIndicator} is on cooldown for you (wait ${Math.ceil(userWait / 1000)}s)`,
+        message.id
+      );
+      return;
+    }
+    this.cooldowns.recordUsage(commandIndicator, message.userInfo, now);
+    void run();
   }
 
   importantHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {

@@ -3,6 +3,7 @@ import { configSchema, type FieldSchema } from './config/schema';
 import { mergeConfig } from './config/defaults';
 import { ConfigParsingError, validateConfig } from './config/validate';
 import type { SchemaToType, Equal } from './config/types';
+import type { GatedCommand } from '../routes/overlay/commands/definitions';
 
 export { ConfigParsingError };
 
@@ -50,7 +51,7 @@ export interface OverlayFlashbangConfig {
 export interface OverlayMaxwellConfig {
   cost: number;
   user: string;
-  cooldownMs: number;
+  durationMs: number;
   limit: number;
 }
 
@@ -83,7 +84,7 @@ export interface OverlayMistakeConfig {
 export interface OverlayShowImageConfig {
   cost: number;
   user: string;
-  cooldownMs: number;
+  durationMs: number;
   karma: number;
 }
 
@@ -162,9 +163,7 @@ export interface OverlayPollConfig {}
 
 export interface OverlayPredictionConfig {}
 
-export interface OverlayEconomyConfig {
-  cooldownMs: number;
-}
+export interface OverlayEconomyConfig {}
 
 export interface OverlayWatchStreakConfig {
   streakInterval: number;
@@ -191,28 +190,23 @@ export interface StockBankruptcyRule {
 export interface OverlayStockMarketConfig {
   cycleIntervalMs: number;
   checkinGrantPoints: number;
-  cooldownMs: number;
   approvedStocks: string[];
   buyFailSteepness: number;
   overpayFactor: number;
   bankruptcy: StockBankruptcyRule[];
 }
 
-export interface OverlayCommandCooldownsConfig {
-  poll: number;
-  prediction: number;
-  flashbang: number;
-  selfthought: number;
-  undress: number;
-  stars: number;
-  hearts: number;
-  block: number;
-  unblock: number;
-  kill: number;
-  grayscale: number;
-  cut: number;
-  rotate: number;
-}
+type CommandKeyOf<N extends string> = N extends `%${infer Rest extends string}` ? Rest : N;
+
+export type OverlayCommandCooldownsConfig = {
+  [K in GatedCommand as CommandKeyOf<K>]: number;
+};
+
+export type OverlayUserCommandCooldownsConfig = {
+  [K in GatedCommand | 'bypassUsers' as CommandKeyOf<K>]: K extends 'bypassUsers'
+    ? string[]
+    : number;
+};
 
 export interface OverlayCommandChancesConfig {
   default: number;
@@ -331,6 +325,7 @@ export interface FullConfig {
   restartConfig?: OverlayRestartConfig;
   stockMarketConfig: OverlayStockMarketConfig;
   commandCooldownsConfig: OverlayCommandCooldownsConfig;
+  userCommandCooldownsConfig: OverlayUserCommandCooldownsConfig;
   commandChancesConfig: OverlayCommandChancesConfig;
   overlayPositionsConfig: OverlayPositionsConfig;
   dynamicConfig: DynamicConfig;

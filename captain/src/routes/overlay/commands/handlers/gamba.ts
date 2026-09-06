@@ -4,7 +4,6 @@ import type { Commands } from '../index';
 import { enqueueGambaSpin } from '../../gamba/queue';
 import { requireUsername } from './shared';
 import { checkCostAddIfEnough } from '../middleware';
-import { getOverlayConfig } from '../../constants';
 
 export async function gambaHandler(
   commands: Commands,
@@ -15,23 +14,22 @@ export async function gambaHandler(
   if (!username) return;
 
   const now = Date.now();
-  const userCooldownMs = getOverlayConfig().stockMarketConfig.cooldownMs;
 
-  const globalLast = commands.gambaUserCooldowns.get('__global__') ?? 0;
-  if (now < globalLast + userCooldownMs) {
+  const globalWait = commands.cooldowns.globalRemainingMs('%gamba', message.userInfo, now);
+  if (globalWait > 0) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `%gamba is on global cooldown (wait ${Math.ceil((globalLast + userCooldownMs - now) / 1000)}s)`,
+      `%gamba is on global cooldown (wait ${Math.ceil(globalWait / 1000)}s)`,
       message.id
     );
     return;
   }
 
-  const lastUser = commands.gambaUserCooldowns.get(username) ?? 0;
-  if (now < lastUser + userCooldownMs) {
+  const userWait = commands.cooldowns.userRemainingMs('%gamba', message.userInfo, now);
+  if (userWait > 0) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `%gamba is on cooldown for you (wait ${Math.ceil((lastUser + userCooldownMs - now) / 1000)}s)`,
+      `%gamba is on cooldown for you (wait ${Math.ceil(userWait / 1000)}s)`,
       message.id
     );
     return;
@@ -51,8 +49,7 @@ export async function gambaHandler(
   if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, message.id)))
     return;
 
-  commands.gambaUserCooldowns.set('__global__', now);
-  commands.gambaUserCooldowns.set(username, now);
+  commands.cooldowns.recordUsage('%gamba', message.userInfo, now);
 
   dispatcher.sendMessageAsUser(
     message.channelId!,

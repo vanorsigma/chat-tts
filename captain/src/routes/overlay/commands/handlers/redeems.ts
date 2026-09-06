@@ -233,9 +233,27 @@ export async function cutHandler(
 ) {
   if (!cutStore.videoActive) {
     console.debug('Cut session has not started yet!');
-    commands.callOnlyIfPastCooldown('cut', dispatcher, message, () =>
-      innerCutHandler(dispatcher, message, ws, config)
-    );
+    const now = Date.now();
+    const globalWait = commands.cooldowns.globalRemainingMs('%cut', message.userInfo, now);
+    if (globalWait > 0) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `%cut is on global cooldown (wait ${Math.ceil(globalWait / 1000)}s)`,
+        message.id
+      );
+      return;
+    }
+    const userWait = commands.cooldowns.userRemainingMs('%cut', message.userInfo, now);
+    if (userWait > 0) {
+      dispatcher.sendMessageAsUser(
+        message.channelId!,
+        `%cut is on cooldown for you (wait ${Math.ceil(userWait / 1000)}s)`,
+        message.id
+      );
+      return;
+    }
+    commands.cooldowns.recordUsage('%cut', message.userInfo, now);
+    innerCutHandler(dispatcher, message, ws, config);
     return;
   }
   console.debug('Cut session has started, bypassing cooldown restrictions.');

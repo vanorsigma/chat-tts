@@ -3,8 +3,10 @@ import type { FieldSchema } from '$lib/config/schema';
 export type GateMode = 'overlay' | 'ungated' | 'passthrough';
 
 export interface CommandCooldown {
-  /** Default cooldown in ms; derives one config field per command name (keyed by name without %) */
-  default: number;
+  /** Default global cooldown in ms; derives one config field per command name (keyed by name without %) */
+  global: number;
+  /** Default per-user cooldown in ms; derives one config field per command name. 0 disables it */
+  user?: number;
   /** Config UI label; defaults to the command name */
   label?: string;
 }
@@ -20,11 +22,11 @@ export interface CommandDefinition {
   gateMode: GateMode;
   requiresArgs?: boolean;
   help?: string;
-  /** Wrap dispatch in callOnlyIfPastCooldown (one independent cooldown per command name) */
+  /** Cooldown defaults used to generate the command cooldown config sections */
   cooldown?: CommandCooldown;
   /** Give this command a per-command success chance in commandChancesConfig */
   chance?: CommandChance;
-  /** The handler wraps itself in callOnlyIfPastCooldown (e.g. conditional bypass) */
+  /** Handler acquires cooldown itself (e.g. conditional or success-only recording) */
   manualCooldown?: boolean;
   /** Requires the bus WebSocket; dispatch is skipped with a warning when absent */
   needsBus?: boolean;
@@ -132,14 +134,6 @@ const stockMarketConfigSection = alwaysSection('stockMarketConfig', 'Stock Marke
     step: 10
   },
   {
-    key: 'cooldownMs',
-    kind: 'number',
-    label: 'Cooldown (ms)',
-    default: 60000,
-    min: 0,
-    step: 100
-  },
-  {
     key: 'approvedStocks',
     kind: 'list-of-text',
     label: 'Approved stocks',
@@ -174,16 +168,7 @@ const stockMarketConfigSection = alwaysSection('stockMarketConfig', 'Stock Marke
   }
 ]);
 
-const economyConfigSection = section('economyConfig', 'Economy', [
-  {
-    key: 'cooldownMs',
-    kind: 'number',
-    label: 'Cooldown (ms)',
-    default: 60000,
-    min: 0,
-    step: 100
-  }
-]);
+const economyConfigSection = section('economyConfig', 'Economy', []);
 
 const moderationConfigSection = alwaysSection('moderationConfig', 'Moderation', [
   {
@@ -226,7 +211,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%poll <title>;<durationSec>;<option1>;[option2;[option3;[option4;[option5]]]]',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%endpoll'],
@@ -239,7 +224,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%prediction <title>;<durationSec>;<option1>;<option2>',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%endprediction'],
@@ -281,7 +266,7 @@ export const COMMAND_DEFINITIONS = [
     ]),
     gateMode: 'overlay',
     chance: { default: 40 },
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%blacksilence'],
@@ -332,9 +317,9 @@ export const COMMAND_DEFINITIONS = [
       { key: 'cost', kind: 'number', label: 'Cost', default: 100, min: 0, step: 1 },
       { key: 'user', kind: 'text', label: 'Free user', default: '5kuli' },
       {
-        key: 'cooldownMs',
+        key: 'durationMs',
         kind: 'number',
-        label: 'Cooldown (ms)',
+        label: 'Duration (ms)',
         default: 30000,
         min: 0,
         step: 100
@@ -358,9 +343,9 @@ export const COMMAND_DEFINITIONS = [
       { key: 'cost', kind: 'number', label: 'Cost', default: 10000, min: 0, step: 1 },
       { key: 'user', kind: 'text', label: 'Free user', default: 'mayoigo_qwq' },
       {
-        key: 'cooldownMs',
+        key: 'durationMs',
         kind: 'number',
-        label: 'Cooldown (ms)',
+        label: 'Duration (ms)',
         default: 60000,
         min: 0,
         step: 100
@@ -387,7 +372,9 @@ export const COMMAND_DEFINITIONS = [
     section: stockMarketConfigSection,
     gateMode: 'ungated',
     requiresArgs: true,
-    help: '%buy <symbol> <points> [overpay]'
+    help: '%buy <symbol> <points> [overpay]',
+    cooldown: { global: 0, user: 60000 },
+    manualCooldown: true
   }),
   defineCommand({
     names: ['%sell'],
@@ -406,14 +393,18 @@ export const COMMAND_DEFINITIONS = [
     section: stockMarketConfigSection,
     gateMode: 'overlay',
     requiresArgs: true,
-    help: '%gamba <amount>'
+    help: '%gamba <amount>',
+    cooldown: { global: 60000, user: 60000 },
+    manualCooldown: true
   }),
   defineCommand({
     names: ['%lottery'],
     section: economyConfigSection,
     gateMode: 'overlay',
     requiresArgs: true,
-    help: '%lottery <amount> | %lottery payout | %lottery'
+    help: '%lottery <amount> | %lottery payout | %lottery',
+    cooldown: { global: 0, user: 60000 },
+    manualCooldown: true
   }),
   defineCommand({
     names: ['%endstream'],
@@ -435,7 +426,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%selfthought <message>',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%goodnightkiss'],
@@ -484,7 +475,7 @@ export const COMMAND_DEFINITIONS = [
     names: ['%undress', '%stars', '%hearts'],
     section: karmaConfigSection,
     gateMode: 'overlay',
-    cooldown: { default: 1000 }
+    cooldown: { global: 1000 }
   }),
   defineCommand({
     names: ['%restart'],
@@ -502,7 +493,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%block <%command>',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%unblock'],
@@ -510,7 +501,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%unblock <%command>',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%kill'],
@@ -518,7 +509,7 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'overlay',
     requiresArgs: true,
     help: '%kill <username>',
-    cooldown: { default: 10000 }
+    cooldown: { global: 10000 }
   }),
   defineCommand({
     names: ['%rotate'],
@@ -526,7 +517,7 @@ export const COMMAND_DEFINITIONS = [
       { key: 'shader', kind: 'text', label: 'Shader name', default: '02-rotate' }
     ]),
     gateMode: 'overlay',
-    cooldown: { default: 300000 },
+    cooldown: { global: 300000 },
     needsBus: true
   }),
   defineCommand({
@@ -574,7 +565,7 @@ export const COMMAND_DEFINITIONS = [
       }
     ]),
     gateMode: 'overlay',
-    cooldown: { default: 10000 },
+    cooldown: { global: 10000 },
     chance: { default: 40 },
     needsBus: true
   }),
@@ -604,7 +595,7 @@ export const COMMAND_DEFINITIONS = [
     ]),
     gateMode: 'overlay',
     manualCooldown: true,
-    cooldown: { default: 60000 },
+    cooldown: { global: 60000 },
     chance: { default: 30 },
     needsBus: true
   }),
@@ -682,30 +673,55 @@ type CooldownFieldOf<N extends string> = N extends string
     }
   : never;
 
-function cooldownField<const N extends string, const C extends CommandCooldown>(
+function cooldownField<const N extends string>(
   name: N,
-  cooldown: C
+  cooldownMs: number,
+  label?: string
 ): CooldownFieldOf<NoPercent<N>> {
   return {
     key: name.slice(1) as NoPercent<N>,
     kind: 'number',
-    label: cooldown.label ?? name,
-    default: cooldown.default,
+    label: label ?? name,
+    default: cooldownMs,
     min: 0,
     step: 100
   } as CooldownFieldOf<NoPercent<N>>;
 }
 
-const cooldownFields = COMMAND_DEFINITIONS.flatMap((def) =>
-  'cooldown' in def ? def.names.map((name) => cooldownField(name, def.cooldown)) : []
-);
+const cooldownFields = COMMAND_DEFINITIONS.flatMap((def) => {
+  if (def.gateMode === 'passthrough') return [];
+  const cooldown: CommandCooldown | undefined = 'cooldown' in def ? def.cooldown : undefined;
+  return def.names.map((name) => cooldownField(name, cooldown?.global ?? 0, cooldown?.label));
+});
+
+const userCooldownFields = COMMAND_DEFINITIONS.flatMap((def) => {
+  if (def.gateMode === 'passthrough') return [];
+  const cooldown: CommandCooldown | undefined = 'cooldown' in def ? def.cooldown : undefined;
+  return def.names.map((name) => cooldownField(name, cooldown?.user ?? 0, cooldown?.label));
+});
 
 export const COMMAND_COOLDOWNS_CONFIG = {
   key: 'commandCooldownsConfig',
   kind: 'optional-object',
-  label: 'Command cooldowns (ms)',
+  label: 'Command cooldowns - global (ms)',
   alwaysPresent: true,
   objectFields: cooldownFields
+} as const satisfies FieldSchema;
+
+export const USER_COMMAND_COOLDOWNS_CONFIG = {
+  key: 'userCommandCooldownsConfig',
+  kind: 'optional-object',
+  label: 'Command cooldowns - per user (ms)',
+  alwaysPresent: true,
+  objectFields: [
+    {
+      key: 'bypassUsers',
+      kind: 'list-of-text',
+      label: 'Cooldown bypass users',
+      placeholder: 'username'
+    },
+    ...userCooldownFields
+  ]
 } as const satisfies FieldSchema;
 
 type ChanceFieldOf<N extends string> = N extends string

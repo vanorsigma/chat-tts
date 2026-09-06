@@ -1,5 +1,6 @@
 import {
   COMMAND_COOLDOWNS_CONFIG,
+  USER_COMMAND_COOLDOWNS_CONFIG,
   COMMAND_CHANCES_CONFIG,
   COMMAND_DEFINITIONS
 } from '../../routes/overlay/commands/definitions';
@@ -330,6 +331,7 @@ export const configSchema = [
   },
   ...commandSections,
   COMMAND_COOLDOWNS_CONFIG,
+  USER_COMMAND_COOLDOWNS_CONFIG,
   COMMAND_CHANCES_CONFIG,
   {
     key: 'overlayPositionsConfig',

@@ -5,12 +5,11 @@ import { random } from '$lib/utils';
 import { PEOPLE_WHO_CHECKED_IN, TOGGLE_EXPIRY } from '../commands/middleware';
 import { addBitBoost } from '$lib/api/bits';
 import { getOverlayConfig } from '../constants';
+import type { CommandCooldowns } from '../cooldowns';
 
 export interface CommandsLike {
   addUserBitBoost(username: string, bits: number): void;
-  cooldowns: Map<string, number>;
-  gambaUserCooldowns: Map<string, number>;
-  buyUserCooldowns: Map<string, number>;
+  cooldowns: CommandCooldowns;
 }
 
 export interface GambaContext {
@@ -293,9 +292,7 @@ export class ResetAllCooldown extends GambaItem {
   }
 
   async onWin(ctx: GambaContext): Promise<void> {
-    ctx.commands?.cooldowns.clear();
-    ctx.commands?.gambaUserCooldowns.clear();
-    ctx.commands?.buyUserCooldowns.clear();
+    ctx.commands?.cooldowns.clearAll();
     for (const t of TOGGLE_EXPIRY.values()) clearTimeout(t);
     TOGGLE_EXPIRY.clear();
     ctx.dispatcher.sendMessageAsUser(
@@ -322,8 +319,7 @@ export class ResetUserCooldown extends GambaItem {
   }
 
   async onWin(ctx: GambaContext): Promise<void> {
-    ctx.commands?.gambaUserCooldowns.delete(ctx.username);
-    ctx.commands?.buyUserCooldowns.delete(ctx.username);
+    ctx.commands?.cooldowns.clearUser(ctx.username);
     ctx.dispatcher.sendMessageAsUser(
       ctx.channelId,
       `@${ctx.username}'s cooldowns reset by the gamba wheel!`

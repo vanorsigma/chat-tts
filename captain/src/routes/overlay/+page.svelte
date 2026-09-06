@@ -773,7 +773,7 @@
     });
 
     maxwellStore.subscribe(async (_maxwellCount: number) => {
-      await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwellConfig.cooldownMs);
+      await maxwellContainerInstance?.spawnMaxwell(getOverlayConfig().maxwellConfig.durationMs);
     });
   });
 

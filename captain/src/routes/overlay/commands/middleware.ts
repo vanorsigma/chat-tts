@@ -1,32 +1,20 @@
 import { getPointsForUser, setPointsForUser } from '$lib/api/points';
 import type { OverlayDispatchers } from '../dispatcher';
+import type { CommandCooldowns } from '../cooldowns';
 
 export const COOLDOWN = 10 * 1000;
 export const TOGGLE_COOLDOWN = 2 * 60 * 1000;
 export const PEOPLE_WHO_CHECKED_IN: string[] = [];
 export const TOGGLE_EXPIRY: Map<string, NodeJS.Timeout> = new Map();
 
-export function resetAllOverlayCooldowns(commands: {
-  cooldowns: Map<string, number>;
-  gambaUserCooldowns: Map<string, number>;
-  buyUserCooldowns: Map<string, number>;
-}) {
-  commands.cooldowns.clear();
-  commands.gambaUserCooldowns.clear();
-  commands.buyUserCooldowns.clear();
+export function resetAllOverlayCooldowns(commands: { cooldowns: CommandCooldowns }) {
+  commands.cooldowns.clearAll();
   for (const t of TOGGLE_EXPIRY.values()) clearTimeout(t);
   TOGGLE_EXPIRY.clear();
 }
 
-export function resetUserCooldowns(
-  commands: {
-    gambaUserCooldowns: Map<string, number>;
-    buyUserCooldowns: Map<string, number>;
-  },
-  username: string
-) {
-  commands.gambaUserCooldowns.delete(username);
-  commands.buyUserCooldowns.delete(username);
+export function resetUserCooldowns(commands: { cooldowns: CommandCooldowns }, username: string) {
+  commands.cooldowns.clearUser(username);
 }
 
 let _checkCostAddIfEnoughLock: Promise<boolean> = Promise.resolve(true);

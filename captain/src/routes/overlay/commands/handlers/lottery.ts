@@ -6,9 +6,6 @@ import { LotteryWinnerItem } from '../../gamba/gamba';
 import { requireUsername } from './shared';
 import { checkCostAddIfEnough } from '../middleware';
 import { getLottery, addLotteryEntry, clearLottery } from '$lib/api/lottery';
-import { getOverlayConfig } from '../../constants';
-
-const lotteryUserCooldowns = new Map<string, number>();
 
 export async function lotteryHandler(
   commands: Commands,
@@ -88,14 +85,21 @@ export async function lotteryHandler(
   }
 
   const now = Date.now();
-  const lastUser = lotteryUserCooldowns.get(username) ?? 0;
-  const userCooldownMs = getOverlayConfig().economyConfig?.cooldownMs ?? 60_000;
-  if (now < lastUser + userCooldownMs) {
+  const globalWait = commands.cooldowns.globalRemainingMs('%lottery', message.userInfo, now);
+  if (globalWait > 0) {
     dispatcher.sendMessageAsUser(
       message.channelId!,
-      `%lottery is on cooldown for you (wait ${Math.ceil(
-        (lastUser + userCooldownMs - now) / 1000
-      )}s)`,
+      `%lottery is on global cooldown (wait ${Math.ceil(globalWait / 1000)}s)`,
+      message.id
+    );
+    return;
+  }
+
+  const userWait = commands.cooldowns.userRemainingMs('%lottery', message.userInfo, now);
+  if (userWait > 0) {
+    dispatcher.sendMessageAsUser(
+      message.channelId!,
+      `%lottery is on cooldown for you (wait ${Math.ceil(userWait / 1000)}s)`,
       message.id
     );
     return;
@@ -104,7 +108,7 @@ export async function lotteryHandler(
   if (!(await checkCostAddIfEnough(dispatcher, message.channelId!, username, -amount, message.id)))
     return;
 
-  lotteryUserCooldowns.set(username, now);
+  commands.cooldowns.recordUsage('%lottery', message.userInfo, now);
   await addLotteryEntry(username, amount);
 
   const { entries, tax } = await getLottery();

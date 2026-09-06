@@ -125,7 +125,7 @@ export function createShowImageStore() {
           const firstIndex = imageUrls.findIndex(([url]) => url === imageUrl);
           imageUrls = [...imageUrls.slice(0, firstIndex), ...imageUrls.slice(firstIndex + 1)];
           pub.notify(imageUrls);
-        }, getOverlayConfig().showImageConfig.cooldownMs)
+        }, getOverlayConfig().showImageConfig.durationMs)
       ]
     ];
     pub.notify(imageUrls);
