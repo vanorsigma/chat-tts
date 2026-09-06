@@ -67,7 +67,7 @@ export class Commands implements OverlayObserver {
         string,
         number | undefined
       >)[key] ?? 10000;
-    if (now >= lastUsed + cooldown) {
+    if (message.userInfo.isBroadcaster || now >= lastUsed + cooldown) {
       callback();
       this.cooldowns.set(key, now);
     } else {
