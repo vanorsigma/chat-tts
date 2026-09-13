@@ -350,6 +350,7 @@ export const configSchema = [
     ],
     widgetGroups: [
       { id: 'artist', label: 'Artist widget', prefix: 'artistWidget', origin: 'topLeft' },
+      { id: 'clip', label: 'Twitch clip', prefix: 'clip', origin: 'topLeft' },
       { id: 'rightPanel', label: 'Right panel', prefix: 'rightPanel', origin: 'topLeft' },
       { id: 'pin', label: 'Pinned message', prefix: 'pin', origin: 'topLeft' },
       { id: 'wheel', label: 'Gamba wheel', prefix: 'wheel', origin: 'center' }
@@ -387,6 +388,42 @@ export const configSchema = [
         kind: 'number',
         label: 'Artist widget height',
         default: 90,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'clipX',
+        kind: 'number',
+        label: 'Twitch clip X',
+        default: 560,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'clipY',
+        kind: 'number',
+        label: 'Twitch clip Y',
+        default: 315,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'clipWidth',
+        kind: 'number',
+        label: 'Twitch clip width',
+        default: 800,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'clipHeight',
+        kind: 'number',
+        label: 'Twitch clip height',
+        default: 450,
         min: 0,
         max: 1080,
         step: 1

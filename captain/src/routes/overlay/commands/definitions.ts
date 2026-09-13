@@ -368,6 +368,17 @@ export const COMMAND_DEFINITIONS = [
     help: '%pa <audioUrl>'
   }),
   defineCommand({
+    names: ['%showclip', '%sc'],
+    section: alwaysSection('showClipConfig', 'Show Clip', [
+      { key: 'cost', kind: 'number', label: 'Cost', default: 15000, min: 0, step: 1 },
+      { key: 'user', kind: 'text', label: 'Free user', default: 'vanorsigma' }
+    ]),
+    gateMode: 'overlay',
+    requiresArgs: true,
+    help: '%showclip <clipUrl|clipId>',
+    cooldown: { global: 30000 }
+  }),
+  defineCommand({
     names: ['%buy'],
     section: stockMarketConfigSection,
     gateMode: 'ungated',

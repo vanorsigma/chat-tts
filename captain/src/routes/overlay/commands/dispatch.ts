@@ -20,6 +20,7 @@ import type {
   OverlayResetCooldownConfig,
   OverlaySelfThoughtConfig,
   OverlaySetTitleConfig,
+  OverlayShowClipConfig,
   OverlayShowImageConfig
 } from '$lib/config';
 import {
@@ -40,6 +41,7 @@ import {
   rotateHandler
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
+import { showClipHandler } from './handlers/clip';
 import {
   buyHandler,
   sellHandler,
@@ -105,6 +107,10 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
     mediaHandler(dispatcher, message, 'audio', config as OverlayPlayAudioConfig),
   '%playaudio': (_commands, dispatcher, message, config) =>
     mediaHandler(dispatcher, message, 'audio', config as OverlayPlayAudioConfig),
+  '%showclip': (_commands, dispatcher, message, config) =>
+    showClipHandler(dispatcher, message, config as OverlayShowClipConfig),
+  '%sc': (_commands, dispatcher, message, config) =>
+    showClipHandler(dispatcher, message, config as OverlayShowClipConfig),
   '%buy': (commands, dispatcher, message) => buyHandler(commands, dispatcher, message),
   '%sell': (_commands, dispatcher, message) => sellHandler(dispatcher, message),
   '%stocks': (_commands, dispatcher, message) => stocksHandler(dispatcher, message),

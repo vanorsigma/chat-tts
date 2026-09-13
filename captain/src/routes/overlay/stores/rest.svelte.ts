@@ -149,6 +149,38 @@ export function createShowImageStore() {
   };
 }
 
+export interface ClipState {
+  id: string;
+  title?: string;
+}
+
+export function createShowClipStore() {
+  let current: ClipState | null = $state(null);
+  const pub = createPubSub<ClipState | null>();
+
+  function show(id: string, title?: string) {
+    current = { id, title };
+    pub.notify(current);
+  }
+
+  function hide() {
+    current = null;
+    pub.notify(current);
+  }
+
+  return {
+    get current() {
+      return current;
+    },
+    subscribe: (fn: (value: ClipState | null) => void): Unsubscribe => {
+      fn(current);
+      return pub.subscribe(fn);
+    },
+    show,
+    hide
+  };
+}
+
 export function createMistakeStore() {
   let mistakeCount = $state(0);
 

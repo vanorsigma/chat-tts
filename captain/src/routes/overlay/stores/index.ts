@@ -13,7 +13,8 @@ import {
   createFlashbangStore,
   createPollStore,
   createPredictionStore,
-  createImportantStore
+  createImportantStore,
+  createShowClipStore
 } from './rest.svelte';
 import { createCutStore } from './cut.svelte';
 import { createRotateStore } from './rotate';
@@ -26,6 +27,7 @@ export const blackSilenceStore = createBlackSilenceStore();
 export const maxwellStore = createMaxwellStore();
 export const mistakeStore = createMistakeStore();
 export const showImageStore = createShowImageStore();
+export const showClipStore = createShowClipStore();
 export const playAudioStore = createPlayAudioStore();
 export const goodnightKissStore = createGoodnightKissStore();
 export const karmaStore = createKarmaStore();

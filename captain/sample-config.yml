@@ -68,6 +68,9 @@ playAudioConfig:
   cost: 10000
   user: SpookiestSpooks
   karma: -100
+showClipConfig:
+  cost: 15000
+  user: vanorsigma
 grayscaleConfig:
   cost: 1000
   karma: -100
@@ -272,6 +275,10 @@ filteredExps:
 #   artistWidgetY: 20
 #   artistWidgetWidth: 360
 #   artistWidgetHeight: 90
+#   clipX: 560
+#   clipY: 315
+#   clipWidth: 800
+#   clipHeight: 450
 #   rightPanelX: 1520
 #   rightPanelY: 0
 #   rightPanelWidth: 400

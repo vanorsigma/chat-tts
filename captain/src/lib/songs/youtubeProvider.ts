@@ -1,10 +1,7 @@
-import { YtDlp } from 'ytdlp-nodejs';
-import { createReadStream } from 'fs';
-import { mkdtempSync, rmSync } from 'fs';
-import path, { join } from 'path';
-import { tmpdir } from 'os';
+import { join } from 'path';
+import { getYtdlp } from '$lib/server/ytdlp';
+import { createTempDir, fileToWebStream, removeTempDir } from '$lib/server/tempFiles';
 import type { SongData, SongProvider } from './types';
-import fs from 'fs/promises';
 
 export interface YouTubeSongProviderConfig {
   id: string;
@@ -18,42 +15,12 @@ export class YouTubeSongProvider implements SongProvider {
   readonly label: string;
   private mode: 'playlist' | 'individual';
   private playlistUrl?: string;
-  private ytdlp?: YtDlp;
 
   constructor(config: YouTubeSongProviderConfig) {
     this.id = config.id;
     this.label = config.label;
     this.mode = config.mode;
     this.playlistUrl = config.playlistUrl;
-  }
-
-  private async getYtdlp(): Promise<YtDlp> {
-    const pathEnv = process.env.PATH || '';
-    const dirs = pathEnv.split(':');
-
-    const checks = dirs.map(async (dir) => {
-      const fullPath = path.join(dir, 'yt-dlp');
-      try {
-        await fs.access(fullPath, fs.constants.X_OK);
-        return fullPath;
-      } catch {
-        return null;
-      }
-    });
-
-    const results = (await Promise.all(checks)).filter((p): p is string => p !== null);
-    if (results.length === 0) {
-      console.error('YouTubeSongProvider: yt-dlp binary not found in PATH');
-      throw new Error('yt-dlp not found in PATH');
-    }
-    console.log('YouTubeSongProvider: using yt-dlp binary', results[0]);
-
-    if (!this.ytdlp) {
-      this.ytdlp = new YtDlp({
-        binaryPath: results[0]
-      });
-    }
-    return this.ytdlp;
   }
 
   private getVideoUrl(videoId: string): string {
@@ -86,7 +53,7 @@ export class YouTubeSongProvider implements SongProvider {
     }
 
     try {
-      const ytdlp = await this.getYtdlp();
+      const ytdlp = await getYtdlp();
       const info = await ytdlp.getInfoAsync<'playlist'>(this.playlistUrl, {
         flatPlaylist: true
       });
@@ -110,7 +77,7 @@ export class YouTubeSongProvider implements SongProvider {
     const videoId = fullId.slice(prefix.length);
 
     try {
-      const ytdlp = await this.getYtdlp();
+      const ytdlp = await getYtdlp();
       const info = await ytdlp.getInfoAsync<'video'>(this.getVideoUrl(videoId));
       return this.buildSongData(videoId, info, fullId);
     } catch (err) {
@@ -121,8 +88,8 @@ export class YouTubeSongProvider implements SongProvider {
 
   async getAudioStream(videoId: string): Promise<ReadableStream | null> {
     try {
-      const ytdlp = await this.getYtdlp();
-      const tmpDir = mkdtempSync(join(tmpdir(), 'ytsong-'));
+      const ytdlp = await getYtdlp();
+      const tmpDir = createTempDir('ytsong-');
       const result = await ytdlp.downloadAsync<'audioonly'>(this.getVideoUrl(videoId), {
         format: { filter: 'audioonly', quality: 0, type: 'mp3' },
         output: join(tmpDir, 'audio.%(ext)s'),
@@ -131,39 +98,11 @@ export class YouTubeSongProvider implements SongProvider {
 
       const filePath = result.filePaths?.[0];
       if (!filePath) {
-        rmSync(tmpDir, { recursive: true, force: true });
+        removeTempDir(tmpDir);
         return null;
       }
 
-      const nodeStream = createReadStream(filePath);
-      let cleanedUp = false;
-      const cleanup = () => {
-        if (cleanedUp) return;
-        cleanedUp = true;
-        nodeStream.destroy();
-        try {
-          rmSync(tmpDir, { recursive: true, force: true });
-        } catch {
-          /* temp cleanup best-effort */
-        }
-      };
-
-      return new ReadableStream({
-        start(controller) {
-          nodeStream.on('data', (chunk) => controller.enqueue(chunk));
-          nodeStream.on('end', () => {
-            cleanup();
-            controller.close();
-          });
-          nodeStream.on('error', (err) => {
-            cleanup();
-            controller.error(err);
-          });
-        },
-        cancel() {
-          cleanup();
-        }
-      });
+      return fileToWebStream(filePath, { onClose: () => removeTempDir(tmpDir) });
     } catch (err) {
       console.warn('YouTubeSongProvider.getAudioStream failed:', err);
       return null;
@@ -172,7 +111,7 @@ export class YouTubeSongProvider implements SongProvider {
 
   async getCoverStream(videoId: string): Promise<ReadableStream | null> {
     try {
-      const ytdlp = await this.getYtdlp();
+      const ytdlp = await getYtdlp();
       const info = await ytdlp.getInfoAsync<'video'>(this.getVideoUrl(videoId));
       const thumbnailUrl = info.thumbnail ?? info.thumbnails?.at?.(-1)?.url;
       if (!thumbnailUrl) {

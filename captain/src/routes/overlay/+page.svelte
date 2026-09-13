@@ -15,6 +15,7 @@
   import { createAudioEngine } from '$lib/songs/audioEngine.svelte';
   import { handleCommand } from '$lib/songs/commands';
   import ArtistWidget from '$lib/songs/ArtistWidget.svelte';
+  import ClipWidget from './ClipWidget.svelte';
   import {
     PUBLIC_BUS_URL,
     PUBLIC_RECEIVER_URL,
@@ -36,6 +37,7 @@
     maxwellStore,
     mistakeStore,
     showImageStore,
+    showClipStore,
     playAudioStore,
     goodnightKissStore,
     createCheckInStore,
@@ -795,6 +797,7 @@
     playAudioStore.purge();
     showImageStore.purge();
     maxwellContainerInstance?.removeAllMaxwells();
+    onClipEnded();
 
     setTimeout(() => {
       chatBulletBackend?.setEnabled(true);
@@ -812,6 +815,12 @@
 
   function onMistakeDone() {
     mistakeCount = mistakeStore.count;
+  }
+
+  function onClipEnded() {
+    const id = showClipStore.current?.id;
+    showClipStore.hide();
+    if (id) void fetch(`/api/clip/${id}`, { method: 'DELETE' });
   }
 </script>
 
@@ -832,6 +841,14 @@
       indeterminate={overlaySongIndeterminate}
     />
   </div>
+  {#if showClipStore.current}
+    <div
+      class="overlay-clip-widget"
+      style="left: {$positionStore.clipX}px; top: {$positionStore.clipY}px; width: {$positionStore.clipWidth}px; height: {$positionStore.clipHeight}px;"
+    >
+      <ClipWidget clip={showClipStore.current} onended={onClipEnded} />
+    </div>
+  {/if}
   <iframe class="streamelements" src={PUBLIC_SE_URL} title="streamelements"> </iframe>
 
   {#if makiActivated}
@@ -1053,6 +1070,11 @@
   .overlay-artist-widget :global(.artist-widget) {
     width: 100%;
     height: 100%;
+  }
+
+  .overlay-clip-widget {
+    position: absolute;
+    z-index: 100;
   }
 
   .streamelements {

@@ -94,6 +94,11 @@ export interface OverlayPlayAudioConfig {
   karma: number;
 }
 
+export interface OverlayShowClipConfig {
+  cost: number;
+  user: string;
+}
+
 export interface OverlayResetCooldownConfig {
   cost: number;
 }
@@ -220,6 +225,10 @@ export interface OverlayPositionsConfig {
   artistWidgetY: number;
   artistWidgetWidth: number;
   artistWidgetHeight: number;
+  clipX: number;
+  clipY: number;
+  clipWidth: number;
+  clipHeight: number;
   rightPanelX: number;
   rightPanelY: number;
   rightPanelWidth: number;
@@ -303,6 +312,7 @@ export interface FullConfig {
   cutConfig: OverlayCutConfig;
   rotateConfig: OverlayRotateConfig;
   showImageConfig: OverlayShowImageConfig;
+  showClipConfig: OverlayShowClipConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
   resetCooldownConfig: OverlayResetCooldownConfig;
