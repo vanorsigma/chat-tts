@@ -19,7 +19,7 @@ export const COMMAND_HELP: Partial<Record<ChatCommand, string>> = Object.fromEnt
 ) as Partial<Record<ChatCommand, string>>;
 
 // stronger unblockables, not even config can remove them
-export const UNBLOCKABLE = new Set<ChatCommand>(['%important', '%unimportant', '%raid']);
+export const UNBLOCKABLE = new Set<ChatCommand>(['%important', '%unimportant', '%raid', '%moment']);
 
 export function asChatCommand(rawStr: string): ChatCommand | null {
   const lowered = rawStr.toLowerCase();

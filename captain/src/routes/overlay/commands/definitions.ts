@@ -634,6 +634,16 @@ export const COMMAND_DEFINITIONS = [
     gateMode: 'ungated',
     requiresArgs: true,
     help: '%check <%command> [args...]'
+  }),
+  defineCommand({
+    names: ['%moment'],
+    section: alwaysPresentSection('momentConfig', 'Moment', [
+      { key: 'reward', kind: 'number', label: 'Reward (VD)', default: 10000, min: 0, step: 1 }
+    ]),
+    gateMode: 'ungated',
+    requiresArgs: true,
+    help: '%moment <description>',
+    cooldown: { global: 30000 }
   })
 ] as const satisfies readonly CommandDefinition[];
 

@@ -1,5 +1,11 @@
 import type { OverlayDispatchers, OverlayObserver } from '../dispatcher';
-import { asChatCommand, COMMAND_HELP, REQUIRES_ARGS, type ChatCommand } from './registry';
+import {
+  asChatCommand,
+  COMMAND_HELP,
+  REQUIRES_ARGS,
+  UNBLOCKABLE,
+  type ChatCommand
+} from './registry';
 import { definitionFor } from './definitions';
 import { COMMAND_HANDLERS } from './dispatch';
 import type { ChatMessage } from '@twurple/chat';
@@ -68,7 +74,7 @@ export class Commands implements OverlayObserver {
       return;
     }
 
-    if (this.importantActive && commandIndicator !== '%unimportant') {
+    if (this.importantActive && !UNBLOCKABLE.has(commandIndicator)) {
       dispatcher.sendMessageAsUser(
         message.channelId!,
         'Important mode is active; commands are paused.',

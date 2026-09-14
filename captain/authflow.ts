@@ -25,7 +25,8 @@ const BROADCASTER_SCOPES = [
   'channel:read:predictions',
   'channel:read:redemptions',
   'channel:manage:redemptions',
-  'channel:manage:raids'
+  'channel:manage:raids',
+  'channel:manage:broadcast'
 ];
 const BOT_SCOPES = [
   'user:write:chat',

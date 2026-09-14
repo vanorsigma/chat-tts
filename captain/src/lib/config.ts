@@ -99,6 +99,10 @@ export interface OverlayShowClipConfig {
   user: string;
 }
 
+export interface OverlayMomentConfig {
+  reward: number;
+}
+
 export interface OverlayResetCooldownConfig {
   cost: number;
 }
@@ -313,6 +317,7 @@ export interface FullConfig {
   rotateConfig: OverlayRotateConfig;
   showImageConfig: OverlayShowImageConfig;
   showClipConfig: OverlayShowClipConfig;
+  momentConfig: OverlayMomentConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
   resetCooldownConfig: OverlayResetCooldownConfig;

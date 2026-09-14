@@ -15,6 +15,7 @@ import type {
   OverlayKarmaConfig,
   OverlayMaxwellConfig,
   OverlayMistakeConfig,
+  OverlayMomentConfig,
   OverlayModerationConfig,
   OverlayPlayAudioConfig,
   OverlayResetCooldownConfig,
@@ -42,6 +43,7 @@ import {
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
 import { showClipHandler } from './handlers/clip';
+import { momentHandler } from './handlers/moment';
 import {
   buyHandler,
   sellHandler,
@@ -111,6 +113,8 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
     showClipHandler(dispatcher, message, config as OverlayShowClipConfig),
   '%sc': (_commands, dispatcher, message, config) =>
     showClipHandler(dispatcher, message, config as OverlayShowClipConfig),
+  '%moment': (_commands, dispatcher, message, config) =>
+    momentHandler(dispatcher, message, config as OverlayMomentConfig),
   '%buy': (commands, dispatcher, message) => buyHandler(commands, dispatcher, message),
   '%sell': (_commands, dispatcher, message) => sellHandler(dispatcher, message),
   '%stocks': (_commands, dispatcher, message) => stocksHandler(dispatcher, message),
