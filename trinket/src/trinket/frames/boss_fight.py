@@ -12,12 +12,20 @@ from typing import Callable
 from irc.client import Event, Reactor, ServerConnection, ServerConnectionError
 from PyQt6.QtCore import Qt, QTimer, QByteArray, QBuffer, QSize
 from PyQt6.QtGui import QImage, QMovie, QPixmap
-from PyQt6.QtWidgets import QApplication, QLabel, QLayout, QProgressBar, QVBoxLayout
+from PyQt6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QLayout,
+    QProgressBar,
+    QVBoxLayout,
+    QWidget,
+)
 from trinket.frames.shared import (
     CloseSignalableOpenGLWidget,
     RESOURCES_DIR,
     CachedEmote,
-    get_cached_emotes_with_images,
+    EmoteImageCache,
+    get_emote_cache,
     place_randomly,
 )
 from trinket.receiver.console import register_chat_listener, unregister_chat_listener
@@ -110,22 +118,29 @@ class EmoteRenderer:
 
 
 class BossMovement:
-    def __init__(self):
-        screen = QApplication.screens()[0].size()
-        self.target_pos = (
-            random.randint(0, screen.width() - 300),
-            random.randint(0, screen.height() - 300),
+    """
+    BossMovement
+
+    A behavioural class to dictate where the boss should wander towards.
+    """
+
+    def __init__(self, frame: QWidget):
+        self._frame = frame
+        self.target_pos: tuple[int, int] | None = None
+
+    def _random_target(self) -> tuple[int, int]:
+        parent = self._frame.parentWidget()
+        area = parent.size() if parent is not None else QApplication.screens()[0].size()
+        return (
+            random.randint(0, max(0, area.width() - 300)),
+            random.randint(0, max(0, area.height() - 300)),
         )
 
     def step(self, x: int, y: int) -> tuple[int, int]:
-        t_x, t_y = self.target_pos
-        if (t_x, t_y) == (x, y):
-            screen = QApplication.screens()[0].size()
-            self.target_pos = (
-                random.randint(0, screen.width() - 300),
-                random.randint(0, screen.height() - 300),
-            )
+        if self.target_pos is None or self.target_pos == (x, y):
+            self.target_pos = self._random_target()
 
+        t_x, t_y = self.target_pos
         d_x = max(-20, min(t_x - x, 20))
         d_y = max(-20, min(t_y - y, 20))
         return d_x, d_y
@@ -151,16 +166,19 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
     """
 
     EMOTE_QUEUE = 4
+    EMOTE_PREFETCH = 32
 
     def __init__(
-        self, channel_name: str, max_health: int, emotes: list[CachedEmote]
+        self, channel_name: str, max_health: int, emote_cache: EmoteImageCache
     ):
         super().__init__()
         self._closed = False
-        self.emotes = emotes
+        self._emote_cache = emote_cache
         self.current_emotes = [
-            self.choose_random_emote() for _ in range(self.EMOTE_QUEUE)
+            self._as_emote(emote)
+            for emote in emote_cache.fetch_many(emote_cache.sample(self.EMOTE_QUEUE))
         ]
+        emote_cache.prefetch(emote_cache.sample_uncached(self.EMOTE_PREFETCH))
 
         self.health = max_health
         if os.environ.get("TRINKET_DEV_MODE"):
@@ -214,13 +232,23 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
         self.irc_msg_callback_queue: Queue[str] = Queue()
 
         self.emote_renderer = EmoteRenderer(self.emote_labels)
-        self.movement = BossMovement()
+        self.movement = BossMovement(self)
 
-        place_randomly(self, width=300, height=300)
+        place_randomly(self)
+
+    @staticmethod
+    def _as_emote(emote: CachedEmote) -> tuple[str, bool, bytes]:
+        return (emote.name, emote.animated, emote.data)
 
     def choose_random_emote(self) -> tuple[str, bool, bytes]:
-        emote = random.choice(self.emotes)
-        return (emote.name, emote.animated, emote.data)
+        ready = self._emote_cache.cached()
+        if ready:
+            return self._as_emote(random.choice(ready))
+
+        emote = self._emote_cache.fetch(random.choice(self._emote_cache.emotes))
+        if emote is None:
+            raise RuntimeError("No emote images could be downloaded")
+        return self._as_emote(emote)
 
     def irc_message_callback(self, message: str) -> None:
         """
@@ -292,17 +320,17 @@ class BossFightFrame(CloseSignalableOpenGLWidget):
 
 
 def make_boss_fight(emote_set_id: str) -> BossFightFrame:
-    emotes = get_cached_emotes_with_images(emote_set_id)
+    emote_cache = get_emote_cache(emote_set_id)
     health = random.randint(1, 500)
 
-    return BossFightFrame("vanorsigma", health, emotes)
+    return BossFightFrame("vanorsigma", health, emote_cache)
 
 
 if __name__ == "__main__":
     app = QApplication([])
 
-    emotes = get_cached_emotes_with_images("01J452JCVG0000352W25T9VEND")
-    bossfight = BossFightFrame("vanorsigma", 100, emotes)
+    cache = get_emote_cache("01J452JCVG0000352W25T9VEND")
+    bossfight = BossFightFrame("vanorsigma", 100, cache)
     bossfight.show()
 
     app.exec()

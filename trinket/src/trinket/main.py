@@ -14,7 +14,19 @@ from PyQt6.QtWidgets import QApplication
 
 from trinket.controller import TrinketController
 from trinket.receiver.console import ConsoleReceiver
-from trinket.frames.shared import get_cached_emotes_with_images
+from trinket.receiver.model import Command, DistractSubcommand
+from trinket.frames.shared import get_emote_cache
+
+EMOTE_STARTUP_PREFETCH = 24
+
+
+def _warm_emote_cache() -> None:
+    logger = logging.getLogger(__name__)
+    try:
+        cache = get_emote_cache(TrinketController.EMOTE_SET_ID)
+        cache.prefetch(cache.sample_uncached(EMOTE_STARTUP_PREFETCH))
+    except RuntimeError as exc:
+        logger.error("Failed to prefetch emotes at startup: %s", exc)
 
 
 def main() -> None:
@@ -26,10 +38,7 @@ def main() -> None:
     app = QApplication(sys.argv)
     controller = TrinketController(app)
 
-    try:
-        get_cached_emotes_with_images(TrinketController.EMOTE_SET_ID)
-    except RuntimeError as exc:
-        logging.getLogger(__name__).error("Failed to prefetch emotes at startup: %s", exc)
+    threading.Thread(target=_warm_emote_cache, daemon=True).start()
 
     timer = QTimer()
     timer.setInterval(200)
@@ -66,6 +75,8 @@ def main() -> None:
     logger = logging.getLogger(__name__)
     if os.environ.get("TRINKET_DEV_MODE"):
         logger.info("Starting console receiver thread")
+        controller.on_ws_message(Command(command=DistractSubcommand()))
+
         def _console_target():
             receiver = ConsoleReceiver(controller.on_ws_message, controller.cancelled)
             receiver.run_forever()

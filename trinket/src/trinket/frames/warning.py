@@ -11,7 +11,7 @@ from PyQt6.QtGui import QGuiApplication, QImage, QPixmap, QCloseEvent
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
-from trinket.frames.shared import RESOURCES_DIR
+from trinket.frames.shared import RESOURCES_DIR, place_randomly
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +48,7 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         screen = QGuiApplication.primaryScreen()
-        self.screen_width = screen.size().width()
-        self.screen_height = screen.size().height()
-        self.setGeometry(0, 0, self.screen_width, self.screen_height)
+        self.setGeometry(0, 0, screen.size().width(), screen.size().height())
 
         self.image = QImage()
         self.media_player = QMediaPlayer()
@@ -58,6 +56,7 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
         self.media_player.setAudioOutput(self.audio_output)
 
         self.label = QLabel(self)
+        self.label.setScaledContents(True)
         self.set_warning_level(WarningLevel.FIRST)
 
     def is_completed(self):
@@ -74,10 +73,24 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
         self.image.load(str(RESOURCES_DIR / img_name))
         self.media_player.setSource(QUrl.fromLocalFile(str(RESOURCES_DIR / audio_name)))
 
-        self.image = self.image.scaled(self.screen_width, self.screen_height)
         self.media_player.setLoops(QMediaPlayer.Loops.Infinite)
         self.audio_output.setVolume(0.1)
         self.label.setPixmap(QPixmap(self.image))
+
+    def resizeEvent(self, event) -> None:  # pylint: disable=invalid-name
+        """
+        Unfortunately, Hyprland decides the final size a bit too late (I think a
+        little after the window actually spawns?), so our initial layout might
+        be outdated. This resizes it, fingers cross, without stuff breaking.
+        """
+        self.label.resize(self.size())
+        self._place_children()
+        super().resizeEvent(event)
+
+    def _place_children(self) -> None:
+        """Scatter the child frames across this warning's own area."""
+        for widget in self.windows:
+            place_randomly(widget, bounds=self.size())
 
     def closeEvent(self, event: QCloseEvent) -> None:
         event.accept()
@@ -102,6 +115,7 @@ class WarningFrame(QWidget):  # pylint: disable=too-few-public-methods
         super().show()
         for w in self.windows:
             w.show()
+        self._place_children()
         self.media_player.play()
         QApplication.instance().installEventFilter(self)
 

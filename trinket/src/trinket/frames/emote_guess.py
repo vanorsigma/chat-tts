@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import QApplication, QLabel, QLayout, QVBoxLayout
 from trinket.frames.shared import (
     CloseSignalableWidget,
     GuessTextEdit,
-    get_cached_emotes_with_images,
+    get_emote_cache,
     place_randomly,
 )
 
@@ -78,18 +78,21 @@ def create_emote_window_from_emote_set_id(
     emote_set_id: str, no_windows: int, seed: int | None = None
 ) -> list[EmoteWindow]:
     """
-    Chooses a random 7TV Emote from the Emote Set, then creates an Emote Window.
+    Chooses random 7TV Emotes from the Emote Set, fetches only their images,
+    then creates an Emote Window for each.
     """
     if seed is not None:
         random.seed(seed)
 
-    emotes = get_cached_emotes_with_images(emote_set_id)
-    window_references = []
-    for _ in range(no_windows):
-        emote = random.choice(emotes)
-        window_references.append(EmoteWindow(emote.name, emote.data, emote.animated))
+    cache = get_emote_cache(emote_set_id)
+    chosen = cache.sample(no_windows)
+    ready = {emote.url: emote for emote in cache.fetch_many(chosen)}
 
-    return window_references
+    return [
+        EmoteWindow(emote.name, ready[emote.url].data, ready[emote.url].animated)
+        for emote in chosen
+        if emote.url in ready
+    ]
 
 
 if __name__ == "__main__":
