@@ -1315,7 +1315,6 @@
   .grey-box {
     width: 90%;
     padding: 10px;
-    border: 1px solid #ccc;
     border-radius: 5px;
     background-color: rgba(255, 255, 255, 0.6);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
