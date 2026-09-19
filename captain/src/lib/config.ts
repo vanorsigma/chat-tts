@@ -275,7 +275,7 @@ export interface MakiConfig {
   deepReasoningMaxTokens: number;
   maxTokens: number;
   communicationBusUrl: string;
-  screenshotDisplay: number;
+  screenshotMonitor: string;
   textSpeed: number;
 }
 

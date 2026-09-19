@@ -132,12 +132,10 @@ export const configSchema = [
         default: 'ws://localhost:3001/senders'
       },
       {
-        key: 'screenshotDisplay',
-        kind: 'number',
-        label: 'Screenshot Display',
-        default: 1,
-        min: 0,
-        step: 1
+        key: 'screenshotMonitor',
+        kind: 'text',
+        label: 'Screenshot Monitor',
+        default: 'HDMI-A-1'
       },
       {
         key: 'textSpeed',

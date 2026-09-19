@@ -18,7 +18,7 @@ class MakiConfig(BaseModel):
     deep_reasoning_max_tokens: int
     max_tokens: int
     communication_bus_url: str
-    screenshot_display: int
+    screenshot_monitor: str = "HDMI-A-1"
     text_speed: int = 30
 
 

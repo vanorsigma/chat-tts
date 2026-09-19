@@ -1,7 +1,6 @@
 import asyncio
 from typing import Any
 
-import mss
 import mss.tools
 
 from pydantic_ai import BinaryContent, Tool
@@ -10,13 +9,62 @@ from pydantic_ai.exceptions import ModelRetry
 from config import MakiConfig
 
 
+async def _grim_capture(monitor: str) -> bytes:
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "grim",
+            "-t",
+            "ppm",
+            "-o",
+            monitor,
+            "-",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError as e:
+        raise ModelRetry(
+            "grim is not installed; Wayland screenshots require it"
+        ) from e
+
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        detail = stderr.decode(errors="replace").strip()
+        raise ModelRetry(f"grim failed to capture monitor '{monitor}': {detail}")
+    return stdout
+
+
+def _parse_ppm(data: bytes) -> tuple[int, int, bytes]:
+    try:
+        magic, dims, maxval, pixels = data.split(b"\n", 3)
+        width_str, height_str = dims.split()
+        width, height = int(width_str), int(height_str)
+    except ValueError as e:
+        raise RuntimeError("grim returned malformed PPM data") from e
+
+    if magic != b"P6" or maxval != b"255":
+        raise RuntimeError("grim returned an unexpected PPM format")
+    if len(pixels) != width * height * 3:
+        raise RuntimeError("grim returned a truncated PPM image")
+    return width, height, pixels
+
+
+def _crop(
+    rgb: bytes, source_width: int, x: int, y: int, width: int, height: int
+) -> bytes:
+    stride = source_width * 3
+    start = x * 3
+    end = start + width * 3
+    return b"".join(
+        rgb[row * stride + start : row * stride + end] for row in range(y, y + height)
+    )
+
+
 class ScreenshotTool:
     def __init__(self, config: MakiConfig) -> None:
-        self.default_display = config.screenshot_display
+        self.monitor = config.screenshot_monitor
 
     async def screenshot(
         self,
-        display: int | None = None,
         x: int | None = None,
         y: int | None = None,
         width: int | None = None,
@@ -25,9 +73,8 @@ class ScreenshotTool:
         """Captures a screenshot of the current screen and returns it as an image.
 
         Args:
-            display: Monitor index to capture (0 = all monitors combined, 1 = primary display, default from config)
-            x: Optional horizontal start pixel for cropping (relative to the selected display's origin)
-            y: Optional vertical start pixel for cropping (relative to the selected display's origin)
+            x: Optional horizontal start pixel for cropping (relative to the display's origin)
+            y: Optional vertical start pixel for cropping (relative to the display's origin)
             width: Optional width of the crop region in pixels
             height: Optional height of the crop region in pixels
 
@@ -35,51 +82,42 @@ class ScreenshotTool:
             An image of the captured screen area.
         """
 
-        def _grab() -> bytes:
-            with mss.mss() as sct:
-                monitors = sct.monitors
+        def _process(ppm: bytes) -> bytes:
+            mon_w, mon_h, rgb = _parse_ppm(ppm)
 
-                idx = self.default_display if display is None else display
-                if idx < 0 or idx >= len(monitors):
-                    raise ModelRetry(
-                        f"Invalid display index {idx}. Available monitors: "
-                        f"0..{len(monitors) - 1} (0 = all monitors, 1 = primary)"
-                    )
+            crop_x = x if x is not None else 0
+            crop_y = y if y is not None else 0
+            crop_w = width if width is not None else mon_w - crop_x
+            crop_h = height if height is not None else mon_h - crop_y
 
-                monitor = monitors[idx]
-                left = monitor["left"]
-                top = monitor["top"]
-                mon_w = monitor["width"]
-                mon_h = monitor["height"]
-
-                crop_left = left + (x if x is not None else 0)
-                crop_top = top + (y if y is not None else 0)
-                crop_w = width if width is not None else mon_w
-                crop_h = height if height is not None else mon_h
-
-                bbox = {
-                    "left": crop_left,
-                    "top": crop_top,
-                    "width": crop_w,
-                    "height": crop_h,
-                }
-
-                if crop_w <= 0 or crop_h <= 0:
-                    raise ModelRetry(
-                        f"Crop dimensions must be positive, got width={crop_w} height={crop_h}"
-                    )
-
-                shot = sct.grab(bbox)
-                png = mss.tools.to_png(shot.rgb, shot.size)
-                if png is None:
-                    raise RuntimeError("mss.tools.to_png returned None")
-                print(
-                    f"[SCREENSHOT] Captured display {idx}: {crop_w}x{crop_h} at ({crop_left},{crop_top}), PNG size={len(png)} bytes"
+            if (
+                crop_x < 0
+                or crop_y < 0
+                or crop_w <= 0
+                or crop_h <= 0
+                or crop_x + crop_w > mon_w
+                or crop_y + crop_h > mon_h
+            ):
+                raise ModelRetry(
+                    f"Crop region {crop_w}x{crop_h} at ({crop_x},{crop_y}) is outside "
+                    f"the {mon_w}x{mon_h} display"
                 )
-                return png
+
+            if (crop_x, crop_y, crop_w, crop_h) != (0, 0, mon_w, mon_h):
+                rgb = _crop(rgb, mon_w, crop_x, crop_y, crop_w, crop_h)
+
+            png = mss.tools.to_png(rgb, (crop_w, crop_h))
+            if png is None:
+                raise RuntimeError("mss.tools.to_png returned None")
+            print(
+                f"[SCREENSHOT] Captured {self.monitor}: {crop_w}x{crop_h} at "
+                f"({crop_x},{crop_y}), PNG size={len(png)} bytes"
+            )
+            return png
 
         try:
-            png_bytes = await asyncio.to_thread(_grab)
+            ppm = await _grim_capture(self.monitor)
+            png_bytes = await asyncio.to_thread(_process, ppm)
         except ModelRetry:
             raise
         except Exception as e:

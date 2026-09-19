@@ -17,7 +17,7 @@ makiConfig:
   maxTokens: 1024
   searchApiKey: ''
   communicationBusUrl: 'ws://localhost:3001/senders'
-  screenshotDisplay: 1
+  screenshotMonitor: 'HDMI-A-1'
 distractConfig:
   distractCooldown: 1800
   distractChance: 0.001
