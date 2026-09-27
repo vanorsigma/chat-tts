@@ -140,8 +140,8 @@ async def _main():
     twitch_chat = TwitchChatClient(config.broadcaster_name)
     evaluator = Evaluator(config)
     deep_reasoning = DeepReasoning(config)
-    screenshot = ScreenshotTool(config)
     communication = Communication(config)
+    screenshot = ScreenshotTool(config, communication)
 
     memory = Memory(config.openrouter_api_key)
 

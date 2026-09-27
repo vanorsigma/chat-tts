@@ -8,6 +8,8 @@ from pydantic_ai.exceptions import ModelRetry
 
 from config import MakiConfig
 
+_OVERLAY_HIDE_DELAY_S = 0.15
+
 
 async def _grim_capture(monitor: str) -> bytes:
     try:
@@ -22,9 +24,7 @@ async def _grim_capture(monitor: str) -> bytes:
             stderr=asyncio.subprocess.PIPE,
         )
     except FileNotFoundError as e:
-        raise ModelRetry(
-            "grim is not installed; Wayland screenshots require it"
-        ) from e
+        raise ModelRetry("grim is not installed; Wayland screenshots require it") from e
 
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
@@ -60,8 +60,9 @@ def _crop(
 
 
 class ScreenshotTool:
-    def __init__(self, config: MakiConfig) -> None:
+    def __init__(self, config: MakiConfig, communication) -> None:
         self.monitor = config.screenshot_monitor
+        self.communication = communication
 
     async def screenshot(
         self,
@@ -115,7 +116,9 @@ class ScreenshotTool:
             )
             return png
 
+        await self.communication.set_screenshot_mode(True)
         try:
+            await asyncio.sleep(_OVERLAY_HIDE_DELAY_S)
             ppm = await _grim_capture(self.monitor)
             png_bytes = await asyncio.to_thread(_process, ppm)
         except ModelRetry:
@@ -123,6 +126,8 @@ class ScreenshotTool:
         except Exception as e:
             print(f"[SCREENSHOT] Capture failed: {e}")
             raise ModelRetry(f"Screenshot failed: {e}") from e
+        finally:
+            await self.communication.set_screenshot_mode(False)
 
         return BinaryContent(png_bytes, media_type="image/png")
 

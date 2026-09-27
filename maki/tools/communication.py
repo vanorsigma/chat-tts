@@ -2,6 +2,8 @@
 Communication tool
 """
 
+import json
+
 import websockets
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -99,6 +101,17 @@ class Communication:
             return
         print("[COMMUNICATION] Informing activated")
         await self._ws_send(MakiActivated(state=state).model_dump_json())
+
+    async def set_screenshot_mode(self, active: bool) -> None:
+        """
+        Hides (or restores) all overlay widgets for a clean screenshot capture.
+        """
+        print(f"[COMMUNICATION] Overlay screenshot mode {'on' if active else 'off'}")
+        await self._ws_send(
+            json.dumps(
+                {"type": "control", "op": "screenshot", "screenshotActive": active}
+            )
+        )
 
     async def inform_output(
         self, segments: list[Segment], dismiss_after: int

@@ -93,6 +93,8 @@
   let chatBulletBackend: ChatBulletContainer | undefined = undefined;
 
   let blackSilenceBorder = $state(false);
+  let overlayHidden = $state(false);
+  let overlayHideRestoreTimer: ReturnType<typeof setTimeout> | null = null;
 
   let captchaElement: HTMLDivElement;
   let captchaText: string | null = $state(null);
@@ -376,6 +378,20 @@
       if (data?.type === 'control' && data?.op === 'important' && data.importantActive === false) {
         if (commands && dispatchers && commands.importantActive) {
           commands.endImportant(dispatchers, PUBLIC_TARGET_CHANNEL_ID);
+        }
+      }
+      if (data?.type === 'control' && data?.op === 'screenshot') {
+        if (data.screenshotActive === true) {
+          overlayHidden = true;
+          if (overlayHideRestoreTimer) clearTimeout(overlayHideRestoreTimer);
+          overlayHideRestoreTimer = setTimeout(() => {
+            overlayHidden = false;
+            overlayHideRestoreTimer = null;
+          }, 3000);
+        } else {
+          overlayHidden = false;
+          if (overlayHideRestoreTimer) clearTimeout(overlayHideRestoreTimer);
+          overlayHideRestoreTimer = null;
         }
       }
     } catch {
@@ -826,7 +842,9 @@
 
 <div
   class="overlay"
-  style="opacity:{importantStore.phase === 'hidden' ? 0 : 1}; transition:opacity 800ms ease;"
+  style="opacity:{overlayHidden || importantStore.phase === 'hidden'
+    ? 0
+    : 1}; transition:{overlayHidden ? 'none' : 'opacity 800ms ease'};"
 >
   <div
     class="overlay-artist-widget"

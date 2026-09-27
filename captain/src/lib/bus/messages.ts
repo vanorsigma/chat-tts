@@ -36,10 +36,11 @@ export interface FakerWatchStreakMessage {
 
 export interface ControlMessage {
   type: 'control';
-  op: 'cancel' | 'blackSilence' | 'setEnabled' | 'important';
+  op: 'cancel' | 'blackSilence' | 'setEnabled' | 'important' | 'screenshot';
   enabled?: boolean;
   importantActive?: boolean;
   importantDurationSec?: number;
+  screenshotActive?: boolean;
 }
 
 export interface OverlayPositionsMessage {
