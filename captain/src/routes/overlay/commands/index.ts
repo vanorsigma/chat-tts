@@ -19,6 +19,16 @@ import { parseDuration } from '$lib/duration';
 import { CommandGate, type GateExemptionProvider } from './gate';
 import { CommandCooldowns } from '../cooldowns';
 
+function trimmedCommandMessage(message: ChatMessage, text: string): ChatMessage {
+  if (text === message.text) return message;
+  return new Proxy(message, {
+    get(target, prop, receiver) {
+      if (prop === 'text') return text;
+      return Reflect.get(target, prop, receiver);
+    }
+  });
+}
+
 export class Commands implements OverlayObserver {
   dispatchers?: OverlayDispatchers = undefined;
   private gate = new CommandGate();
@@ -65,7 +75,8 @@ export class Commands implements OverlayObserver {
       void this.handleBits(message, username);
     }
 
-    const firstSplit = message.text.split(' ')[0];
+    const text = message.text.trim();
+    const firstSplit = text.split(' ')[0];
     if (!firstSplit.startsWith('%')) return;
 
     const commandIndicator = asChatCommand(firstSplit);
@@ -92,7 +103,8 @@ export class Commands implements OverlayObserver {
       return;
     }
 
-    const rest = message.text.slice(firstSplit.length).trim();
+    const trimmed = trimmedCommandMessage(message, text);
+    const rest = text.slice(firstSplit.length).trim();
     if (REQUIRES_ARGS.has(commandIndicator) && !rest) {
       dispatcher.sendMessageAsUser(
         message.channelId!,
@@ -119,12 +131,12 @@ export class Commands implements OverlayObserver {
         dispatcher,
         message,
         this.getUserBitsBoost(username),
-        () => this.dispatchCommand(commandIndicator, dispatcher, message)
+        () => this.dispatchCommand(commandIndicator, dispatcher, trimmed)
       );
       return;
     }
 
-    this.dispatchCommand(commandIndicator, dispatcher, message);
+    this.dispatchCommand(commandIndicator, dispatcher, trimmed);
   }
 
   private async handleBits(message: ChatMessage, username: string) {
