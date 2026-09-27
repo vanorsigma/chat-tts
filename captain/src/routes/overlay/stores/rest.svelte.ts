@@ -152,14 +152,15 @@ export function createShowImageStore() {
 export interface ClipState {
   id: string;
   title?: string;
+  author?: string;
 }
 
 export function createShowClipStore() {
   let current: ClipState | null = $state(null);
   const pub = createPubSub<ClipState | null>();
 
-  function show(id: string, title?: string) {
-    current = { id, title };
+  function show(id: string, options: { title?: string; author?: string } = {}) {
+    current = { id, ...options };
     pub.notify(current);
   }
 

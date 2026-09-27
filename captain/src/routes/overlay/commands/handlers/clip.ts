@@ -5,14 +5,16 @@ import { parseTwitchClipId } from '$lib/clips/parse';
 import { withCostOrFreeUser } from './shared';
 import { showClipStore } from '../../stores';
 
-type ClipInfoResult = { ok: true; title?: string } | { ok: false; message: string };
+type ClipInfoResult =
+  | { ok: true; title?: string; author?: string }
+  | { ok: false; message: string };
 
 async function requestClipInfo(clipId: string): Promise<ClipInfoResult> {
   try {
     const res = await fetch(`/api/clip/${clipId}/info`);
     if (res.ok) {
-      const info = (await res.json()) as { title?: string };
-      return { ok: true, title: info.title };
+      const info = (await res.json()) as { title?: string; author?: string };
+      return { ok: true, title: info.title, author: info.author };
     }
 
     const body = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -46,6 +48,6 @@ export async function showClipHandler(
   }
 
   await withCostOrFreeUser(dispatcher, message, config.user, config.cost, () => {
-    showClipStore.show(clipId, info.title);
+    showClipStore.show(clipId, { title: info.title, author: info.author });
   });
 }

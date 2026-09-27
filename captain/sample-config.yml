@@ -267,6 +267,9 @@ filteredExps:
   - '^[!`{~].*'
   - '(?:[0-9] *){7,}'
   - '[sS]hikanoko'
+clipStoreConfig:
+  url: 'https://cliptokens.streamingtools.catmaid.dev'
+  key: ''
 # overlayPositionsConfig:
 #   # All values are pixels on the 1920x1080 overlay stage.
 #   # Configure them visually: drag/resize the boxes in the Config editor on the

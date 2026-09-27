@@ -338,12 +338,54 @@ export const configSchema = [
     alwaysPresent: true,
     presets: [
       {
+        label: 'Default',
+        values: {
+          artistWidgetX: 20,
+          artistWidgetY: 20,
+          artistWidgetWidth: 360,
+          artistWidgetHeight: 90,
+          clipX: 560,
+          clipY: 315,
+          clipWidth: 800,
+          clipHeight: 450,
+          rightPanelX: 1520,
+          rightPanelY: 0,
+          rightPanelWidth: 400,
+          rightPanelHeight: 1080,
+          pinX: 760,
+          pinY: 40,
+          pinWidth: 400,
+          pinHeight: 120,
+          wheelX: 960,
+          wheelY: 540,
+          wheelWidth: 648,
+          wheelHeight: 648
+        }
+      },
+      {
         label: 'Wheel: center',
         values: { wheelX: 960, wheelY: 540, wheelWidth: 648, wheelHeight: 648 }
       },
       {
         label: 'Wheel: small bottom-right',
         values: { wheelX: 1720, wheelY: 900, wheelWidth: 280, wheelHeight: 280 }
+      },
+      {
+        label: 'Gaming',
+        values: {
+          clipX: 20,
+          clipY: 315,
+          clipWidth: 800,
+          clipHeight: 450,
+          wheelX: 1720,
+          wheelY: 900,
+          wheelWidth: 280,
+          wheelHeight: 280,
+          rightPanelX: 1600,
+          rightPanelY: 0,
+          rightPanelWidth: 320,
+          rightPanelHeight: 760
+        }
       }
     ],
     widgetGroups: [
@@ -573,6 +615,27 @@ export const configSchema = [
           },
           { key: 'amount', kind: 'number', label: 'Amount', default: 0, min: 0, step: 1 }
         ]
+      }
+    ]
+  },
+  {
+    key: 'clipStoreConfig',
+    kind: 'optional-object',
+    label: 'Clip Store',
+    required: true,
+    alwaysPresent: true,
+    objectFields: [
+      {
+        key: 'url',
+        kind: 'text',
+        label: 'Clip Store URL',
+        placeholder: 'https://clipstore.<worker>.workers.dev'
+      },
+      {
+        key: 'key',
+        kind: 'secret',
+        label: 'Clip Store Key',
+        placeholder: 'shared worker secret'
       }
     ]
   }

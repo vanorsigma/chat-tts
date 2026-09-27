@@ -24,6 +24,13 @@ const _tokenCache: Record<string, TokenData | null> = {};
 type TokenRefreshBroadcaster = (msg: { type: 'tokenRefreshed'; account: string }) => void;
 let _tokenRefreshBroadcaster: TokenRefreshBroadcaster | null = null;
 
+export function createStaticAuthProvider(
+  accessToken: string,
+  scope: string[] = []
+): StaticAuthProvider {
+  return new StaticAuthProvider(PUBLIC_TWITCH_APP_ID, accessToken, scope);
+}
+
 export function setTokenRefreshBroadcaster(fn: TokenRefreshBroadcaster) {
   _tokenRefreshBroadcaster = fn;
 }
@@ -108,7 +115,7 @@ function buildProvider(
   }
 
   console.warn(`tokens.${name}.json lacks refreshToken — using static auth (no auto-refresh).`);
-  const provider = new StaticAuthProvider(clientId, tokenData.accessToken, tokenData.scope);
+  const provider = createStaticAuthProvider(tokenData.accessToken, tokenData.scope);
   return { provider, userId };
 }
 

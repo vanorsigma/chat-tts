@@ -9,6 +9,7 @@ export const CLIP_DIR_PREFIX = 'twitchclip-';
 export interface TwitchClipInfo {
   channel: string;
   title: string;
+  author?: string;
 }
 
 export interface DownloadedClip {
@@ -34,7 +35,7 @@ export async function getClipInfo(id: string): Promise<TwitchClipInfo | null> {
     const info = await ytdlp.getInfoAsync<'video'>(clipUrl(id));
     const channel = info.channel ?? info.uploader;
     if (!channel) return null;
-    return { channel, title: info.title ?? '' };
+    return { channel, title: info.title ?? '', author: info.uploader };
   } catch (err) {
     console.warn('twitchClip.getClipInfo failed:', errorMessage(err));
     return null;

@@ -644,6 +644,17 @@ export const COMMAND_DEFINITIONS = [
     requiresArgs: true,
     help: '%moment <description>',
     cooldown: { global: 30000 }
+  }),
+  defineCommand({
+    names: ['%clip', '%c'],
+    section: section('clipConfig', 'Clip', [
+      { key: 'points', kind: 'number', label: 'Points reward', default: 5000, min: 0, step: 1 },
+      { key: 'karma', kind: 'number', label: 'Karma reward', default: 50, step: 1 }
+    ]),
+    gateMode: 'overlay',
+    needsBus: true,
+    help: '%clip [title] [duration]',
+    cooldown: { global: 30000, user: 30000 }
   })
 ] as const satisfies readonly CommandDefinition[];
 

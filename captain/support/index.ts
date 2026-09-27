@@ -8,14 +8,15 @@ import {
   Events,
   GatewayIntentBits,
   GuildMember,
-  InteractionReplyOptions,
-  InteractionUpdateOptions,
   MessageFlags,
   TextChannel,
   type APIInteractionGuildMember,
-  type ChatInputCommandInteraction
+  type ChatInputCommandInteraction,
+  type InteractionReplyOptions,
+  type InteractionUpdateOptions
 } from 'discord.js';
 import { Synth } from 'beepbox/esm/synth/synth';
+import WebSocket from 'ws';
 import {
   deleteFont,
   deletePendingFont,
@@ -59,6 +60,7 @@ const songChannelId = process.env['DISCORD_SONG_CHANNEL_ID'];
 const fontChannelId = process.env['DISCORD_FONT_CHANNEL_ID'];
 const fontApproveRoleId = process.env['DISCORD_FONT_APPROVE_ROLE_ID'];
 const fontUserId = process.env['DISCORD_FONT_USER_ID'];
+const clipChannelId = process.env['DISCORD_CLIP_CHANNEL_ID'];
 
 const FONT_PREVIEW_TEXT = 'The Quick Brown Fox Jumps Over The Lazy Dog';
 const ALLOWED_FONT_EXTENSIONS = ['.woff2', '.woff', '.ttf', '.otf', '.svg'];
@@ -583,6 +585,66 @@ async function expireAllApprovals(): Promise<void> {
   console.log(`Expired ${pending.length} pending font approvals on shutdown.`);
 }
 
+const CLIP_URL_RE = /^https:\/\/clips\.twitch\.tv\/[A-Za-z0-9_-]+$/;
+const TWITCH_USERNAME_RE = /^[A-Za-z0-9_]{1,25}$/;
+
+function startClipListener() {
+  const busUrl = process.env.BUS_URL ?? 'ws://localhost:3001';
+  if (!clipChannelId) {
+    console.warn('[ClipBot] DISCORD_CLIP_CHANNEL_ID not set - not posting clips to Discord.');
+    return;
+  }
+
+  async function postClip(username: unknown, url: string) {
+    const who =
+      typeof username === 'string' && TWITCH_USERNAME_RE.test(username)
+        ? `${username} clipped: `
+        : '';
+    try {
+      const channel = await client.channels.fetch(clipChannelId);
+      if (channel instanceof TextChannel) await channel.send({ content: `${who}${url}` });
+    } catch (e) {
+      console.warn('[ClipBot] failed to post clip:', e);
+    }
+  }
+
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  function scheduleReconnect() {
+    if (shuttingDown || reconnectTimer) return;
+    console.warn('[ClipBot] bus disconnected, reconnecting in 2s');
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connectToBus();
+    }, 2000);
+  }
+
+  function connectToBus() {
+    if (shuttingDown) return;
+    const ws = new WebSocket(`${busUrl}/receivers`);
+    ws.on('open', () => console.log(`[ClipBot] connected to receiver bus at ${busUrl}`));
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type !== 'clip-created' || typeof msg.url !== 'string') return;
+        if (!CLIP_URL_RE.test(msg.url)) {
+          console.warn('[ClipBot] ignoring non-clip url:', msg.url);
+          return;
+        }
+        void postClip(msg.username, msg.url);
+      } catch (e) {
+        console.warn('[ClipBot] failed to parse bus message:', e);
+      }
+    });
+    ws.on('close', () => scheduleReconnect());
+    ws.on('error', (err) => {
+      console.warn('[ClipBot] bus error:', err.message);
+      scheduleReconnect();
+    });
+  }
+
+  connectToBus();
+}
+
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
     if (shuttingDown) return;
@@ -595,4 +657,5 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 
 startWebsocketServer();
 startPicomService();
+startClipListener();
 client.login(token);

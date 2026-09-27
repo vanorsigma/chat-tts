@@ -38,25 +38,48 @@
 
 {#key clip.id}
   {@const clipId = clip.id}
-  <!-- svelte-ignore a11y_media_has_caption -->
-  <video
-    class="clip-video"
-    autoplay
-    playsinline
-    onloadedmetadata={(event) => armStallTimer(clipId, event.currentTarget)}
-    ontimeupdate={(event) => armStallTimer(clipId, event.currentTarget)}
-    onended={() => finish(clipId)}
-    onerror={() => finish(clipId)}
-  >
-    <source src={`/api/clip/${clipId}`} type="video/mp4" />
-  </video>
+  <div class="clip-root">
+    <!-- svelte-ignore a11y_media_has_caption -->
+    <video
+      class="clip-video"
+      autoplay
+      playsinline
+      onloadedmetadata={(event) => armStallTimer(clipId, event.currentTarget)}
+      ontimeupdate={(event) => armStallTimer(clipId, event.currentTarget)}
+      onended={() => finish(clipId)}
+      onerror={() => finish(clipId)}
+    >
+      <source src={`/api/clip/${clipId}`} type="video/mp4" />
+    </video>
+    {#if clip.author}
+      <div class="clip-author">clipped by {clip.author}</div>
+    {/if}
+  </div>
 {/key}
 
 <style>
+  .clip-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
   .clip-video {
     width: 100%;
     height: 100%;
     object-fit: contain;
     background-color: rgba(0, 0, 0, 0.6);
+  }
+
+  .clip-author {
+    position: absolute;
+    left: 0.4em;
+    bottom: 0.4em;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.1em 0.5em;
+    border-radius: 0.3em;
+    font-size: 32px;
+    font-weight: bold;
   }
 </style>

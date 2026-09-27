@@ -1,0 +1,14 @@
+name = "clipstore"
+main = "src/index.ts"
+compatibility_date = "2026-09-21"
+
+routes = [
+  { pattern = "cliptokens.streamingtools.catmaid.dev", custom_domain = true }
+]
+
+[observability]
+enabled = true
+
+[[kv_namespaces]]
+binding = "CLIP_TOKENS"
+  id = "d147276ff97944fc8cff7739d6a73d2c"

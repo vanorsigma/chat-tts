@@ -34,9 +34,10 @@ config.yml
 tokens.broadcaster.json
 tokens.bot.json
 
-# Backup files, PNPM (will migrate soon)
+# Backup files; we use bun, so ignore all other package managers
 pnpm-lock.yaml
 pnpm-workspace.yaml
+package-lock.json
 *.backup
 
 attachments/*

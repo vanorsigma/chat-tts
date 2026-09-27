@@ -103,6 +103,16 @@ export interface OverlayMomentConfig {
   reward: number;
 }
 
+export interface OverlayClipConfig {
+  points: number;
+  karma: number;
+}
+
+export interface ClipStoreConfig {
+  url: string;
+  key: string;
+}
+
 export interface OverlayResetCooldownConfig {
   cost: number;
 }
@@ -318,6 +328,7 @@ export interface FullConfig {
   showImageConfig: OverlayShowImageConfig;
   showClipConfig: OverlayShowClipConfig;
   momentConfig: OverlayMomentConfig;
+  clipConfig?: OverlayClipConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
   resetCooldownConfig: OverlayResetCooldownConfig;
@@ -349,6 +360,7 @@ export interface FullConfig {
   ignorePrefix: string;
   makiConfig: MakiConfig;
   redeemConfig: RedeemConfig;
+  clipStoreConfig: ClipStoreConfig;
 }
 
 export function parseConfig(raw: unknown): FullConfig {

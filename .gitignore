@@ -15,5 +15,8 @@ uv.lock
 # Backup files
 *.backup
 
+# Cloudflare Workers build cache
+.wrangler/
+
 # Kiki new ChromaDB vector memory store
 kikimaki-rs/kiki-new/.kiki_memories/

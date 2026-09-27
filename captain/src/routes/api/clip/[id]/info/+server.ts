@@ -10,5 +10,5 @@ export const GET: RequestHandler = async ({ params }) => {
   const clip = await resolveOwnedClip(id);
   if (!clip.ok) error(clip.status, clip.message);
 
-  return json({ id, channel: clip.info.channel, title: clip.info.title });
+  return json({ id, channel: clip.info.channel, title: clip.info.title, author: clip.info.author });
 };

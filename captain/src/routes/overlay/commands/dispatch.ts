@@ -6,6 +6,7 @@ import type { GatedCommand } from './definitions';
 import type {
   OverlayBlackSilenceConfig,
   OverlayCheckInConfig,
+  OverlayClipConfig,
   OverlayCutConfig,
   OverlayFlashbangConfig,
   OverlayFontConfig,
@@ -43,6 +44,7 @@ import {
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
 import { showClipHandler } from './handlers/clip';
+import { clipCreateHandler } from './handlers/clipCreate';
 import { momentHandler } from './handlers/moment';
 import {
   buyHandler,
@@ -115,6 +117,10 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
     showClipHandler(dispatcher, message, config as OverlayShowClipConfig),
   '%moment': (_commands, dispatcher, message, config) =>
     momentHandler(dispatcher, message, config as OverlayMomentConfig),
+  '%clip': (commands, dispatcher, message, config) =>
+    clipCreateHandler(commands, dispatcher, message, config as OverlayClipConfig),
+  '%c': (commands, dispatcher, message, config) =>
+    clipCreateHandler(commands, dispatcher, message, config as OverlayClipConfig),
   '%buy': (commands, dispatcher, message) => buyHandler(commands, dispatcher, message),
   '%sell': (_commands, dispatcher, message) => sellHandler(dispatcher, message),
   '%stocks': (_commands, dispatcher, message) => stocksHandler(dispatcher, message),
