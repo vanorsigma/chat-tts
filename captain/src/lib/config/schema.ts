@@ -359,7 +359,11 @@ export const configSchema = [
           wheelX: 960,
           wheelY: 540,
           wheelWidth: 648,
-          wheelHeight: 648
+          wheelHeight: 648,
+          makiWidgetX: 960,
+          makiWidgetY: 540,
+          makiWidgetWidth: 800,
+          makiWidgetHeight: 400
         }
       },
       {
@@ -384,7 +388,11 @@ export const configSchema = [
           rightPanelX: 1600,
           rightPanelY: 0,
           rightPanelWidth: 320,
-          rightPanelHeight: 760
+          rightPanelHeight: 760,
+          makiWidgetX: 1380,
+          makiWidgetY: 140,
+          makiWidgetWidth: 400,
+          makiWidgetHeight: 200
         }
       }
     ],
@@ -393,7 +401,8 @@ export const configSchema = [
       { id: 'clip', label: 'Twitch clip', prefix: 'clip', origin: 'topLeft' },
       { id: 'rightPanel', label: 'Right panel', prefix: 'rightPanel', origin: 'topLeft' },
       { id: 'pin', label: 'Pinned message', prefix: 'pin', origin: 'topLeft' },
-      { id: 'wheel', label: 'Gamba wheel', prefix: 'wheel', origin: 'center' }
+      { id: 'wheel', label: 'Gamba wheel', prefix: 'wheel', origin: 'center' },
+      { id: 'maki', label: 'Maki text box', prefix: 'makiWidget', origin: 'center' }
     ],
     objectFields: [
       {
@@ -572,6 +581,42 @@ export const configSchema = [
         kind: 'number',
         label: 'Wheel height',
         default: 648,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'makiWidgetX',
+        kind: 'number',
+        label: 'Maki text box X (center)',
+        default: 960,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'makiWidgetY',
+        kind: 'number',
+        label: 'Maki text box Y (center)',
+        default: 540,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'makiWidgetWidth',
+        kind: 'number',
+        label: 'Maki text box width',
+        default: 800,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'makiWidgetHeight',
+        kind: 'number',
+        label: 'Maki text box height',
+        default: 400,
         min: 0,
         max: 1080,
         step: 1

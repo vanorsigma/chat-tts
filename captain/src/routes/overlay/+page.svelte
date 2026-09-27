@@ -882,7 +882,10 @@
   {/if}
 
   {#if currentMakiDuration > 0}
-    <div class="makiShared">
+    <div
+      class="makiShared makiBox"
+      style="left: {$positionStore.makiWidgetX}px; top: {$positionStore.makiWidgetY}px; width: {$positionStore.makiWidgetWidth}px; height: {$positionStore.makiWidgetHeight}px;"
+    >
       <div class="makiOutput">
         <div class="makiCountdown">{currentMakiDuration}</div>
         <p>{displayedMakiMessage}</p>
@@ -1112,6 +1115,10 @@
     justify-content: center;
   }
 
+  .makiShared.makiBox {
+    transform: translate(-50%, -50%);
+  }
+
   .makiShared .makiOutput .makiCountdown {
     background-color: rgba(0, 0, 0, 0.6);
     color: white;
@@ -1129,11 +1136,12 @@
     border: 2px solid rgba(0, 123, 255, 0.7);
     border-radius: 12px;
     padding: 20px;
+    box-sizing: border-box;
     overflow-wrap: break-word;
     word-wrap: break-word;
     overflow-y: hidden;
-    width: 800px;
-    height: 400px;
+    width: 100%;
+    height: 100%;
   }
 
   .makiShared p {

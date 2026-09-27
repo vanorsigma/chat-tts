@@ -255,6 +255,10 @@ export interface OverlayPositionsConfig {
   wheelY: number;
   wheelWidth: number;
   wheelHeight: number;
+  makiWidgetX: number;
+  makiWidgetY: number;
+  makiWidgetWidth: number;
+  makiWidgetHeight: number;
 }
 
 export interface StartingSoonArtEntry {
