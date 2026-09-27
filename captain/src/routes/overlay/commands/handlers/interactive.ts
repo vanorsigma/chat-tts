@@ -10,6 +10,7 @@ import type {
 import { goodnightKissStore, karmaStore, raidStore } from '../../stores';
 import { ApprovableObserver } from '../../approvable';
 import { random } from '$lib/utils';
+import { lotteryPayout } from '../../gamba/lottery';
 
 export async function raidHandler(dispatcher: OverlayDispatchers, message: ChatMessage) {
   if (!message.userInfo.isBroadcaster) return;
@@ -58,6 +59,13 @@ export async function raidHandler(dispatcher: OverlayDispatchers, message: ChatM
   raidStore.markRaidedOut();
   console.log(`raid: raid started to ${target.name}, timeouts disabled for this session`);
   dispatcher.sendMessageAsUser(message.channelId!, 'raided out', message.id);
+  await lotteryPayout({
+    dispatcher,
+    channelId: message.channelId!,
+    userId: message.userInfo.userId,
+    isMod: message.userInfo.isMod,
+    messageId: message.id
+  });
 }
 
 export async function goodnightkissHandler(

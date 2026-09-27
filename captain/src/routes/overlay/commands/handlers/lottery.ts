@@ -1,11 +1,10 @@
 import type { OverlayDispatchers } from '../../dispatcher';
 import type { ChatMessage } from '@twurple/chat';
 import type { Commands } from '../index';
-import { enqueueGambaSpin } from '../../gamba/queue';
-import { LotteryWinnerItem } from '../../gamba/gamba';
 import { requireUsername } from './shared';
 import { checkCostAddIfEnough } from '../middleware';
-import { getLottery, addLotteryEntry, clearLottery } from '$lib/api/lottery';
+import { getLottery, addLotteryEntry } from '$lib/api/lottery';
+import { lotteryPayout } from '../../gamba/lottery';
 
 export async function lotteryHandler(
   commands: Commands,
@@ -38,39 +37,14 @@ export async function lotteryHandler(
       return;
     }
 
-    const { entries, tax } = await getLottery();
-    if (entries.length === 0) {
-      dispatcher.sendMessageAsUser(
-        message.channelId!,
-        'no participants entered the lottery yet',
-        message.id
-      );
-      return;
-    }
-
-    const pool = entries.reduce((sum, e) => sum + e.shares, 0) + tax;
-    const items = entries.map((e) => new LotteryWinnerItem(e.shares, e.username, pool));
-    await clearLottery();
-
-    dispatcher.sendMessageAsUser(
-      message.channelId!,
-      `Lottery payout spinning! Pool: ${pool} vanorDollars over ${entries.length} participants`,
-      message.id
-    );
-
-    enqueueGambaSpin(
-      {
-        dispatcher,
-        channelId: message.channelId!,
-        username: 'Lottery',
-        userId: message.userInfo.userId,
-        isMod: message.userInfo.isMod,
-        bet: 0,
-        commands
-      },
-      1,
-      items
-    );
+    await lotteryPayout({
+      dispatcher,
+      channelId: message.channelId!,
+      userId: message.userInfo.userId,
+      isMod: message.userInfo.isMod,
+      commands,
+      messageId: message.id
+    });
     return;
   }
 
