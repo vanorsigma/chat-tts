@@ -10,7 +10,13 @@ import {
   type TextBulletPart
 } from './parsing-core';
 
-export { isImageBulletPart, isTextBulletPart, type BulletPart, type TextBulletPart };
+export {
+  isImageBulletPart,
+  isTextBulletPart,
+  type BulletPart,
+  type ImageBulletPart,
+  type TextBulletPart
+};
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 const GLOBAL_EMOTE_SET_ID = 'global';
@@ -65,10 +71,6 @@ export async function splitMessage(
   }
 
   const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(skips, message);
-
-  if (parsed.length === 0) {
-    parsed.push(message);
-  }
 
   return (
     await Promise.all(

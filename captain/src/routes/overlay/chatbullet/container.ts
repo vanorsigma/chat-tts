@@ -356,8 +356,12 @@ export class ChatBulletContainer implements OverlayObserver {
         const url = `https:${part.imgsrc.replace('https:', '')}`;
         let partGifTextures = this.cache.get(url);
         if (!partGifTextures) {
-          partGifTextures = await fetchAnimatedTextures(url);
-          this.cache.put(url, partGifTextures);
+          try {
+            partGifTextures = await fetchAnimatedTextures(url);
+            this.cache.put(url, partGifTextures);
+          } catch {
+            continue;
+          }
         }
 
         if (!partGifTextures) continue;

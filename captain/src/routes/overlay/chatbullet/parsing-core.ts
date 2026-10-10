@@ -16,18 +16,22 @@ export function isTextBulletPart(part: BulletPart): part is TextBulletPart {
   return (part as TextBulletPart).text !== undefined;
 }
 
+function parsePosition(position: string): [number, number] | null {
+  const [start, end] = position.split('-').map(Number);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return [start, end - start + 1];
+}
+
 export function emoteOffsetsToSkips(ranges: Map<string, string[]>): Map<number, [number, string]> {
-  return new Map(
-    ranges.entries().flatMap(([id, positions]) =>
-      positions.map((position) => {
-        const [start, end] = position.split('-').map((e) => Number(e));
-        return [
-          start,
-          [end - start + 1, `https://static-cdn.jtvnw.net/emoticons/v1/${id}/3.0`]
-        ] as [number, [number, string]];
-      })
-    )
-  );
+  const result = new Map<number, [number, string]>();
+  for (const [id, positions] of ranges) {
+    for (const position of positions) {
+      const parsed = parsePosition(position);
+      if (!parsed) continue;
+      result.set(parsed[0], [parsed[1], `https://static-cdn.jtvnw.net/emoticons/v1/${id}/3.0`]);
+    }
+  }
+  return result;
 }
 
 export function gifPositionsToSkips(tag: string | undefined): Map<number, [number, string]> {
@@ -35,13 +39,11 @@ export function gifPositionsToSkips(tag: string | undefined): Map<number, [numbe
   if (!tag) return result;
 
   for (const entry of tag.split(',')) {
-    const [position, , url] = entry.split('|');
-    if (!position || !url) continue;
-
-    const [start, end] = position.split('-').map((e) => Number(e));
-    if (Number.isNaN(start) || Number.isNaN(end)) continue;
-
-    result.set(start, [end - start + 1, url]);
+    const parts = entry.split('|');
+    if (!parts[0] || !parts[2]) continue;
+    const parsed = parsePosition(parts[0]);
+    if (!parsed) continue;
+    result.set(parsed[0], [parsed[1], parts[2]]);
   }
 
   return result;
@@ -55,8 +57,9 @@ export function messageEntryBreaker(
   let last_i = 0;
   let i = 0;
   while (i < message.length) {
-    if (skips.has(i)) {
-      const [length, imgsrc] = skips.get(i)!;
+    const skip = skips.get(i);
+    if (skip) {
+      const [length, imgsrc] = skip;
       result.push(message.slice(last_i, i));
       result.push({ imgsrc });
       i += length;
