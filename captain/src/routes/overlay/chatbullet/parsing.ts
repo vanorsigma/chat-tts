@@ -57,18 +57,21 @@ export async function splitMessage(
   message: string,
   gifsTag?: string
 ): Promise<BulletPart[]> {
+  // gifs override emotes at the same offset
   const skips = new Map([...emoteOffsetsToSkips(ranges), ...gifPositionsToSkips(gifsTag)]);
 
   const parsed = messageEntryBreaker(skips, message);
 
   return (
     await Promise.all(
-      parsed.map(async (partial) => {
-        if (!isImageBulletPart(partial)) {
-          return await sevenSplitMessage(partial);
-        }
-        return [partial];
-      })
+      parsed
+        .filter((p) => p !== '')
+        .map(async (partial) => {
+          if (!isImageBulletPart(partial)) {
+            return await sevenSplitMessage(partial);
+          }
+          return [partial];
+        })
     )
   ).flat();
 }

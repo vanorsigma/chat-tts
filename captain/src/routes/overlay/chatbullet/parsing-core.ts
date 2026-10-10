@@ -17,8 +17,11 @@ export function isTextBulletPart(part: BulletPart): part is TextBulletPart {
 }
 
 function parsePosition(position: string): [number, number] | null {
-  const [start, end] = position.split('-').map(Number);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  const match = /^(\d+)-(\d+)$/.exec(position);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  if (end < start) return null;
   return [start, end - start + 1];
 }
 
@@ -54,22 +57,22 @@ export function messageEntryBreaker(
   message: string
 ): (string | ImageBulletPart)[] {
   const result: (string | ImageBulletPart)[] = [];
-  let last_i = 0;
+  let lastIndex = 0;
   let i = 0;
   while (i < message.length) {
     const skip = skips.get(i);
     if (skip) {
       const [length, imgsrc] = skip;
-      result.push(message.slice(last_i, i));
+      result.push(message.slice(lastIndex, i));
       result.push({ imgsrc });
       i += length;
-      last_i = i;
+      lastIndex = i;
       continue;
     }
 
     i++;
   }
 
-  result.push(message.slice(last_i, i));
+  result.push(message.slice(lastIndex, i));
   return result;
 }
