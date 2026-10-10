@@ -1,6 +1,7 @@
 import { is7TVEmote } from '$lib/seventv';
 
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
+const GLOBAL_EMOTE_SET_ID = 'global';
 
 export interface ImageBulletPart {
   imgsrc: string;
@@ -50,7 +51,9 @@ async function sevenSplitMessage(message: string): Promise<BulletPart[]> {
   const parts = await Promise.all(
     message.split(' ').map((potential) =>
       (async () => {
-        const emote = await is7TVEmote(EMOTE_SET_ID, potential);
+        const emote =
+          (await is7TVEmote(EMOTE_SET_ID, potential)) ??
+          (await is7TVEmote(GLOBAL_EMOTE_SET_ID, potential));
         if (emote !== null) {
           const url4x = emote.urls.filter((url) => url.includes('4x.webp'))[0];
           if (url4x) {
