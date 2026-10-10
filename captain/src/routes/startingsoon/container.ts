@@ -1,11 +1,11 @@
 import { Application, Assets, Container, Sprite, Text, Texture, TextStyle, Ticker } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
 import {
-  splitMessage,
   isImageBulletPart,
   isTextBulletPart,
   type BulletPart
-} from '../overlay/chatbullet/parsing';
+} from '../overlay/chatbullet/parsing-core';
+import { splitMessage } from '../overlay/chatbullet/parsing';
 import { random } from '$lib/utils';
 
 const PADDING = 5;

@@ -10,14 +10,6 @@ import {
   type TextBulletPart
 } from './parsing-core';
 
-export {
-  isImageBulletPart,
-  isTextBulletPart,
-  type BulletPart,
-  type ImageBulletPart,
-  type TextBulletPart
-};
-
 const EMOTE_SET_ID = '01J452JCVG0000352W25T9VEND';
 const GLOBAL_EMOTE_SET_ID = 'global';
 
@@ -65,12 +57,9 @@ export async function splitMessage(
   message: string,
   gifsTag?: string
 ): Promise<BulletPart[]> {
-  const skips = emoteOffsetsToSkips(ranges);
-  for (const [start, skip] of gifPositionsToSkips(gifsTag)) {
-    skips.set(start, skip);
-  }
+  const skips = new Map([...emoteOffsetsToSkips(ranges), ...gifPositionsToSkips(gifsTag)]);
 
-  const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(skips, message);
+  const parsed = messageEntryBreaker(skips, message);
 
   return (
     await Promise.all(
@@ -81,5 +70,5 @@ export async function splitMessage(
         return [partial];
       })
     )
-  ).flatMap((e) => e);
+  ).flat();
 }

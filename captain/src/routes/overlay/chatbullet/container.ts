@@ -8,7 +8,8 @@ import { getSubTier } from '$lib/api/subtiers';
 import { karmaStore, pinStore } from '../stores';
 import { getOverlayConfig, isDelegateVoiceToOverlay } from '../constants';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
-import { isImageBulletPart, isTextBulletPart, splitMessage, type BulletPart } from './parsing';
+import { isImageBulletPart, isTextBulletPart, type BulletPart } from './parsing-core';
+import { splitMessage } from './parsing';
 import { shouldSkipMessage } from '$lib/messageGuard';
 import type { SpeakTTS } from '$lib/remoteTTSMessages';
 import { getFontUrl, getUserFontStyle } from '$lib/api/font';
@@ -359,12 +360,12 @@ export class ChatBulletContainer implements OverlayObserver {
           try {
             partGifTextures = await fetchAnimatedTextures(url);
             this.cache.put(url, partGifTextures);
-          } catch {
+          } catch (err) {
+            console.warn('Failed to load chat image', url, err);
             continue;
           }
         }
 
-        if (!partGifTextures) continue;
         const partGif = makeAnimatedSprite(partGifTextures);
         if (!partGif) continue;
 
