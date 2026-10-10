@@ -1,6 +1,7 @@
 import { is7TVEmote } from '$lib/seventv';
 import {
   emoteOffsetsToSkips,
+  gifPositionsToSkips,
   isImageBulletPart,
   isTextBulletPart,
   messageEntryBreaker,
@@ -55,12 +56,15 @@ async function sevenSplitMessage(message: string): Promise<BulletPart[]> {
 
 export async function splitMessage(
   ranges: Map<string, string[]>,
-  message: string
+  message: string,
+  gifsTag?: string
 ): Promise<BulletPart[]> {
-  const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(
-    emoteOffsetsToSkips(ranges),
-    message
-  );
+  const skips = emoteOffsetsToSkips(ranges);
+  for (const [start, skip] of gifPositionsToSkips(gifsTag)) {
+    skips.set(start, skip);
+  }
+
+  const parsed: (string | ImageBulletPart)[] = messageEntryBreaker(skips, message);
 
   if (parsed.length === 0) {
     parsed.push(message);

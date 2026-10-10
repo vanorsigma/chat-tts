@@ -126,7 +126,7 @@ export class StartingSoonBulletContainer {
     if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
     this.spawnTextBullet(
       message.userInfo.displayName ?? message.userInfo.userName,
-      await splitMessage(message.emoteOffsets, message.text),
+      await splitMessage(message.emoteOffsets, message.text, message.tags.get('gifs')),
       message.userInfo.color
     );
   }

@@ -192,7 +192,7 @@ export class ChatBulletContainer implements OverlayObserver {
       return;
     if (!this.isEnabled) return;
 
-    const parts = await splitMessage(message.emoteOffsets, message.text);
+    const parts = await splitMessage(message.emoteOffsets, message.text, message.tags.get('gifs'));
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
     const selectedFamily = await this.resolveUserFontFamily(message.userInfo.userName);
