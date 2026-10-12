@@ -23,7 +23,8 @@ import type {
   OverlaySelfThoughtConfig,
   OverlaySetTitleConfig,
   OverlayShowClipConfig,
-  OverlayShowImageConfig
+  OverlayShowImageConfig,
+  OverlaySummariserConfig
 } from '$lib/config';
 import {
   transferHandler,
@@ -43,6 +44,7 @@ import {
   rotateHandler
 } from './handlers/redeems';
 import { mediaHandler } from './handlers/media';
+import { summaryHandler } from './handlers/summariser';
 import { showClipHandler } from './handlers/clip';
 import { clipCreateHandler } from './handlers/clipCreate';
 import { momentHandler } from './handlers/moment';
@@ -132,6 +134,8 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
   '%lottery': (commands, dispatcher, message) => lotteryHandler(commands, dispatcher, message),
   '%selfthought': (_commands, dispatcher, message, config) =>
     selfThoughtHandler(dispatcher, message, config as OverlaySelfThoughtConfig),
+  '%summary': (_commands, dispatcher, message, config) =>
+    summaryHandler(dispatcher, message, config as OverlaySummariserConfig),
   '%goodnightkiss': (_commands, dispatcher, message, config) =>
     goodnightkissHandler(dispatcher, message, config as OverlayGoodNightKissConfig),
   '%raid': (_commands, dispatcher, message) => raidHandler(dispatcher, message),

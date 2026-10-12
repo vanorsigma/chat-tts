@@ -85,6 +85,21 @@ cutConfig:
 selfThoughtConfig:
   cost: 5000
   karma: -200
+summariserConfig:
+  cost: 100000
+  user: vanorsigma
+  blacklistedCategories: []
+  openrouterApiKey: ''
+  summaryModel: 'google/gemini-2.5-flash'
+  correctionModel: 'google/gemini-2.5-flash-lite'
+  maxTokens: 1024
+  windowMinutes: 10
+  rollingWindowSize: 10
+  summaryIntervalMinutes: 10
+  asrModelDir: 'models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25'
+  micDevice: ''
+  screenshotMonitor: 'HDMI-A-1'
+  communicationBusUrl: 'ws://localhost:3001/senders'
 goodNightKissConfig:
   cost: 5000
   user: pastel8844

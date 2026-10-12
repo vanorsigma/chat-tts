@@ -122,6 +122,23 @@ export interface OverlaySelfThoughtConfig {
   karma: number;
 }
 
+export interface OverlaySummariserConfig {
+  cost: number;
+  user: string;
+  blacklistedCategories: string[];
+  openrouterApiKey: string;
+  summaryModel: string;
+  correctionModel: string;
+  maxTokens: number;
+  windowMinutes: number;
+  rollingWindowSize: number;
+  summaryIntervalMinutes: number;
+  asrModelDir: string;
+  micDevice: string;
+  screenshotMonitor: string;
+  communicationBusUrl: string;
+}
+
 export interface OverlayGoodNightKissConfig {
   cost: number;
   user: string;
@@ -335,6 +352,7 @@ export interface FullConfig {
   clipConfig?: OverlayClipConfig;
   playAudioConfig?: OverlayPlayAudioConfig;
   selfThoughtConfig?: OverlaySelfThoughtConfig;
+  summariserConfig?: OverlaySummariserConfig;
   resetCooldownConfig: OverlayResetCooldownConfig;
   goodNightKissConfig?: OverlayGoodNightKissConfig;
   setTitleConfig?: OverlaySetTitleConfig;

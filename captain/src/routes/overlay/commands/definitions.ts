@@ -655,6 +655,84 @@ export const COMMAND_DEFINITIONS = [
     needsBus: true,
     help: '%clip [title] [duration]',
     cooldown: { global: 30000, user: 30000 }
+  }),
+  defineCommand({
+    names: ['%summary'],
+    section: section('summariserConfig', 'Summariser', [
+      { key: 'cost', kind: 'number', label: 'Cost', default: 100000, min: 0, step: 1 },
+      { key: 'user', kind: 'text', label: 'Free user', default: 'vanorsigma' },
+      {
+        key: 'blacklistedCategories',
+        kind: 'list-of-text',
+        label: 'Blacklisted categories',
+        placeholder: 'Just Chatting'
+      },
+      {
+        key: 'openrouterApiKey',
+        kind: 'secret',
+        label: 'OpenRouter API Key',
+        placeholder: 'sk-or-v1-...'
+      },
+      {
+        key: 'summaryModel',
+        kind: 'text',
+        label: 'Summary model',
+        default: 'google/gemini-2.5-flash'
+      },
+      {
+        key: 'correctionModel',
+        kind: 'text',
+        label: 'Correction model',
+        default: 'google/gemini-2.5-flash-lite'
+      },
+      { key: 'maxTokens', kind: 'number', label: 'Max tokens', default: 1024, min: 1, step: 1 },
+      {
+        key: 'windowMinutes',
+        kind: 'number',
+        label: 'Window (minutes)',
+        default: 10,
+        min: 1,
+        step: 1
+      },
+      {
+        key: 'rollingWindowSize',
+        kind: 'number',
+        label: 'Rolling window size',
+        default: 10,
+        min: 1,
+        step: 1
+      },
+      {
+        key: 'summaryIntervalMinutes',
+        kind: 'number',
+        label: 'Summary interval (minutes)',
+        default: 10,
+        min: 1,
+        step: 1
+      },
+      {
+        key: 'asrModelDir',
+        kind: 'text',
+        label: 'sherpa-onnx model dir',
+        default: 'models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25'
+      },
+      { key: 'micDevice', kind: 'text', label: 'Microphone device', default: '' },
+      {
+        key: 'screenshotMonitor',
+        kind: 'text',
+        label: 'Screenshot monitor',
+        default: 'HDMI-A-1'
+      },
+      {
+        key: 'communicationBusUrl',
+        kind: 'text',
+        label: 'Communication Bus URL',
+        default: 'ws://localhost:3001/senders'
+      }
+    ]),
+    gateMode: 'overlay',
+    requiresArgs: false,
+    cooldown: { global: 0, user: 0 }
   })
 ] as const satisfies readonly CommandDefinition[];
 
