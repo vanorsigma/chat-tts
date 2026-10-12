@@ -9,7 +9,12 @@ from shared.bus_receiver import run_receiver
 from .audio import Transcriber
 from .bus import Bus
 from .chat import ChatBuffer
-from .config import CategoryTracker, SummariserConfig, fetch_summariser_config
+from .config import (
+    CategoryTracker,
+    SummariserConfig,
+    is_standalone,
+    load_summariser_config,
+)
 from .memory import Memory
 from .screenshot import Screenshot
 from .summariser import SummaryAgent
@@ -56,6 +61,8 @@ class SummariserService:
         await self.memory.add(category, stream_id, text, created_at)
         await self.bus.send_summary(category, text, created_at, stream_id)
         print(f"[SUMMARISER] Generated summary for {category!r} ({len(text)} chars)")
+        if is_standalone():
+            print(f"[SUMMARISER] {text}")
         return {
             "category": category,
             "text": text,
@@ -99,7 +106,7 @@ class SummariserService:
         return aiohttp.web.json_response(payload, headers=CORS)
 
     async def _periodic(self) -> None:
-        interval = self.config.summary_interval_minutes * 60
+        interval = self.config.window_minutes * 60
         while True:
             await asyncio.sleep(interval)
             if self.important:
@@ -134,8 +141,12 @@ async def _serve(service: SummariserService) -> aiohttp.web.AppRunner:
 
 async def _main() -> None:
     install_bus_logging("[Summariser]")
-    config, channel = await fetch_summariser_config()
+    standalone = is_standalone()
+    config, channel = await load_summariser_config()
     service = SummariserService(config, channel)
+    if standalone:
+        service.category.category = channel
+        service.category.is_live = True
 
     try:
         await service.chat.connect()
@@ -143,11 +154,10 @@ async def _main() -> None:
         print(f"[SUMMARISER] IRC connection failed, summarising without chat: {e}")
     await service.transcriber.start()
 
-    tasks = [
-        await run_receiver({"control": service.on_control}),
-        asyncio.create_task(service.category.run()),
-        asyncio.create_task(service._periodic()),
-    ]
+    tasks = [await run_receiver({"control": service.on_control})]
+    if not standalone:
+        tasks.append(asyncio.create_task(service.category.run()))
+    tasks.append(asyncio.create_task(service._periodic()))
     runner = await _serve(service)
 
     try:

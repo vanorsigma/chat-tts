@@ -1,30 +1,42 @@
 import asyncio
 import os
+from pathlib import Path
 
 import aiohttp
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 CATEGORY_POLL_SECONDS = 30
+STANDALONE_CHANNEL = os.getenv("SUMMARISER_CHANNEL", "vanorsigma")
+DEFAULT_ASR_MODEL_DIR = str(
+    Path(__file__).resolve().parents[2]
+    / "models"
+    / "sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25"
+)
 
 
 class SummariserConfig(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    cost: int
-    user: str
-    blacklisted_categories: list[str]
-    openrouter_api_key: str
-    summary_model: str
-    correction_model: str
-    max_tokens: int
-    window_minutes: int
-    rolling_window_size: int
-    summary_interval_minutes: int
-    asr_model_dir: str
-    mic_device: str
-    screenshot_monitor: str
-    communication_bus_url: str
+    cost: int = 0
+    user: str = "standalone"
+    blacklisted_categories: list[str] = Field(default_factory=list)
+    openrouter_api_key: str = Field(
+        default_factory=lambda: os.getenv("OPENROUTER_API_KEY", "")
+    )
+    summary_model: str = "google/gemini-3.5-flash-lite"
+    correction_model: str = "google/gemini-3.5-flash-lite"
+    max_tokens: int = 100_000
+    window_minutes: int = 10
+    rolling_window_size: int = 10
+    asr_model_dir: str = DEFAULT_ASR_MODEL_DIR
+    mic_device: str = ""
+    screenshot_monitor: str = "HDMI-A-1"
+    communication_bus_url: str = "ws://localhost:3001/senders"
+
+
+def is_standalone() -> bool:
+    return bool(os.getenv("SUMMARISER_STANDALONE"))
 
 
 def captain_base_url() -> str:
@@ -59,6 +71,13 @@ async def fetch_summariser_config() -> tuple[SummariserConfig, str]:
     config = SummariserConfig(**raw)
     print(f"[CONFIG] Obtained config: model={config.summary_model}, channel={channel}")
     return config, channel
+
+
+async def load_summariser_config() -> tuple[SummariserConfig, str]:
+    if is_standalone():
+        print("[CONFIG] Standalone mode, using defaults instead of Captain")
+        return SummariserConfig(), STANDALONE_CHANNEL
+    return await fetch_summariser_config()
 
 
 class CategoryTracker:

@@ -95,7 +95,6 @@ summariserConfig:
   maxTokens: 1024
   windowMinutes: 10
   rollingWindowSize: 10
-  summaryIntervalMinutes: 10
   asrModelDir: 'models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25'
   micDevice: ''
   screenshotMonitor: 'HDMI-A-1'

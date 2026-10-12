@@ -132,7 +132,6 @@ export interface OverlaySummariserConfig {
   maxTokens: number;
   windowMinutes: number;
   rollingWindowSize: number;
-  summaryIntervalMinutes: number;
   asrModelDir: string;
   micDevice: string;
   screenshotMonitor: string;

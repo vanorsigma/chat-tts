@@ -21,5 +21,6 @@ uv.lock
 # Kiki new ChromaDB vector memory store
 kikimaki-rs/kiki-new/.kiki_memories/
 
-# Summariser ChromaDB store
+# Summariser ChromaDB store + Models directory
 summariser/.summaries/
+summariser/models/

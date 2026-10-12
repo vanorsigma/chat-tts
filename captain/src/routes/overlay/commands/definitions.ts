@@ -703,14 +703,6 @@ export const COMMAND_DEFINITIONS = [
         step: 1
       },
       {
-        key: 'summaryIntervalMinutes',
-        kind: 'number',
-        label: 'Summary interval (minutes)',
-        default: 10,
-        min: 1,
-        step: 1
-      },
-      {
         key: 'asrModelDir',
         kind: 'text',
         label: 'sherpa-onnx model dir',

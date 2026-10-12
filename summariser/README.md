@@ -24,3 +24,9 @@ Run:
 cd summariser
 uv run summariser
 ```
+
+To run without Captain (it uses the config you can find in `config.yml`)
+
+```bash
+SUMMARISER_STANDALONE=1 SUMMARISER_CHANNEL=vanorsigma OPENROUTER_API_KEY=... uv run summariser
+```

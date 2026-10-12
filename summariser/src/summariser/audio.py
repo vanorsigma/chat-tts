@@ -31,6 +31,24 @@ def _pick(model_dir: Path, prefix: str) -> str:
     raise FileNotFoundError(f"no {prefix}*.onnx in {model_dir}")
 
 
+def _load_recognizer(model_dir: Path) -> sherpa_onnx.OnlineRecognizer:
+    return sherpa_onnx.OnlineRecognizer.from_transducer(
+        tokens=str(model_dir / "tokens.txt"),
+        encoder=_pick(model_dir, "encoder"),
+        decoder=_pick(model_dir, "decoder"),
+        joiner=_pick(model_dir, "joiner"),
+        num_threads=1,
+        sample_rate=SAMPLE_RATE,
+        feature_dim=80,
+        enable_endpoint_detection=True,
+        rule1_min_trailing_silence=RULE1_MIN_TRAILING_SILENCE,
+        rule2_min_trailing_silence=RULE2_MIN_TRAILING_SILENCE,
+        rule3_min_utterance_length=RULE3_MIN_UTTERANCE_LENGTH,
+        decoding_method="greedy_search",
+        provider="cpu",
+    )
+
+
 class Transcriber:
     """Streams the microphone through a sherpa-onnx online recogniser.
 
@@ -57,21 +75,7 @@ class Transcriber:
 
     def _load(self) -> sherpa_onnx.OnlineRecognizer:
         model_dir = Path(self._config.asr_model_dir).expanduser()
-        return sherpa_onnx.OnlineRecognizer.from_transducer(
-            tokens=str(model_dir / "tokens.txt"),
-            encoder=_pick(model_dir, "encoder"),
-            decoder=_pick(model_dir, "decoder"),
-            joiner=_pick(model_dir, "joiner"),
-            num_threads=1,
-            sample_rate=SAMPLE_RATE,
-            feature_dim=80,
-            enable_endpoint_detection=True,
-            rule1_min_trailing_silence=RULE1_MIN_TRAILING_SILENCE,
-            rule2_min_trailing_silence=RULE2_MIN_TRAILING_SILENCE,
-            rule3_min_utterance_length=RULE3_MIN_UTTERANCE_LENGTH,
-            decoding_method="greedy_search",
-            provider="cpu",
-        )
+        return _load_recognizer(model_dir)
 
     def _run(self, recognizer: sherpa_onnx.OnlineRecognizer) -> None:
         try:
@@ -127,16 +131,3 @@ class Transcriber:
                 pass
             except Exception as e:
                 print(f"[AUDIO] Capture task ended with error: {e}")
-
-
-if __name__ == "__main__":
-    import tempfile
-
-    with tempfile.TemporaryDirectory() as tmp:
-        model_dir = Path(tmp)
-        for name in ("encoder-epoch-99-avg-1.onnx", "encoder-epoch-99-avg-1.int8.onnx"):
-            (model_dir / name).touch()
-        (model_dir / "decoder-epoch-99-avg-1.onnx").touch()
-        assert _pick(model_dir, "encoder").endswith(".int8.onnx")
-        assert _pick(model_dir, "decoder").endswith(".onnx")
-    print("ok")
