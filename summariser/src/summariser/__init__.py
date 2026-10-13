@@ -28,7 +28,7 @@ class SummariserService:
     def __init__(self, config: SummariserConfig, channel: str) -> None:
         self.config = config
         self.bus = Bus(config)
-        self.chat = ChatBuffer(channel, config.window_minutes)
+        self.chat = ChatBuffer(channel, config.window_minutes, config.ignored_users)
         self.category = CategoryTracker()
         self.memory = Memory(
             config.openrouter_api_key,
@@ -127,6 +127,17 @@ class SummariserService:
             f"[SUMMARISER] Important mode {'enabled' if self.important else 'disabled'}"
         )
 
+    async def on_config(self, msg: dict[str, object]) -> None:
+        config = msg.get("config")
+        if not isinstance(config, dict):
+            return
+        users = config.get("ignoredUsers")
+        if isinstance(users, list):
+            self.chat.set_ignored_users(users)
+            print(
+                f"[SUMMARISER] Ignored users updated: {sorted(self.chat.ignored_users)}"
+            )
+
 
 async def _serve(service: SummariserService) -> aiohttp.web.AppRunner:
     app = aiohttp.web.Application()
@@ -154,7 +165,9 @@ async def _main() -> None:
         print(f"[SUMMARISER] IRC connection failed, summarising without chat: {e}")
     await service.transcriber.start()
 
-    tasks = [await run_receiver({"control": service.on_control})]
+    tasks = [
+        await run_receiver({"control": service.on_control, "config": service.on_config})
+    ]
     if not standalone:
         tasks.append(asyncio.create_task(service.category.run()))
     tasks.append(asyncio.create_task(service._periodic()))

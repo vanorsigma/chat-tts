@@ -129,7 +129,8 @@ export class Controller implements ChatTTSOrchestrator {
           text: message.text,
           userName: message.userInfo.userName,
           isBot: message.userInfo.badges.has('bot-badge'),
-          ignorePrefix: this.config.ignorePrefix
+          ignorePrefix: this.config.ignorePrefix,
+          ignoredUsers: this.config.ignoredUsers
         })
       )
         return;

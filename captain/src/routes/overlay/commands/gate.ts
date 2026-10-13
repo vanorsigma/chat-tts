@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@twurple/chat';
 import { PUBLIC_TARGET_CHANNEL_ID } from '$env/static/public';
-import { SKIPPED_USERNAMES } from '$lib/messageGuard';
+import { getOverlayConfig } from '../constants';
 import type { OverlayDispatchers } from '../dispatcher';
 import { computeCommandChance, rollSuccess, timeoutSecondsForFailChance } from './chance';
 import type { ChatCommand } from './registry';
@@ -30,7 +30,10 @@ export class CommandGate {
     onAllow: () => void
   ): Promise<void> {
     const username = message.userInfo.userName;
-    if (message.userInfo.isBroadcaster || SKIPPED_USERNAMES.has(username)) {
+    if (
+      message.userInfo.isBroadcaster ||
+      getOverlayConfig().ignoredUsers.includes(username.toLowerCase())
+    ) {
       console.log(`Gate command trapdoor for ${username}`);
       onAllow();
       return;

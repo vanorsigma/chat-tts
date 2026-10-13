@@ -73,6 +73,13 @@ export const configSchema = [
     placeholder: '~'
   },
   {
+    key: 'ignoredUsers',
+    kind: 'list-of-text',
+    label: 'Ignored usernames',
+    default: ['vanorgamma', 'streamelements'],
+    placeholder: 'username'
+  },
+  {
     key: 'makiConfig',
     kind: 'optional-object',
     label: 'Maki',

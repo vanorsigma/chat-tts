@@ -5,6 +5,9 @@
 
 channelName: 'vanorsigma'
 commandsDisabled: True
+ignoredUsers:
+  - vanorgamma
+  - streamelements
 makiConfig:
   twitchClientId: ''
   twitchClientSecret: ''

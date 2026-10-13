@@ -8,7 +8,7 @@ IRC_PORT = 6697
 RECONNECT_SECONDS = 5
 
 
-def _parse_privmsg(raw: str) -> tuple[str, str] | None:
+def _parse_privmsg(raw: str) -> tuple[str, str, str] | None:
     body = raw
     tags: dict[str, str] = {}
     if body.startswith("@"):
@@ -27,14 +27,19 @@ def _parse_privmsg(raw: str) -> tuple[str, str] | None:
     channel, _, message = params.partition(":")
     if not channel.startswith("#") or not message:
         return None
-    user = tags.get("display-name") or prefix.split("!")[0]
-    return user, message
+    login = prefix.split("!")[0]
+    return login, tags.get("display-name") or login, message
 
 
 class ChatBuffer:
     """Anonymous Twitch IRC connection that keeps a timestamped chat window."""
 
-    def __init__(self, channel: str, window_minutes: int) -> None:
+    def __init__(
+        self,
+        channel: str,
+        window_minutes: int,
+        ignored_users: list[str] | None = None,
+    ) -> None:
         self.channel = f"#{channel.lstrip('#')}"
         self.nick = f"justinfan{random.randint(10000, 99999)}"
         self.window_minutes = window_minutes
@@ -42,6 +47,10 @@ class ChatBuffer:
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._listen_task: asyncio.Task[None] | None = None
+        self.set_ignored_users(ignored_users or [])
+
+    def set_ignored_users(self, ignored_users: list[str]) -> None:
+        self.ignored_users = {u.lower() for u in ignored_users}
 
     async def connect(self) -> None:
         await self._open()
@@ -90,7 +99,9 @@ class ChatBuffer:
                     parsed = _parse_privmsg(raw)
                     if parsed is None:
                         continue
-                    user, message = parsed
+                    login, user, message = parsed
+                    if login.lower() in self.ignored_users:
+                        continue
                     self.buffer.append((time.monotonic(), user, message))
                     self._prune()
                 raise ConnectionError("IRC stream ended")

@@ -379,6 +379,7 @@ export interface FullConfig {
   remoteChatTTS?: RemoteChatTTSControllerConfig;
   delegateVoiceToOverlay?: DelegateVoiceToOverlayConfig;
   ignorePrefix: string;
+  ignoredUsers: string[];
   makiConfig: MakiConfig;
   redeemConfig: RedeemConfig;
   clipStoreConfig: ClipStoreConfig;

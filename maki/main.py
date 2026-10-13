@@ -137,7 +137,9 @@ async def _main():
 
     print("[CORE] Initializing tools")
     twitch = TwitchTool(config, bot_token)
-    twitch_chat = TwitchChatClient(config.broadcaster_name)
+    twitch_chat = TwitchChatClient(
+        config.broadcaster_name, ignored_users=config.ignored_users
+    )
     evaluator = Evaluator(config)
     deep_reasoning = DeepReasoning(config)
     communication = Communication(config)
@@ -168,10 +170,20 @@ async def _main():
         except Exception as e:
             print(f"[CORE] Failed to refresh bot token from bus notification: {e}")
 
+    async def _on_config(msg: dict) -> None:
+        config_data = msg.get("config")
+        if not isinstance(config_data, dict):
+            return
+        users = config_data.get("ignoredUsers")
+        if isinstance(users, list):
+            twitch_chat.set_ignored_users(users)
+            print(f"[CORE] Ignored users updated: {sorted(twitch_chat.ignored_users)}")
+
     _receiver_task = await run_receiver(
         {
             "tokenRefreshed": _on_token_refreshed,
             "control": _on_control_important,
+            "config": _on_config,
         }
     )
     print("[CORE] Bus receiver started")

@@ -1,7 +1,7 @@
 import os
 
 import aiohttp
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -20,6 +20,7 @@ class MakiConfig(BaseModel):
     communication_bus_url: str
     screenshot_monitor: str = "HDMI-A-1"
     text_speed: int = 30
+    ignored_users: list[str] = Field(default_factory=list)
 
 
 class BotToken(BaseModel):
@@ -54,7 +55,7 @@ async def fetch_maki_config() -> MakiConfig:
     print(
         f"[CONFIG] Obtained config: model={maki_cfg.get('makiModel')}, broadcaster={maki_cfg.get('broadcasterName')}"
     )
-    parsed = MakiConfig(**maki_cfg)
+    parsed = MakiConfig(**maki_cfg, ignored_users=data.get("ignoredUsers") or [])
     print(f"[CONFIG] Parsed config successfully")
     return parsed
 

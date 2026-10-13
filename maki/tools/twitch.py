@@ -30,7 +30,12 @@ class TwitchChatClient:
     Connects to Twitch IRC anonymously and stores the last 50 messages.
     """
 
-    def __init__(self, channel: str, sub_badge_map: dict[str, int] | None = None):
+    def __init__(
+        self,
+        channel: str,
+        sub_badge_map: dict[str, int] | None = None,
+        ignored_users: list[str] | None = None,
+    ):
         self.channel = f"#{channel.lstrip('#')}"
         self.nick = f"justinfan{random.randint(10000, 99999)}"
         self.buffer = collections.deque(maxlen=50)
@@ -39,6 +44,10 @@ class TwitchChatClient:
         self._listen_task: asyncio.Task[None] | None = None
         self.sub_badge_map: dict[str, int] | None = sub_badge_map
         self.sub_tiers: dict[str, int] = {}
+        self.set_ignored_users(ignored_users or [])
+
+    def set_ignored_users(self, ignored_users: list[str]) -> None:
+        self.ignored_users = {u.lower() for u in ignored_users}
 
     def set_sub_badge_map(self, m: dict[str, int]) -> None:
         self.sub_badge_map = m
@@ -106,6 +115,9 @@ class TwitchChatClient:
                         display_name = tags_data.get("display-name") or user
                         badges = tags_data.get("badges", "")
                         tier = self._extract_subscriber_tier(badges)
+
+                        if user.lower() in self.ignored_users:
+                            continue
 
                         self.sub_tiers[display_name] = tier
                         self.buffer.append(
@@ -384,9 +396,7 @@ class TwitchTool:
         if not question:
             raise ModelRetry("Poll title is required")
         if len(question) > 60:
-            raise ModelRetry(
-                f"Poll title is {len(question)} characters; maximum is 60"
-            )
+            raise ModelRetry(f"Poll title is {len(question)} characters; maximum is 60")
         if not isinstance(duration, int) or isinstance(duration, bool):
             raise ModelRetry("Duration must be an integer")
         if duration < 15 or duration > 1800:

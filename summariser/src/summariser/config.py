@@ -21,6 +21,7 @@ class SummariserConfig(BaseModel):
     cost: int = 0
     user: str = "standalone"
     blacklisted_categories: list[str] = Field(default_factory=list)
+    ignored_users: list[str] = Field(default_factory=list)
     openrouter_api_key: str = Field(
         default_factory=lambda: os.getenv("OPENROUTER_API_KEY", "")
     )
@@ -68,7 +69,7 @@ async def fetch_summariser_config() -> tuple[SummariserConfig, str]:
     if not channel:
         raise RuntimeError(f"Captain at {url} returned no channelName.")
 
-    config = SummariserConfig(**raw)
+    config = SummariserConfig(**raw, ignored_users=data.get("ignoredUsers") or [])
     print(f"[CONFIG] Obtained config: model={config.summary_model}, channel={channel}")
     return config, channel
 

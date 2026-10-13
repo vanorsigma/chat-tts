@@ -69,6 +69,9 @@ export function mergeConfig(
       );
     }
   }
+  result.ignoredUsers = (result.ignoredUsers as string[]).map((u) =>
+    u.trim().replace(/^@/, '').toLowerCase()
+  );
   result.dynamicConfig = { songPitchSpeedAffected: false };
   return result as unknown as FullConfig;
 }

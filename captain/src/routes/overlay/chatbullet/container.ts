@@ -182,12 +182,14 @@ export class ChatBulletContainer implements OverlayObserver {
   }
 
   async onMessage(message: ChatMessage) {
+    const cfg = getOverlayConfig();
     if (
       shouldSkipMessage({
         text: message.text,
         userName: message.userInfo.userName,
         isBot: message.userInfo.badges.has('bot-badge'),
-        ignorePrefix: getOverlayConfig().ignorePrefix
+        ignorePrefix: cfg.ignorePrefix,
+        ignoredUsers: cfg.ignoredUsers
       })
     )
       return;
