@@ -30,6 +30,12 @@ def _created_at(metadata: Mapping[str, Any] | None) -> float:
     return 0.0
 
 
+def category_where(category: str, stream_id: str | None) -> dict[str, Any]:
+    if stream_id is None:
+        return {"category": category}
+    return {"$and": [{"category": category}, {"stream_id": stream_id}]}
+
+
 class EphemeralStore:
     """In-memory rolling summaries for blacklisted categories, keyed by stream id."""
 
@@ -117,8 +123,10 @@ class SummaryStore:
             if to_delete:
                 await asyncio.to_thread(collection.delete, ids=to_delete)
 
-    async def latest(self, category: str) -> tuple[str, int, str | None] | None:
-        entries = await self._category_entries(category)
+    async def latest(
+        self, category: str, stream_id: str | None = None
+    ) -> tuple[str, int, str | None] | None:
+        entries = await self._category_entries(category, stream_id)
         return max(entries, key=lambda entry: entry[1], default=None)
 
     async def history(self, category: str) -> list[tuple[str, int]]:
@@ -127,12 +135,12 @@ class SummaryStore:
         return [(text, created_at) for text, created_at, _ in entries]
 
     async def _category_entries(
-        self, category: str
+        self, category: str, stream_id: str | None = None
     ) -> list[tuple[str, int, str | None]]:
         collection = await self._get_collection()
         data = await asyncio.to_thread(
             collection.get,
-            where={"category": category},
+            where=category_where(category, stream_id),
             include=["documents", "metadatas"],
         )
         documents = data["documents"] or []
@@ -217,7 +225,7 @@ class Memory:
         if self.is_blacklisted(category):
             entry = self._ephemeral.latest(stream_id)
             return None if entry is None else (*entry, stream_id)
-        return await self._store.latest(category)
+        return await self._store.latest(category, stream_id)
 
     async def history(self, category: str, stream_id: str | None) -> list[str]:
         if self.is_blacklisted(category):
