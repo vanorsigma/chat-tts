@@ -138,11 +138,12 @@ class SummaryStore:
         self, category: str, stream_id: str | None = None
     ) -> list[tuple[str, int, str | None]]:
         collection = await self._get_collection()
-        data = await asyncio.to_thread(
-            collection.get,
-            where=category_where(category, stream_id),
-            include=["documents", "metadatas"],
-        )
+        async with self._lock:
+            data = await asyncio.to_thread(
+                collection.get,
+                where=category_where(category, stream_id),
+                include=["documents", "metadatas"],
+            )
         documents = data["documents"] or []
         metadatas = data["metadatas"] or []
         entries: list[tuple[str, int, str | None]] = []

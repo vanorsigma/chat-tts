@@ -86,20 +86,25 @@ class SummariserService:
             "streamId": stream_id,
         }
 
-    async def _latest_or_generate(self) -> dict[str, object] | None:
+    async def _stored_latest(self) -> dict[str, object] | None:
         category = self.category.category
-        stream_id = self.category.stream_id
         if not category:
             return None
-        latest = await self.memory.latest(category, stream_id)
+        latest = await self.memory.latest(category, self.category.stream_id)
+        if latest is None:
+            return None
+        return self._latest_payload(category, latest)
+
+    async def _latest_or_generate(self) -> dict[str, object] | None:
+        latest = await self._stored_latest()
         if latest is not None:
-            return self._latest_payload(category, latest)
+            return latest
         if not self.category.is_live:
             return None
         async with self._generate_lock:
-            latest = await self.memory.latest(category, stream_id)
+            latest = await self._stored_latest()
             if latest is not None:
-                return self._latest_payload(category, latest)
+                return latest
             return await self._generate_once()
 
     async def handle_summary(
