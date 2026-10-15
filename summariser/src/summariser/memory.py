@@ -38,7 +38,7 @@ class EphemeralStore:
         self._entries: deque[tuple[str, int]] = deque(maxlen=maxlen)
 
     def _sync(self, stream_id: str | None) -> None:
-        if stream_id != self._stream_id:
+        if stream_id is not None and stream_id != self._stream_id:
             self._entries.clear()
             self._stream_id = stream_id
 
