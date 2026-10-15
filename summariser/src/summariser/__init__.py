@@ -63,12 +63,7 @@ class SummariserService:
         print(f"[SUMMARISER] Generated summary for {category!r} ({len(text)} chars)")
         if is_standalone():
             print(f"[SUMMARISER] {text}")
-        return {
-            "category": category,
-            "text": text,
-            "createdAt": created_at,
-            "streamId": stream_id,
-        }
+        return self._latest_payload(category, (text, created_at, stream_id))
 
     async def generate(self) -> dict[str, object] | None:
         async with self._generate_lock:

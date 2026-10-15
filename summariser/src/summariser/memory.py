@@ -112,7 +112,9 @@ class SummaryStore:
         collection = await self._get_collection()
         async with self._lock:
             data = await asyncio.to_thread(
-                collection.get, where={"category": category}, include=["metadatas"]
+                collection.get,
+                where=category_where(category, None),
+                include=["metadatas"],
             )
             ids = data["ids"]
             metadatas = data["metadatas"] or []
