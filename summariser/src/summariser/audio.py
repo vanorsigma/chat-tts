@@ -63,6 +63,7 @@ class Transcriber:
         self.transcript: deque[tuple[float, str]] = deque()
         self._partial = ""
         self._stop = threading.Event()
+        self._lock = threading.Lock()
         self._task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
@@ -100,14 +101,18 @@ class Transcriber:
                 while recognizer.is_ready(stream):
                     recognizer.decode_stream(stream)
                 text = recognizer.get_result(stream)
-                self._partial = text
                 if recognizer.is_endpoint(stream):
                     if text:
                         print(f"[AUDIO] Transcribed: {text[:120]}")
-                        self.transcript.append((time.monotonic(), text))
-                        self._prune()
-                    self._partial = ""
+                    with self._lock:
+                        if text:
+                            self.transcript.append((time.monotonic(), text))
+                            self._prune()
+                        self._partial = ""
                     recognizer.reset(stream)
+                else:
+                    with self._lock:
+                        self._partial = text
 
     def _prune(self) -> None:
         cutoff = time.monotonic() - self.window_minutes * 60
@@ -116,9 +121,11 @@ class Transcriber:
 
     def window(self) -> str:
         cutoff = time.monotonic() - self.window_minutes * 60
-        texts = [text for ts, text in self.transcript if ts >= cutoff]
-        if self._partial:
-            texts.append(self._partial)
+        with self._lock:
+            texts = [text for ts, text in self.transcript if ts >= cutoff]
+            partial = self._partial
+        if partial:
+            texts.append(partial)
         return " ".join(texts)
 
     async def close(self) -> None:
