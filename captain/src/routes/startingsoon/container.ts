@@ -1,37 +1,19 @@
-import { Application, Assets, Container, Sprite, Text, Texture, TextStyle, Ticker } from 'pixi.js';
+import { Assets, Container, Sprite, Text, TextStyle, Texture } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
-import {
-  isImageBulletPart,
-  isTextBulletPart,
-  type BulletPart
-} from '../overlay/chatbullet/parsing-core';
+import { BulletLayer } from '../overlay/chatbullet/bullet-layer';
 import { splitMessage } from '../overlay/chatbullet/parsing';
 import { random } from '$lib/utils';
-
-const PADDING = 5;
-
-interface BulletProperties {
-  element: Container;
-  rate: number;
-}
 
 export interface StartingSoonArtEntry {
   file: string;
   artist: string;
 }
 
-export class StartingSoonBulletContainer {
-  private app: Application;
-  private bulletProperties: BulletProperties[] = [];
+export class StartingSoonBulletContainer extends BulletLayer {
   private images: StartingSoonArtEntry[] = [];
   private imagesHistory: StartingSoonArtEntry[] = [];
   private imageTextureCache = new Map<string, Texture>();
   private imageSpawnTimer: ReturnType<typeof setTimeout> | null = null;
-
-  constructor(app: Application) {
-    this.app = app;
-    this.app.ticker.add((time: Ticker) => this.drawFrameLoop(time));
-  }
 
   setImages(images: StartingSoonArtEntry[]) {
     this.images = images;
@@ -119,91 +101,17 @@ export class StartingSoonBulletContainer {
     container.y = y;
 
     this.app.stage.addChild(container);
-    this.bulletProperties.push({ element: container, rate });
+    this.addBullet(container, rate);
   }
 
   async onMessage(message: ChatMessage) {
     if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
-    this.spawnTextBullet(
-      message.userInfo.displayName ?? message.userInfo.userName,
-      await splitMessage(message.emoteOffsets, message.text, message.tags.get('gifs')),
-      message.userInfo.color
-    );
-  }
-
-  private async spawnTextBullet(
-    displayName: string,
-    parts: BulletPart[],
-    color: string = '#D3D3D3'
-  ) {
-    const { width: screenW, height: screenH } = this.app.screen;
-    const rate = Math.max(random(), 0.25) * (1000 / 60);
-    let x = 0;
-    const y = random() * (screenH - 50);
-
-    const container = new Container();
-
-    const displayNameText = new Text({
-      text: displayName,
-      style: { fontFamily: 'Arial', fontSize: 24, fill: color }
+    await this.spawnBullet({
+      userName: message.userInfo.userName,
+      displayName: message.userInfo.displayName ?? message.userInfo.userName,
+      parts: await splitMessage(message.emoteOffsets, message.text, message.tags.get('gifs')),
+      color: message.userInfo.color
     });
-    displayNameText.x = 0;
-    displayNameText.y = y - 24;
-    container.addChild(displayNameText);
-
-    for (const part of parts) {
-      if (isImageBulletPart(part)) {
-        const url = `https:${part.imgsrc.replace('https:', '')}`;
-        try {
-          const loaded = await Assets.load(url);
-          const texture = this.resolveTexture(loaded);
-          if (!texture) continue;
-          const sprite = new Sprite(texture);
-          sprite.scale.set(0.3);
-          sprite.x = PADDING + x;
-          sprite.y = y;
-          x += sprite.width + PADDING;
-          container.addChild(sprite);
-        } catch {
-          continue;
-        }
-      }
-
-      if (isTextBulletPart(part)) {
-        const textStyle = new TextStyle({
-          fontFamily: 'Arial',
-          fontSize: 48,
-          fill: color
-        });
-        const partText = new Text({ text: part.text, style: textStyle });
-        partText.x = x;
-        partText.y = y;
-        x += partText.width;
-        container.addChild(partText);
-      }
-    }
-
-    container.x = screenW;
-    this.app.stage.addChild(container);
-    this.bulletProperties.push({ element: container, rate });
-  }
-
-  private drawFrameLoop(time: Ticker): void {
-    for (const prop of this.bulletProperties) {
-      const offset = time.deltaTime * prop.rate * 0.5;
-      prop.element.x -= offset;
-      if (prop.element.x <= -prop.element.width) {
-        prop.element.removeFromParent();
-        this.bulletProperties = this.bulletProperties.filter((p) => p !== prop);
-      }
-    }
-  }
-
-  deleteAllBullets(): void {
-    for (const prop of this.bulletProperties) {
-      prop.element.removeFromParent();
-    }
-    this.bulletProperties = [];
   }
 
   destroy() {
