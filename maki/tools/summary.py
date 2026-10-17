@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic_ai import Tool
 
 
@@ -5,7 +7,7 @@ class StreamSummary:
     def __init__(self) -> None:
         self._latest: str | None = None
 
-    def on_summary(self, msg: dict) -> None:
+    def on_summary(self, msg: dict[str, Any]) -> None:
         text = msg.get("text")
         if isinstance(text, str) and text:
             self._latest = text
