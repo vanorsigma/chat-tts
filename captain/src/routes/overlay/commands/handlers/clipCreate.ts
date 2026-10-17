@@ -41,7 +41,8 @@ export async function clipCreateHandler(
   commands: Commands,
   dispatcher: OverlayDispatchers,
   message: ChatMessage,
-  config: OverlayClipConfig
+  config: OverlayClipConfig,
+  showOnStream = true
 ) {
   const username = requireUsername(message);
   const userId = message.userInfo.userId;
@@ -74,10 +75,12 @@ export async function clipCreateHandler(
 
   const data = (await res.json()) as { url: string; id: string };
 
-  setTimeout(
-    () => showClipStore.show(data.id, { title: options.title, author: username }),
-    CLIP_SHOW_DELAY_MS
-  );
+  if (showOnStream) {
+    setTimeout(
+      () => showClipStore.show(data.id, { title: options.title, author: username }),
+      CLIP_SHOW_DELAY_MS
+    );
+  }
 
   if (config.points > 0) {
     if (await checkCostAddIfEnough(dispatcher, channelId, username, config.points, message.id)) {

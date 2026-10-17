@@ -123,6 +123,8 @@ export const COMMAND_HANDLERS: Partial<Record<ChatCommand, CommandRunner>> = {
     clipCreateHandler(commands, dispatcher, message, config as OverlayClipConfig),
   '%c': (commands, dispatcher, message, config) =>
     clipCreateHandler(commands, dispatcher, message, config as OverlayClipConfig),
+  '%clipsilent': (commands, dispatcher, message, config) =>
+    clipCreateHandler(commands, dispatcher, message, config as OverlayClipConfig, false),
   '%buy': (commands, dispatcher, message) => buyHandler(commands, dispatcher, message),
   '%sell': (_commands, dispatcher, message) => sellHandler(dispatcher, message),
   '%stocks': (_commands, dispatcher, message) => stocksHandler(dispatcher, message),
