@@ -1117,26 +1117,29 @@
   }
 
   .makiShared.makiBox {
+    container-type: inline-size;
     transform: translate(-50%, -50%);
   }
 
-  .makiShared .makiOutput .makiCountdown {
+  .makiBox .makiOutput .makiCountdown {
     background-color: rgba(0, 0, 0, 0.6);
     color: white;
     position: absolute;
     font-size: 2em;
+    font-size: 4cqi;
     right: 1em;
     border: 2px solid green;
     border-radius: 10px;
   }
 
-  .makiShared .makiOutput {
+  .makiBox .makiOutput {
     position: relative;
     background-color: rgba(20, 20, 30, 0.55);
     color: white;
     border: 2px solid rgba(0, 123, 255, 0.7);
     border-radius: 12px;
     padding: 20px;
+    padding: 2.5cqi;
     box-sizing: border-box;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -1145,9 +1148,10 @@
     height: 100%;
   }
 
-  .makiShared p {
+  .makiBox p {
     margin: 0px;
     font-size: 2em;
+    font-size: 4cqi;
     font-weight: bold;
   }
 
