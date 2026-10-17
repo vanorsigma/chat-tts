@@ -1,7 +1,6 @@
 import asyncio
+import json
 from typing import Any
-
-import mss.tools
 
 from pydantic_ai import BinaryContent, Tool
 from pydantic_ai.exceptions import ModelRetry
@@ -11,52 +10,82 @@ from config import MakiConfig
 _OVERLAY_HIDE_DELAY_S = 0.15
 
 
-async def _grim_capture(monitor: str) -> bytes:
+async def _monitor_geometry(monitor: str) -> tuple[int, int, int, int] | None:
     try:
         proc = await asyncio.create_subprocess_exec(
-            "grim",
-            "-t",
-            "ppm",
-            "-o",
-            monitor,
-            "-",
+            "hyprctl",
+            "monitors",
+            "-j",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            async with asyncio.timeout(5):
+                stdout, _ = await proc.communicate()
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return None
+
+        if proc.returncode != 0:
+            return None
+
+        entry = next(
+            (item for item in json.loads(stdout) if item.get("name") == monitor),
+            None,
+        )
+        if entry is None:
+            return None
+
+        width = int(entry["width"])
+        height = int(entry["height"])
+        if int(entry.get("transform", 0)) in (1, 3, 5, 7):
+            width, height = height, width
+        scale = float(entry.get("scale", 1)) or 1.0
+        return (
+            int(entry["x"]),
+            int(entry["y"]),
+            round(width / scale),
+            round(height / scale),
+        )
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return None
+
+
+async def _grim_capture(
+    monitor: str, geometry: tuple[int, int, int, int] | None
+) -> bytes:
+    args = ["grim", "-s", "1", "-t", "png"]
+    if geometry is None:
+        args += ["-o", monitor]
+    else:
+        x, y, width, height = geometry
+        args += ["-g", f"{x},{y} {width}x{height}"]
+    args.append("-")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
     except FileNotFoundError as e:
         raise ModelRetry("grim is not installed; Wayland screenshots require it") from e
+    except OSError as e:
+        raise ModelRetry(f"grim could not start: {e}") from e
 
-    stdout, stderr = await proc.communicate()
+    try:
+        async with asyncio.timeout(10):
+            stdout, stderr = await proc.communicate()
+    except TimeoutError as e:
+        proc.kill()
+        await proc.wait()
+        raise ModelRetry("grim timed out capturing the screen") from e
+
     if proc.returncode != 0:
         detail = stderr.decode(errors="replace").strip()
         raise ModelRetry(f"grim failed to capture monitor '{monitor}': {detail}")
     return stdout
-
-
-def _parse_ppm(data: bytes) -> tuple[int, int, bytes]:
-    try:
-        magic, dims, maxval, pixels = data.split(b"\n", 3)
-        width_str, height_str = dims.split()
-        width, height = int(width_str), int(height_str)
-    except ValueError as e:
-        raise RuntimeError("grim returned malformed PPM data") from e
-
-    if magic != b"P6" or maxval != b"255":
-        raise RuntimeError("grim returned an unexpected PPM format")
-    if len(pixels) != width * height * 3:
-        raise RuntimeError("grim returned a truncated PPM image")
-    return width, height, pixels
-
-
-def _crop(
-    rgb: bytes, source_width: int, x: int, y: int, width: int, height: int
-) -> bytes:
-    stride = source_width * 3
-    start = x * 3
-    end = start + width * 3
-    return b"".join(
-        rgb[row * stride + start : row * stride + end] for row in range(y, y + height)
-    )
 
 
 class ScreenshotTool:
@@ -83,44 +112,48 @@ class ScreenshotTool:
             An image of the captured screen area.
         """
 
-        def _process(ppm: bytes) -> bytes:
-            mon_w, mon_h, rgb = _parse_ppm(ppm)
+        capture_geometry: tuple[int, int, int, int] | None = None
+        region = "full monitor"
+
+        if x is not None or y is not None or width is not None or height is not None:
+            monitor_geometry = await _monitor_geometry(self.monitor)
+            if monitor_geometry is None:
+                raise ModelRetry(
+                    f"Cannot resolve the layout geometry of '{self.monitor}' to crop"
+                )
+
+            origin_x, origin_y, monitor_w, monitor_h = monitor_geometry
 
             crop_x = x if x is not None else 0
             crop_y = y if y is not None else 0
-            crop_w = width if width is not None else mon_w - crop_x
-            crop_h = height if height is not None else mon_h - crop_y
+            crop_w = width if width is not None else monitor_w - crop_x
+            crop_h = height if height is not None else monitor_h - crop_y
 
             if (
                 crop_x < 0
                 or crop_y < 0
                 or crop_w <= 0
                 or crop_h <= 0
-                or crop_x + crop_w > mon_w
-                or crop_y + crop_h > mon_h
+                or crop_x + crop_w > monitor_w
+                or crop_y + crop_h > monitor_h
             ):
                 raise ModelRetry(
                     f"Crop region {crop_w}x{crop_h} at ({crop_x},{crop_y}) is outside "
-                    f"the {mon_w}x{mon_h} display"
+                    f"the {monitor_w}x{monitor_h} display"
                 )
 
-            if (crop_x, crop_y, crop_w, crop_h) != (0, 0, mon_w, mon_h):
-                rgb = _crop(rgb, mon_w, crop_x, crop_y, crop_w, crop_h)
-
-            png = mss.tools.to_png(rgb, (crop_w, crop_h))
-            if png is None:
-                raise RuntimeError("mss.tools.to_png returned None")
-            print(
-                f"[SCREENSHOT] Captured {self.monitor}: {crop_w}x{crop_h} at "
-                f"({crop_x},{crop_y}), PNG size={len(png)} bytes"
+            capture_geometry = (
+                origin_x + crop_x,
+                origin_y + crop_y,
+                crop_w,
+                crop_h,
             )
-            return png
+            region = f"{crop_w}x{crop_h} at ({crop_x},{crop_y})"
 
         await self.communication.set_screenshot_mode(True)
         try:
             await asyncio.sleep(_OVERLAY_HIDE_DELAY_S)
-            ppm = await _grim_capture(self.monitor)
-            png_bytes = await asyncio.to_thread(_process, ppm)
+            png = await _grim_capture(self.monitor, capture_geometry)
         except ModelRetry:
             raise
         except Exception as e:
@@ -129,7 +162,11 @@ class ScreenshotTool:
         finally:
             await self.communication.set_screenshot_mode(False)
 
-        return BinaryContent(png_bytes, media_type="image/png")
+        print(
+            f"[SCREENSHOT] Captured {self.monitor}: {region}, "
+            f"PNG size={len(png)} bytes"
+        )
+        return BinaryContent(png, media_type="image/png")
 
     def get_tools(self) -> list[Tool]:
         return [
