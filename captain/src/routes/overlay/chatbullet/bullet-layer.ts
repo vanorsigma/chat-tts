@@ -23,7 +23,7 @@ export interface BulletOptions {
   kiki?: { kamoji: string; emoji: string } | null;
 }
 
-export class BulletLayer {
+export abstract class BulletLayer {
   protected app: Application;
   private bulletProperties: BulletProperties[] = [];
   private gifCache = new LRUCache<Texture[]>(CACHE_SIZE);
@@ -49,8 +49,9 @@ export class BulletLayer {
 
   deleteAllBullets(): void {
     for (const bulletProp of this.bulletProperties) {
-      this.removeBullet(bulletProp);
+      bulletProp.element.removeFromParent();
     }
+    this.bulletProperties = [];
   }
 
   private drawFrameLoop(time: Ticker): void {
@@ -154,10 +155,16 @@ export class BulletLayer {
       for (const url of badgeUrls) {
         let texture = this.badgeTextureCache.get(url);
         if (!texture) {
-          const loaded = (await Assets.load({
-            src: url,
-            loadParser: 'loadTextures'
-          })) as Texture | null;
+          let loaded: Texture | null = null;
+          try {
+            loaded = (await Assets.load({
+              src: url,
+              loadParser: 'loadTextures'
+            })) as Texture | null;
+          } catch (err) {
+            console.warn('Failed to load badge', url, err);
+            continue;
+          }
           if (!loaded) continue;
           texture = loaded;
           this.badgeTextureCache.put(url, loaded);

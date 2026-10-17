@@ -113,7 +113,7 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
         displayName ?? 'anonymous',
         message.text
       );
-      await this.spawnBullet({
+      void this.spawnBullet({
         userName: message.userInfo.userName,
         displayName,
         parts,
@@ -137,7 +137,7 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
         this.dispatcher.pinChatMessage(PUBLIC_TARGET_CHANNEL_ID, message.id, 60);
       }
     } else {
-      await this.spawnBullet({
+      void this.spawnBullet({
         userName: message.userInfo.userName,
         displayName,
         parts,
