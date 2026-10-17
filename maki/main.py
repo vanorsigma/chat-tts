@@ -26,7 +26,6 @@ from rich.console import Console
 
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
-from tools.deep_reasoning import DeepReasoning
 from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
 from tools.summary import StreamSummary
@@ -142,7 +141,6 @@ async def _main():
         config.broadcaster_name, ignored_users=config.ignored_users
     )
     evaluator = Evaluator(config)
-    deep_reasoning = DeepReasoning(config)
     communication = Communication(config)
     screenshot = ScreenshotTool(config, communication)
     summary = StreamSummary()
@@ -204,7 +202,6 @@ async def _main():
         twitch.get_twitch_tools()
         + random_tools
         + screenshot.get_tools()
-        + deep_reasoning.get_tools()
         + communication.get_tools()
         + summary.get_tools()
         + twitch_chat.get_twitch_tools()

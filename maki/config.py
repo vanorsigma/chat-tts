@@ -14,8 +14,6 @@ class MakiConfig(BaseModel):
     openrouter_api_key: str
     maki_model: str
     evaluator_model: str
-    deep_reasoning_model: str
-    deep_reasoning_max_tokens: int
     max_tokens: int
     communication_bus_url: str
     screenshot_monitor: str = "HDMI-A-1"
