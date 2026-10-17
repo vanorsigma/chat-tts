@@ -29,6 +29,7 @@ from tools.random_tool import random_tools
 from tools.deep_reasoning import DeepReasoning
 from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
+from tools.summary import StreamSummary
 from logger import install_console_hijack, broadcast_logs
 from shared.bus_receiver import run_receiver
 
@@ -144,6 +145,7 @@ async def _main():
     deep_reasoning = DeepReasoning(config)
     communication = Communication(config)
     screenshot = ScreenshotTool(config, communication)
+    summary = StreamSummary()
 
     memory = Memory(config.openrouter_api_key)
 
@@ -184,6 +186,7 @@ async def _main():
             "tokenRefreshed": _on_token_refreshed,
             "control": _on_control_important,
             "config": _on_config,
+            "summary": summary.on_summary,
         }
     )
     print("[CORE] Bus receiver started")
@@ -203,6 +206,7 @@ async def _main():
         + screenshot.get_tools()
         + deep_reasoning.get_tools()
         + communication.get_tools()
+        + summary.get_tools()
         + twitch_chat.get_twitch_tools()
         + memory.get_tools()
         + [WebSearchTool, WebFetchTool]

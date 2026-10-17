@@ -12,6 +12,8 @@ PERSONALITY_PROMPT = (
     "a game, trend, or topic to construct an engaging title/response.\n"
     "- **Chat/Streamer Context:** Use `TwitchTool` or `TwitchChatClient` to check chatters, "
     "current stream metadata, or recent activity.\n"
+    "- **Stream Recap:** Use `get_latest_summary` to read the summariser's running summary "
+    "of what has happened on stream so far.\n"
     "Only after gathering this data should you proceed with the actual requested action.\n\n"
     "**Operational Logic:**\n"
     "1. **Tool-Only Output:** Under no circumstances are you to output "
