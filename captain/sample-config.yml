@@ -13,7 +13,7 @@ makiConfig:
   twitchClientSecret: ''
   broadcasterName: 'vanorsigma'
   openrouterApiKey: ''
-  makiModel: 'google/gemini-2.5-flash-lite'
+  makiModel: 'google/gemini-3.8-flash'
   maxTokens: 1024
   communicationBusUrl: 'ws://localhost:3001/senders'
   screenshotMonitor: 'HDMI-A-1'

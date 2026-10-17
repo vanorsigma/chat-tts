@@ -109,7 +109,7 @@ export const configSchema = [
         key: 'makiModel',
         kind: 'text',
         label: 'Maki Model',
-        default: 'google/gemini-2.5-flash-lite'
+        default: 'google/gemini-3.8-flash'
       },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
       {
