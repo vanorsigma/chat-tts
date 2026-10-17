@@ -14,9 +14,7 @@ makiConfig:
   broadcasterName: 'vanorsigma'
   openrouterApiKey: ''
   makiModel: 'google/gemini-2.5-flash-lite'
-  evaluatorModel: 'qwen/qwen3-coder-30b-a3b-instruct'
   maxTokens: 1024
-  searchApiKey: ''
   communicationBusUrl: 'ws://localhost:3001/senders'
   screenshotMonitor: 'HDMI-A-1'
 distractConfig:

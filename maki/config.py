@@ -13,7 +13,6 @@ class MakiConfig(BaseModel):
     broadcaster_name: str
     openrouter_api_key: str
     maki_model: str
-    evaluator_model: str
     max_tokens: int
     communication_bus_url: str
     screenshot_monitor: str = "HDMI-A-1"

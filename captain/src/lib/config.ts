@@ -300,7 +300,6 @@ export interface MakiConfig {
   broadcasterName: string;
   openrouterApiKey: string;
   makiModel: string;
-  evaluatorModel: string;
   maxTokens: number;
   communicationBusUrl: string;
   screenshotMonitor: string;

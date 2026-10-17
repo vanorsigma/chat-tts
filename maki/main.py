@@ -26,7 +26,6 @@ from rich.console import Console
 
 from tools.twitch import TwitchChatClient, TwitchTool
 from tools.random_tool import random_tools
-from tools.evaluator import Evaluator
 from tools.screenshot import ScreenshotTool
 from tools.summary import StreamSummary
 from logger import install_console_hijack, broadcast_logs
@@ -140,7 +139,6 @@ async def _main():
     twitch_chat = TwitchChatClient(
         config.broadcaster_name, ignored_users=config.ignored_users
     )
-    evaluator = Evaluator(config)
     communication = Communication(config)
     screenshot = ScreenshotTool(config, communication)
     summary = StreamSummary()

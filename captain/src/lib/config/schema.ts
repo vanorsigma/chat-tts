@@ -111,12 +111,6 @@ export const configSchema = [
         label: 'Maki Model',
         default: 'google/gemini-2.5-flash-lite'
       },
-      {
-        key: 'evaluatorModel',
-        kind: 'text',
-        label: 'Evaluator Model',
-        default: 'qwen/qwen3-coder-30b-a3b-instruct'
-      },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
       {
         key: 'communicationBusUrl',
