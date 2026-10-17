@@ -117,20 +117,6 @@ export const configSchema = [
         label: 'Evaluator Model',
         default: 'qwen/qwen3-coder-30b-a3b-instruct'
       },
-      {
-        key: 'deepReasoningModel',
-        kind: 'text',
-        label: 'Deep Reasoning Model',
-        default: 'google/gemini-3.6-flash'
-      },
-      {
-        key: 'deepReasoningMaxTokens',
-        kind: 'number',
-        label: 'Deep Reasoning Max Tokens',
-        default: 4096,
-        min: 1,
-        step: 1
-      },
       { key: 'maxTokens', kind: 'number', label: 'Max Tokens', default: 1024, min: 1, step: 1 },
       {
         key: 'communicationBusUrl',

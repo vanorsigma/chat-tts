@@ -15,8 +15,6 @@ makiConfig:
   openrouterApiKey: ''
   makiModel: 'google/gemini-2.5-flash-lite'
   evaluatorModel: 'qwen/qwen3-coder-30b-a3b-instruct'
-  deepReasoningModel: 'google/gemini-3.6-flash'
-  deepReasoningMaxTokens: 4096
   maxTokens: 1024
   searchApiKey: ''
   communicationBusUrl: 'ws://localhost:3001/senders'

@@ -301,8 +301,6 @@ export interface MakiConfig {
   openrouterApiKey: string;
   makiModel: string;
   evaluatorModel: string;
-  deepReasoningModel: string;
-  deepReasoningMaxTokens: number;
   maxTokens: number;
   communicationBusUrl: string;
   screenshotMonitor: string;
