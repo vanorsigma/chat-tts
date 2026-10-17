@@ -63,6 +63,7 @@ class MemoryStore:
                 return json.dumps(results["documents"][0])
         except Exception:
             import traceback
+
             traceback.print_exc()
         return ""
 
@@ -89,37 +90,27 @@ class MemoryStore:
                 )
         except Exception:
             import traceback
+
             traceback.print_exc()
 
     async def prune_expired(self) -> None:
         try:
             collection = await self._get_collection()
             cutoff = time.time() - self._ttl_days * 86400
-            all_data = await asyncio.to_thread(
-                collection.get, include=["metadatas"]
-            )
-            ids = all_data["ids"]
-            metadatas = all_data["metadatas"]
-            if not ids or metadatas is None:
-                return
-            stale_ids = [
-                aid
-                for aid, meta in zip(ids, metadatas)
-                if meta.get("created_at", 0) < cutoff
-            ]
-            if stale_ids:
-                async with self._lock:
-                    await asyncio.to_thread(collection.delete, ids=stale_ids)
+            async with self._lock:
+                await asyncio.to_thread(
+                    collection.delete,
+                    where={"created_at": {"$lt": cutoff}},
+                )
         except Exception:
             import traceback
+
             traceback.print_exc()
 
     async def _prune_oldest(self) -> None:
         try:
             collection = await self._get_collection()
-            all_data = await asyncio.to_thread(
-                collection.get, include=["metadatas"]
-            )
+            all_data = await asyncio.to_thread(collection.get, include=["metadatas"])
             ids = all_data["ids"]
             metadatas = all_data["metadatas"]
             if not ids or metadatas is None:
@@ -137,6 +128,7 @@ class MemoryStore:
                     )
         except Exception:
             import traceback
+
             traceback.print_exc()
 
 
