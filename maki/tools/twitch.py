@@ -3,16 +3,25 @@ Output tool
 """
 
 import asyncio
+import collections
 import json
 import random
 import re
-import collections
+import time
 from typing import TypedDict
+
 from twitchAPI.twitch import Twitch
 from twitchAPI.type import AuthScope
 from pydantic_ai import ModelRetry, Tool
 
 from config import MakiConfig, BotToken
+
+_CONTEXT_CACHE_TTL_S = 5.0
+_TARGET_SCOPES: list[AuthScope] = [
+    AuthScope.MODERATOR_READ_CHATTERS,
+    AuthScope.MODERATOR_MANAGE_BANNED_USERS,
+    AuthScope.USER_WRITE_CHAT,
+]
 
 
 class ChatterCommand(TypedDict):
@@ -160,6 +169,9 @@ class TwitchTool:
         self.broadcaster_id = ""
         self.moderator_id = ""
         self.chatter_commands: list[ChatterCommand] = []
+        self._chatter_cache: tuple[float, dict[str, str]] | None = None
+        self._channel_cache: tuple[float, tuple[str, str]] | None = None
+        self._init_lock = asyncio.Lock()
 
         try:
             with open("commands.json", "r") as f:
@@ -171,31 +183,33 @@ class TwitchTool:
             )
         print(f"[TOOL] Chatter commands loaded: {self.chatter_commands}")
 
-    async def _lazy_init(self):
+    async def _lazy_init(self) -> None:
         if self.twitch is not None:
             return
 
-        print(f"[TWITCH-API] Initializing Twitch API client")
-        self.twitch = Twitch(self.app_id, self.app_secret)
-        target_scopes = [
-            AuthScope.MODERATOR_READ_CHATTERS,
-            AuthScope.MODERATOR_MANAGE_BANNED_USERS,
-            AuthScope.USER_WRITE_CHAT,
-        ]
-        await self.twitch.set_user_authentication(
-            self.bot_token.access_token, target_scopes, self.bot_token.refresh_token
-        )
+        async with self._init_lock:
+            if self.twitch is not None:
+                return
 
-        user_info_gen = self.twitch.get_users(logins=[self.target_channel])
-        target_user_info = await anext(user_info_gen)
-        self.broadcaster_id = target_user_info.id
+            print(f"[TWITCH-API] Initializing Twitch API client")
+            client = Twitch(self.app_id, self.app_secret)
+            await client.set_user_authentication(
+                self.bot_token.access_token,
+                _TARGET_SCOPES,
+                self.bot_token.refresh_token,
+            )
 
-        my_info = await anext(self.twitch.get_users())
-        self.moderator_id = my_info.id
+            user_info_gen = client.get_users(logins=[self.target_channel])
+            target_user_info = await anext(user_info_gen)
+            my_info = await anext(client.get_users())
 
-        print(
-            f"[TWITCH-API] Connected as {my_info.display_name} (id={self.moderator_id}) moderating {target_user_info.display_name} (id={self.broadcaster_id})"
-        )
+            self.broadcaster_id = target_user_info.id
+            self.moderator_id = my_info.id
+            self.twitch = client
+
+            print(
+                f"[TWITCH-API] Connected as {my_info.display_name} (id={self.moderator_id}) moderating {target_user_info.display_name} (id={self.broadcaster_id})"
+            )
 
     async def _fetch_subscriber_badge_map(self) -> dict[str, int]:
         await self._lazy_init()
@@ -223,41 +237,55 @@ class TwitchTool:
     async def apply_refreshed_token(self, new_token: BotToken) -> None:
         self.bot_token = new_token
         if self.twitch is not None:
-            target_scopes = [
-                AuthScope.MODERATOR_READ_CHATTERS,
-                AuthScope.MODERATOR_MANAGE_BANNED_USERS,
-                AuthScope.USER_WRITE_CHAT,
-            ]
             await self.twitch.set_user_authentication(
-                new_token.access_token, target_scopes, new_token.refresh_token
+                new_token.access_token, _TARGET_SCOPES, new_token.refresh_token
             )
 
-    async def _get_chatter_list(self) -> dict[str, str]:
+    async def _get_chatter_list(self, force_refresh: bool = False) -> dict[str, str]:
+        if (
+            not force_refresh
+            and self._chatter_cache is not None
+            and time.monotonic() - self._chatter_cache[0] < _CONTEXT_CACHE_TTL_S
+        ):
+            return self._chatter_cache[1]
         await self._lazy_init()
         assert self.twitch is not None
         chatters = await self.twitch.get_chatters(
             self.broadcaster_id, self.moderator_id
         )
-        return {chatter.user_name: chatter.user_id for chatter in chatters.data}
+        result = {chatter.user_name: chatter.user_id for chatter in chatters.data}
+        # an empty list means "unknown", so the next context fetch retries
+        self._chatter_cache = (time.monotonic(), result) if result else None
+        return result
 
     async def get_stream_title_and_game(self) -> tuple[str, str]:
+        if (
+            self._channel_cache is not None
+            and time.monotonic() - self._channel_cache[0] < _CONTEXT_CACHE_TTL_S
+        ):
+            return self._channel_cache[1]
         await self._lazy_init()
         assert self.twitch is not None
         info = await self.twitch.get_channel_information(self.broadcaster_id)
-        return info[0].title, info[0].game_name
+        result = (info[0].title, info[0].game_name)
+        self._channel_cache = (time.monotonic(), result)
+        return result
 
     async def get_prompt_ctx(self) -> str:
         """
         Gets some context related to the stream for Maki to figure things out
         """
-        chatter_list = random.choices(await self.get_chatter_list(), k=50)
-        title, game = await self.get_stream_title_and_game()
+        chatters, (title, game) = await asyncio.gather(
+            self._get_chatter_list(), self.get_stream_title_and_game()
+        )
+        names = list(chatters)
+        chatter_list = random.choices(names, k=50) if names else []
 
         return f"Chatters online: {str(chatter_list)}\nCurrent title: {title}\nCurrent game: {game}"
 
     async def get_chatter_list(self) -> list[str]:
         """Twitch Tool: Gets the list of chatters"""
-        return list((await self._get_chatter_list()).keys())
+        return list((await self._get_chatter_list(force_refresh=True)).keys())
 
     async def timeout(self, username: str, reason: str) -> bool:
         """Twitch Tool: Timeouts a particular user. If you need to time out multiple people, call this multiple times.
@@ -272,7 +300,7 @@ class TwitchTool:
         """
         await self._lazy_init()
         assert self.twitch is not None
-        chatter_list = await self._get_chatter_list()
+        chatter_list = await self._get_chatter_list(force_refresh=True)
         if username not in chatter_list.keys():
             raise ModelRetry(
                 "chatter doesn't exist, please run get_chatter_list first, then choose the closest username to timeout."
