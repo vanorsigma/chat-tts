@@ -184,14 +184,19 @@ export function createShowClipStore() {
 
 export function createMistakeStore() {
   let mistakeCount = $state(0);
+  let variant = $state(0);
 
   function increment() {
+    variant = Math.random() < 0.5 ? 0 : 1;
     mistakeCount++;
   }
 
   return {
     get count() {
       return mistakeCount;
+    },
+    get variant() {
+      return variant;
     },
     increment
   };

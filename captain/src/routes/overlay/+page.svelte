@@ -965,7 +965,7 @@
     <div class="fullscreenvideo">
       <!-- svelte-ignore a11y_media_has_caption -->
       <video autoplay onended={onMistakeDone}>
-        <source src="/mistake.webm" /> Video tag smile
+        <source src={mistakeStore.variant === 0 ? '/mistake.webm' : '/mistake2.webm'} /> Video tag smile
       </video>
     </div>
   {/if}
