@@ -643,7 +643,7 @@ export const configSchema = [
             key: 'kind',
             kind: 'text',
             label: 'Handler kind',
-            placeholder: 'addPoints | addKarma'
+            placeholder: 'addPoints | addKarma | messageEffect | gigantify | celebration'
           },
           { key: 'amount', kind: 'number', label: 'Amount', default: 0, min: 0, step: 1 }
         ]

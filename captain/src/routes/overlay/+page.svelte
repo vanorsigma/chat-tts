@@ -74,7 +74,8 @@
     isOverlayPositionsMessage,
     isTokenRefreshedMessage,
     isConfigUpdatedMessage,
-    isFontChangedMessage
+    isFontChangedMessage,
+    isChatBulletEffectMessage
   } from '$lib/bus/messages';
   import { formatRemaining } from '$lib/duration';
   import { gambaStore } from './gamba/gamba.svelte';
@@ -366,6 +367,8 @@
         }
       } else if (data.type === 'karma-update') {
         karmaStore.updateKarma(data.amount, data.label);
+      } else if (isChatBulletEffectMessage(data)) {
+        chatBulletBackend?.applyEffect(data.username, data.effect);
       }
     } catch {
       // ignore malformed messages

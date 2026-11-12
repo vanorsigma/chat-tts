@@ -1,4 +1,5 @@
 import type { RedeemEntry } from '$lib/config';
+import type { BulletEffect } from '$lib/bus/messages';
 import type { EventSubChannelRedemptionAddEvent } from '@twurple/eventsub-base';
 import type { ApiClient } from '@twurple/api';
 import { getPointsForUser, setPointsForUser } from '../db';
@@ -89,5 +90,42 @@ const addKarmaHandlerFactory: RedeemHandlerFactory = {
   }
 };
 
+function sendBulletEffect(ctx: RedeemContext, effect: BulletEffect) {
+  const ws = getSenderWs();
+  if (ws && ws.readyState === ws.OPEN) {
+    console.log(`Redeem: applying ${effect} to ${ctx.userLogin}`);
+    ws.send(JSON.stringify({ type: 'chat-bullet-effect', effect, username: ctx.userLogin }));
+  } else {
+    console.warn(`redeem: no sender WS available for ${effect}`);
+  }
+}
+
+function bulletEffectFactory(effect: BulletEffect): RedeemHandlerFactory {
+  return {
+    kind: effect,
+    create(_params: RedeemEntry): RedeemHandler {
+      return {
+        kind: effect,
+        async handle(ctx: RedeemContext) {
+          sendBulletEffect(ctx, effect);
+        }
+      };
+    }
+  };
+}
+
+const celebrationHandlerFactory: RedeemHandlerFactory = {
+  kind: 'celebration',
+  create(_params: RedeemEntry): RedeemHandler {
+    return {
+      kind: 'celebration',
+      async handle(_ctx: RedeemContext) {}
+    };
+  }
+};
+
 registerRedeemHandler(addPointsHandlerFactory);
 registerRedeemHandler(addKarmaHandlerFactory);
+registerRedeemHandler(bulletEffectFactory('messageEffect'));
+registerRedeemHandler(bulletEffectFactory('gigantify'));
+registerRedeemHandler(celebrationHandlerFactory);

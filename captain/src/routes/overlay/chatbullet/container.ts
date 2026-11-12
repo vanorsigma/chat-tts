@@ -12,6 +12,7 @@ import { splitMessage } from './parsing';
 import { shouldSkipMessage } from '$lib/messageGuard';
 import type { SpeakTTS } from '$lib/remoteTTSMessages';
 import { BulletLayer } from './bullet-layer';
+import type { BulletEffect } from '$lib/bus/messages';
 
 const CACHE_SIZE = 30;
 
@@ -21,6 +22,7 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
   private enabled: boolean = true;
   private busWs?: WebSocket;
   private subTierCache = new LRUCache<number>(CACHE_SIZE);
+  private pendingEffects = new Map<string, BulletEffect>();
 
   constructor(dispatcher: OverlayDispatchers, kikiUrl: string, app: Application) {
     super(app);
@@ -39,6 +41,10 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
 
   setBusSocket(ws: WebSocket) {
     this.busWs = ws;
+  }
+
+  applyEffect(username: string, effect: BulletEffect) {
+    this.pendingEffects.set(username.toLowerCase(), effect);
   }
 
   private async getSubscriberTier(message: ChatMessage): Promise<number> {
@@ -90,6 +96,10 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
       return;
     if (!this.isEnabled) return;
 
+    const username = message.userInfo.userName.toLowerCase();
+    const effect = this.pendingEffects.get(username);
+    this.pendingEffects.delete(username);
+
     const parts = await splitMessage(message.emoteOffsets, message.text, message.tags.get('gifs'));
     const displayName = message.userInfo.displayName ?? message.userInfo.userName;
     const color = message.userInfo.color;
@@ -119,7 +129,8 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
         parts,
         color,
         badgeUrls,
-        kiki: kikiResponse
+        kiki: kikiResponse,
+        effect
       });
 
       if (kikiResponse && (kikiResponse.rating > 0.1 || kikiResponse.rating < -0.1)) {
@@ -142,7 +153,8 @@ export class ChatBulletContainer extends BulletLayer implements OverlayObserver 
         displayName,
         parts,
         color,
-        badgeUrls
+        badgeUrls,
+        effect
       });
     }
 

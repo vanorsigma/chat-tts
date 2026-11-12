@@ -101,6 +101,16 @@ export interface FontChangedMessage {
   username: string;
 }
 
+export const BULLET_EFFECTS = ['messageEffect', 'gigantify'] as const;
+
+export type BulletEffect = (typeof BULLET_EFFECTS)[number];
+
+export interface ChatBulletEffectMessage {
+  type: 'chat-bullet-effect';
+  effect: BulletEffect;
+  username: string;
+}
+
 export interface TokenRefreshedMessage {
   type: 'tokenRefreshed';
   account: 'bot' | 'broadcaster';
@@ -120,7 +130,8 @@ export type ServerToClient =
   | PredictionUpdateMessage
   | KarmaUpdateMessage
   | TokenRefreshedMessage
-  | ConfigUpdatedMessage;
+  | ConfigUpdatedMessage
+  | ChatBulletEffectMessage;
 
 export type BusMessage = ClientToServer | ServerToClient;
 
@@ -197,6 +208,16 @@ export function isKarmaUpdateMessage(obj: unknown): obj is KarmaUpdateMessage {
 export function isFontChangedMessage(obj: unknown): obj is FontChangedMessage {
   return (
     typeof obj === 'object' && obj !== null && (obj as FontChangedMessage).type === 'font-changed'
+  );
+}
+
+export function isChatBulletEffectMessage(obj: unknown): obj is ChatBulletEffectMessage {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    (obj as ChatBulletEffectMessage).type === 'chat-bullet-effect' &&
+    typeof (obj as ChatBulletEffectMessage).username === 'string' &&
+    BULLET_EFFECTS.includes((obj as ChatBulletEffectMessage).effect)
   );
 }
 

@@ -31,7 +31,7 @@
         "sqlite3": "^5.1.7",
         "ws": "^8.18.3",
         "yaml": "^2.8.1",
-        "ytdlp-nodejs": "^3.4.4",
+        "ytdlp-nodejs": "^3.4.5",
       },
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.9",
@@ -1114,7 +1114,7 @@
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
-    "ytdlp-nodejs": ["ytdlp-nodejs@3.4.4", "", { "bin": { "ytdlp": "dist/cli/index.js" } }, "sha512-PR2nQOtyOzSuSQpWf6SHD97d6qlcfY2y6CVCeYnuDacYDc1YzNLXYiqAyIpFWk13UUrtQN+XD35h5DERli3SXQ=="],
+    "ytdlp-nodejs": ["ytdlp-nodejs@3.4.5", "", { "bin": { "ytdlp": "dist/cli/index.js" } }, "sha512-KPXnW2xa553mDbrCdXPnsZTPIL7b3GJcQLskpePIoNm7uqquHjJj7ha+1r8x3dwyTQ4TATvsP6K0RDnumQr0zQ=="],
 
     "zimmerframe": ["zimmerframe@1.1.2", "", {}, "sha512-rAbqEGa8ovJy4pyBxZM70hg4pE6gDgaQ0Sl9M3enG3I0d6H4XSAM3GeNGLKnsBpuijUow064sf7ww1nutC5/3w=="],
 

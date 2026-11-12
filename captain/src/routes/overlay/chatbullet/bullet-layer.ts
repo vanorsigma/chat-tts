@@ -1,13 +1,25 @@
 import { makeAnimatedSprite, fetchAnimatedTextures, random, contrastColorFor } from '$lib/utils';
-import { Application, Assets, Container, Sprite, Text, TextStyle, Ticker, Texture } from 'pixi.js';
+import {
+  Application,
+  Assets,
+  Container,
+  Graphics,
+  Sprite,
+  Text,
+  TextStyle,
+  Ticker,
+  Texture
+} from 'pixi.js';
 import { LRUCache } from '$lib/LRUcache';
 import { getFontUrl, getUserFontStyle } from '$lib/api/font';
+import type { BulletEffect } from '$lib/bus/messages';
 import { isImageBulletPart, isTextBulletPart, type BulletPart } from './parsing-core';
 
 const PADDING = 5;
 const CACHE_SIZE = 30;
 const BADGE_SIZE = 28;
 const BADGE_GAP = 4;
+const GIGANTIFY_SCALE = 20;
 
 interface BulletProperties {
   element: Container;
@@ -21,6 +33,7 @@ export interface BulletOptions {
   color?: string;
   badgeUrls?: string[];
   kiki?: { kamoji: string; emoji: string } | null;
+  effect?: BulletEffect;
 }
 
 export abstract class BulletLayer {
@@ -133,7 +146,8 @@ export abstract class BulletLayer {
     parts,
     color = '#D3D3D3',
     badgeUrls = [],
-    kiki = null
+    kiki = null,
+    effect
   }: BulletOptions): Promise<void> {
     const selectedFamily = await this.resolveUserFontFamily(userName);
     const selectedStyle = await this.resolveUserFontStyle(userName);
@@ -145,7 +159,8 @@ export abstract class BulletLayer {
     const strokeColor = contrastColorFor(fillColor);
 
     let x = 0;
-    const y = random() * (height - 50);
+    const spawnHeight = effect === 'gigantify' ? height / GIGANTIFY_SCALE : height;
+    const y = random() * Math.max(0, spawnHeight - 50);
 
     const container = new Container();
 
@@ -256,6 +271,26 @@ export abstract class BulletLayer {
         x += partText.width;
         container.addChild(partText);
       }
+    }
+
+    if (effect === 'messageEffect') {
+      const bounds = container.getLocalBounds();
+      const pad = PADDING * 2;
+      const background = new Graphics()
+        .roundRect(
+          bounds.minX - pad,
+          bounds.minY - pad,
+          bounds.width + pad * 2,
+          bounds.height + pad * 2,
+          12
+        )
+        .fill({ color: '#ffff00', alpha: 0.5 })
+        .stroke({ color: '#ffd700', width: 4 });
+      container.addChildAt(background, 0);
+    }
+
+    if (effect === 'gigantify') {
+      container.scale.set(GIGANTIFY_SCALE);
     }
 
     container.x = width;

@@ -272,6 +272,15 @@ redeemConfig:
     # - id: '<reward-id-from-get-api/twitch/rewards>'
     #   kind: addKarma
     #   amount: 50
+    # - id: '<reward-id-from-get-api/twitch/rewards>'
+    #   kind: messageEffect
+    #   amount: 0
+    # - id: '<reward-id-from-get-api/twitch/rewards>'
+    #   kind: gigantify
+    #   amount: 0
+    # - id: '<reward-id-from-get-api/twitch/rewards>'
+    #   kind: celebration
+    #   amount: 0
 filteredExps:
   - "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%.\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"
   - "([^(%refreshVoice)\\w\\d\\s?\\[\\]@',!-;’\\.\\?…])+"
