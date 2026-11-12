@@ -421,6 +421,7 @@
         type="text"
         bind:value={manualSongId}
         placeholder="Manual song id"
+        title={`Prefix the id with the provider: ${providers.map((p) => `${p.id}-`).join(', ')} — e.g. yt-dQw4w9WgXcQ`}
         onkeydown={(e) => {
           if (e.key === 'Enter') addManualSong();
         }}
