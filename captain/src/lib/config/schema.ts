@@ -4,6 +4,7 @@ import {
   COMMAND_CHANCES_CONFIG,
   COMMAND_DEFINITIONS
 } from '../../routes/overlay/commands/definitions';
+import { VANORTHON_DEFAULT_URL } from '../vanorthon';
 
 export interface Preset {
   label: string;
@@ -350,7 +351,11 @@ export const configSchema = [
           makiWidgetX: 960,
           makiWidgetY: 540,
           makiWidgetWidth: 800,
-          makiWidgetHeight: 400
+          makiWidgetHeight: 400,
+          vanorthonX: 20,
+          vanorthonY: 120,
+          vanorthonWidth: 360,
+          vanorthonHeight: 120
         }
       },
       {
@@ -389,7 +394,8 @@ export const configSchema = [
       { id: 'rightPanel', label: 'Right panel', prefix: 'rightPanel', origin: 'topLeft' },
       { id: 'pin', label: 'Pinned message', prefix: 'pin', origin: 'topLeft' },
       { id: 'wheel', label: 'Gamba wheel', prefix: 'wheel', origin: 'center' },
-      { id: 'maki', label: 'Maki text box', prefix: 'makiWidget', origin: 'center' }
+      { id: 'maki', label: 'Maki text box', prefix: 'makiWidget', origin: 'center' },
+      { id: 'vanorthon', label: 'Vanorthon progress', prefix: 'vanorthon', origin: 'topLeft' }
     ],
     objectFields: [
       {
@@ -607,6 +613,42 @@ export const configSchema = [
         min: 0,
         max: 1080,
         step: 1
+      },
+      {
+        key: 'vanorthonX',
+        kind: 'number',
+        label: 'Vanorthon progress X',
+        default: 20,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'vanorthonY',
+        kind: 'number',
+        label: 'Vanorthon progress Y',
+        default: 120,
+        min: 0,
+        max: 1080,
+        step: 1
+      },
+      {
+        key: 'vanorthonWidth',
+        kind: 'number',
+        label: 'Vanorthon progress width',
+        default: 360,
+        min: 0,
+        max: 1920,
+        step: 1
+      },
+      {
+        key: 'vanorthonHeight',
+        kind: 'number',
+        label: 'Vanorthon progress height',
+        default: 120,
+        min: 0,
+        max: 1080,
+        step: 1
       }
     ]
   },
@@ -668,6 +710,28 @@ export const configSchema = [
         kind: 'secret',
         label: 'Clip Store Key',
         placeholder: 'shared worker secret'
+      }
+    ]
+  },
+  {
+    key: 'vanorthonConfig',
+    kind: 'optional-object',
+    label: 'Vanorthon progress',
+    required: true,
+    alwaysPresent: true,
+    objectFields: [
+      {
+        key: 'url',
+        kind: 'text',
+        label: 'Vanorthon site URL',
+        default: VANORTHON_DEFAULT_URL,
+        placeholder: VANORTHON_DEFAULT_URL
+      },
+      {
+        key: 'overlayKey',
+        kind: 'secret',
+        label: 'Vanorthon overlay key',
+        placeholder: 'ovk_...'
       }
     ]
   }

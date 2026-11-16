@@ -16,6 +16,8 @@
   import { handleCommand } from '$lib/songs/commands';
   import ArtistWidget from '$lib/songs/ArtistWidget.svelte';
   import ClipWidget from './ClipWidget.svelte';
+  import VanorthonWidget from './VanorthonWidget.svelte';
+  import Fireworks from './Fireworks.svelte';
   import {
     PUBLIC_BUS_URL,
     PUBLIC_RECEIVER_URL,
@@ -96,6 +98,7 @@
   let blackSilenceBorder = $state(false);
   let overlayHidden = $state(false);
   let overlayHideRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+  let fireworksRunning = $state(false);
 
   let captchaElement: HTMLDivElement;
   let captchaText: string | null = $state(null);
@@ -849,6 +852,9 @@
     ? 0
     : 1}; transition:{overlayHidden ? 'none' : 'opacity 800ms ease'};"
 >
+  {#if fireworksRunning}
+    <Fireworks ondone={() => (fireworksRunning = false)} />
+  {/if}
   <div
     class="overlay-artist-widget"
     style="left: {$positionStore.artistWidgetX}px; top: {$positionStore.artistWidgetY}px; width: {$positionStore.artistWidgetWidth}px; height: {$positionStore.artistWidgetHeight}px;"
@@ -861,6 +867,12 @@
       progressPct={overlaySongProgress}
       indeterminate={overlaySongIndeterminate}
     />
+  </div>
+  <div
+    class="overlay-vanorthon-widget"
+    style="left: {$positionStore.vanorthonX}px; top: {$positionStore.vanorthonY}px; width: {$positionStore.vanorthonWidth}px; height: {$positionStore.vanorthonHeight}px;"
+  >
+    <VanorthonWidget onmilestone={() => (fireworksRunning = true)} />
   </div>
   {#if showClipStore.current}
     <div
@@ -1086,7 +1098,8 @@
 {/if}
 
 <style>
-  .overlay-artist-widget {
+  .overlay-artist-widget,
+  .overlay-vanorthon-widget {
     position: absolute;
     z-index: 100;
   }

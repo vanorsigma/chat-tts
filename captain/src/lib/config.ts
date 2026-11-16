@@ -113,6 +113,11 @@ export interface ClipStoreConfig {
   key: string;
 }
 
+export interface VanorthonConfig {
+  url: string;
+  overlayKey: string;
+}
+
 export interface OverlayResetCooldownConfig {
   cost: number;
 }
@@ -275,6 +280,10 @@ export interface OverlayPositionsConfig {
   makiWidgetY: number;
   makiWidgetWidth: number;
   makiWidgetHeight: number;
+  vanorthonX: number;
+  vanorthonY: number;
+  vanorthonWidth: number;
+  vanorthonHeight: number;
 }
 
 export interface StartingSoonArtEntry {
@@ -380,6 +389,7 @@ export interface FullConfig {
   makiConfig: MakiConfig;
   redeemConfig: RedeemConfig;
   clipStoreConfig: ClipStoreConfig;
+  vanorthonConfig: VanorthonConfig;
 }
 
 export function parseConfig(raw: unknown): FullConfig {

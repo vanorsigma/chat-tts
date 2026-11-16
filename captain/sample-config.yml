@@ -292,6 +292,9 @@ filteredExps:
 clipStoreConfig:
   url: 'https://cliptokens.streamingtools.catmaid.dev'
   key: ''
+vanorthonConfig:
+  url: 'https://vanorthon.catmaid.dev'
+  overlayKey: ''
 # overlayPositionsConfig:
 #   # All values are pixels on the 1920x1080 overlay stage.
 #   # Configure them visually: drag/resize the boxes in the Config editor on the
