@@ -2,6 +2,7 @@ import { Assets, Container, Sprite, Text, TextStyle, Texture } from 'pixi.js';
 import type { ChatMessage } from '@twurple/chat';
 import { BulletLayer } from '../overlay/chatbullet/bullet-layer';
 import { splitMessage } from '../overlay/chatbullet/parsing';
+import { containsRawIrc } from '$lib/messageGuard';
 import { random } from '$lib/utils';
 
 export interface StartingSoonArtEntry {
@@ -105,7 +106,12 @@ export class StartingSoonBulletContainer extends BulletLayer {
   }
 
   async onMessage(message: ChatMessage) {
-    if (message.text.startsWith('%') || message.userInfo.badges.has('bot-badge')) return;
+    if (
+      message.text.startsWith('%') ||
+      message.userInfo.badges.has('bot-badge') ||
+      containsRawIrc(message.text)
+    )
+      return;
     await this.spawnBullet({
       userName: message.userInfo.userName,
       displayName: message.userInfo.displayName ?? message.userInfo.userName,
