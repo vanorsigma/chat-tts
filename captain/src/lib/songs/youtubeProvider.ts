@@ -1,6 +1,8 @@
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { getYtdlp } from '$lib/server/ytdlp';
 import { createTempDir, fileToWebStream, removeTempDir } from '$lib/server/tempFiles';
+import { env } from '$env/dynamic/private';
 import type { SongData, SongProvider } from './types';
 
 export interface YouTubeSongProviderConfig {
@@ -87,26 +89,35 @@ export class YouTubeSongProvider implements SongProvider {
   }
 
   async getAudioStream(videoId: string): Promise<ReadableStream | null> {
-    try {
-      const ytdlp = await getYtdlp();
+    const cookieSource = env.YOUTUBE_COOKIES_FROM_BROWSER || undefined;
+    const sources = cookieSource ? [cookieSource, undefined] : [undefined];
+
+    for (const cookiesFromBrowser of sources) {
       const tmpDir = createTempDir('ytsong-');
-      const result = await ytdlp.downloadAsync<'audioonly'>(this.getVideoUrl(videoId), {
-        format: { filter: 'audioonly', quality: 0, type: 'mp3' },
-        output: join(tmpDir, 'audio.%(ext)s'),
-        cookiesFromBrowser: process.env.YOUTUBE_COOKIES_FROM_BROWSER ?? undefined
-      });
-
-      const filePath = result.filePaths?.[0];
-      if (!filePath) {
+      try {
+        const ytdlp = await getYtdlp();
+        const result = await ytdlp.downloadAsync<'audioonly'>(this.getVideoUrl(videoId), {
+          format: { filter: 'audioonly', quality: 0, type: 'mp3' },
+          output: join(tmpDir, 'audio.%(ext)s'),
+          cookiesFromBrowser
+        });
+        const filePath = result.filePaths?.[0];
+        if (!filePath || !existsSync(filePath)) {
+          throw new Error('yt-dlp produced no usable output file');
+        }
+        return fileToWebStream(filePath, { onClose: () => removeTempDir(tmpDir) });
+      } catch (err) {
         removeTempDir(tmpDir);
-        return null;
+        console.warn(
+          'YouTubeSongProvider.getAudioStream failed:',
+          videoId,
+          cookiesFromBrowser ? 'with cookies' : 'without cookies',
+          err
+        );
       }
-
-      return fileToWebStream(filePath, { onClose: () => removeTempDir(tmpDir) });
-    } catch (err) {
-      console.warn('YouTubeSongProvider.getAudioStream failed:', err);
-      return null;
     }
+
+    return null;
   }
 
   async getCoverStream(videoId: string): Promise<ReadableStream | null> {
