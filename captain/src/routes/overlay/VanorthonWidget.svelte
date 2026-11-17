@@ -1,18 +1,28 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { milestoneProgressOf, type VanorthonData } from '$lib/vanorthon';
+  import { milestoneProgressOf, type MilestoneProgress, type VanorthonData } from '$lib/vanorthon';
 
   let { onmilestone }: { onmilestone: () => void } = $props();
 
   const POLL_MS = 5 * 60 * 1000;
   const SLIDE_MS = 6000;
-  const POINTS = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+  const NUMBER = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+
+  type Slide = 'milestones' | 'cost' | 'contribute';
 
   let vanorthon = $state<VanorthonData | null>(null);
-  let showProgress = $state(true);
+  let slide = $state(0);
   let lastAchieved: number | null = null;
 
   const progress = $derived(vanorthon ? milestoneProgressOf(vanorthon) : null);
+  const cost: MilestoneProgress['cost'] = $derived(
+    progress?.cost ?? { earned: 0, goal: 0, percent: 0 }
+  );
+  const showCost = $derived(cost.goal > 0);
+  const slides: Slide[] = $derived(
+    showCost ? ['milestones', 'cost', 'contribute'] : ['milestones', 'contribute']
+  );
+  const current = $derived(slides[slide % slides.length]);
 
   async function poll() {
     try {
@@ -32,7 +42,7 @@
   onMount(() => {
     void poll();
     const pollTimer = setInterval(() => void poll(), POLL_MS);
-    const slideTimer = setInterval(() => (showProgress = !showProgress), SLIDE_MS);
+    const slideTimer = setInterval(() => (slide = (slide + 1) % slides.length), SLIDE_MS);
     return () => {
       clearInterval(pollTimer);
       clearInterval(slideTimer);
@@ -43,11 +53,10 @@
 {#if vanorthon}
   {@const subs = vanorthon.rates.subsUnitValue}
   {@const bits = vanorthon.rates.bitsUnitValue * 100}
-  {@const bitsLabel = POINTS.format(bits)}
   <div class="panel">
-    <div class="slide" class:visible={showProgress} inert={!showProgress}>
+    <div class="slide" class:visible={current === 'milestones'} inert={current !== 'milestones'}>
       {#if progress?.next}
-        <p class="label">Next goal</p>
+        <p class="label">Next milestone</p>
         <p class="title">{progress.next.title}</p>
         <div
           class="bar"
@@ -56,17 +65,17 @@
           aria-valuemin={0}
           aria-valuemax={progress.next.goal}
           aria-valuenow={progress.next.earned}
-          aria-valuetext={`${POINTS.format(progress.next.earned)} of ${POINTS.format(
+          aria-valuetext={`${NUMBER.format(progress.next.earned)} of ${NUMBER.format(
             progress.next.goal
           )} points`}
         >
           <div class="fill" style:width={`${progress.next.percent}%`}></div>
         </div>
-        <p class="points">
-          {POINTS.format(progress.next.earned)} / {POINTS.format(progress.next.goal)} points
+        <p class="value">
+          {NUMBER.format(progress.next.earned)} / {NUMBER.format(progress.next.goal)} points
         </p>
       {:else if progress?.achievedCount}
-        <p class="label">Next goal</p>
+        <p class="label">Milestones</p>
         <p class="title">All milestones reached!</p>
         <div
           class="bar"
@@ -84,17 +93,33 @@
       {/if}
     </div>
 
-    <div class="slide" class:visible={!showProgress} inert={showProgress}>
-      <p class="label">Support the Vanorthon</p>
+    {#if showCost}
+      <div class="slide" class:visible={current === 'cost'} inert={current !== 'cost'}>
+        <p class="label">Cost achieved</p>
+        <div
+          class="bar"
+          role="progressbar"
+          aria-label="Cost contributed towards achieved milestones"
+          aria-valuemin={0}
+          aria-valuemax={cost.goal}
+          aria-valuenow={cost.earned}
+          aria-valuetext={`${NUMBER.format(cost.earned)} of ${NUMBER.format(cost.goal)} cost`}
+        >
+          <div class="fill" style:width={`${cost.percent}%`}></div>
+        </div>
+        <p class="value">{NUMBER.format(cost.earned)} / {NUMBER.format(cost.goal)} cost</p>
+      </div>
+    {/if}
+
+    <div class="slide" class:visible={current === 'contribute'} inert={current !== 'contribute'}>
+      <p class="label">Contribute to the Vanorthon</p>
       <a class="site" href={vanorthon.siteUrl} target="_blank" rel="noreferrer">
         {vanorthon.siteUrl}
       </a>
       <p class="rates">
-        1 sub = {POINTS.format(subs)} points · 100 bits = {bitsLabel} point{bitsLabel === '1'
-          ? ''
-          : 's'}
+        1 sub = {NUMBER.format(subs)} cost · 100 bits = {NUMBER.format(bits)} cost
       </p>
-      <p class="rates">1 USD = 1 point</p>
+      <p class="rates">$1 USD = 1 cost</p>
     </div>
   </div>
 {/if}
@@ -164,7 +189,7 @@
     transition: width 400ms ease;
   }
 
-  .points {
+  .value {
     margin: 0;
     font-size: 0.8em;
     color: #555;

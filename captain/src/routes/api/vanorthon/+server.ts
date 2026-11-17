@@ -8,11 +8,12 @@ const isFiniteNumber = (value: unknown): value is number =>
 
 const isMilestone = (value: unknown): value is VanorthonMilestone => {
   if (value === null || typeof value !== 'object') return false;
-  const milestone = value as { title?: unknown; cumulativeWeight?: unknown; progress?: unknown };
+  const milestone = value as Partial<Record<keyof VanorthonMilestone, unknown>>;
   return (
     typeof milestone.title === 'string' &&
     isFiniteNumber(milestone.cumulativeWeight) &&
-    isFiniteNumber(milestone.progress)
+    isFiniteNumber(milestone.progress) &&
+    (milestone.cumulativeCost == null || isFiniteNumber(milestone.cumulativeCost))
   );
 };
 
@@ -45,11 +46,13 @@ export const GET: RequestHandler = async () => {
 
     const data = (await response.json()) as {
       achievedWeight?: unknown;
+      contributedCost?: unknown;
       rates?: { subsUnitValue?: unknown; bitsUnitValue?: unknown };
       milestones?: unknown;
     };
     const rates = data?.rates;
     const milestones = data?.milestones;
+    const contributedCost = isFiniteNumber(data?.contributedCost) ? data.contributedCost : 0;
     if (
       !isFiniteNumber(data?.achievedWeight) ||
       !isFiniteNumber(rates?.subsUnitValue) ||
@@ -67,6 +70,7 @@ export const GET: RequestHandler = async () => {
         bitsUnitValue: rates.bitsUnitValue
       },
       achievedWeight: data.achievedWeight,
+      contributedCost,
       milestones
     };
     return json(payload, { headers: { 'Cache-Control': 'no-store' } });
